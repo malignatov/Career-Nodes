@@ -1,0 +1,150 @@
+id: early_recollections
+version: 0.1.0
+kind: conversation
+sector: interview
+title: Early recollections
+
+purpose: >
+  You'll share three early memories from roughly ages three to six, name the
+  feeling in each, and give each one a headline — like a newspaper headline,
+  with a verb in it. The premise, from career construction theory: early
+  memories are not history, they are the present — the stories you reach for
+  today reveal the perspective from which you view your current transition.
+  This is the most personal step of the whole interview. You can skip it
+  entirely (type /skip in each topic): the perspective artifact can be inferred
+  from your role models instead. Memories do not need to be verified facts;
+  whatever comes to mind counts. This step only records your stories and your
+  approved headlines; the perspective artifact is derived at the next node.
+
+consumes:
+  - counseling_goal
+
+invalidates:
+  - perspective
+
+elicit:
+  persona: |
+    Quiet, unhurried, and steady. This topic deserves the most care of the
+    whole interview. Ask one question at a time, receive each story without
+    commentary, and never rush the user.
+  guardrails:
+    - This is the most personal question of the interview. Before the first
+      story, remind the user once that they can skip or pause at any time and
+      that skipping is completely fine.
+    - If a painful or traumatic memory surfaces, acknowledge it with warmth and
+      care, do not probe deeper into the pain, and remind the user they choose
+      whether to continue, move to a different memory, or skip.
+    - If the user expresses acute distress or mentions self-harm, respond with
+      care, provide crisis resources, and pause the interview.
+    - Never interpret, analyze, or connect memories to the user's career during
+      the conversation. Collect the stories only.
+    - Whatever the user recalls counts — fragments, images, and uncertain
+      memories are all valid. Never question accuracy.
+  stages:
+    - id: stories
+      goal: Three early recollections, each with the feeling the user
+        experienced in it.
+      opening: >
+        What are your earliest recollections? I'm interested in hearing three
+        stories about things you recall happening to you when you were about
+        three to six years old — or as early as you can remember.
+      probes:
+        - when: only a fragment or image comes
+          then: Welcome it — ask them to describe the scene as they see it.
+        - when: a story has been told without a feeling
+          then: Ask what feeling they experienced when that happened.
+        - when: fewer than three stories have been told
+          then: Ask gently what else they recall from those early years.
+        - when: the user hesitates or goes quiet
+          then: Give them room — offer that they can take their time, move to a
+            different memory, or skip.
+      done_when:
+        - Three early recollections have been told.
+        - Each recollection has a feeling named by the user.
+    - id: headlines
+      goal: A user-approved headline containing a verb, for each of the three
+        stories.
+      opening: >
+        Let's give each story a headline — as if it appeared in tomorrow's
+        newspaper. What headline captures the first one? Try to include a verb.
+      probes:
+        - when: the user draws a blank
+          then: Offer two or three headline suggestions built only from their
+            own words, and let them adjust until one feels right.
+        - when: a headline has no verb
+          then: Note that a headline gets its energy from a verb, and ask them
+            to work one in.
+        - when: a headline is settled
+          then: Move to the next story's headline.
+      done_when:
+        - Each of the three stories has a headline the user approved.
+        - Each headline contains a verb.
+
+induce:
+  steps:
+    - id: extract
+      task: >
+        Structure the three recollections in the order told, with the feeling,
+        the approved headline, and the headline's main verb for each.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [recollections]
+        properties:
+          recollections:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: object
+              required: [order, scene_phrases, feeling, headline, headline_verb]
+              properties:
+                order: { type: integer }
+                scene_phrases:
+                  type: array
+                  minItems: 1
+                  items: { type: string, x-verbatim: true }
+                  description: The load-bearing phrases of the story as told.
+                feeling: { type: string, x-verbatim: true }
+                headline:
+                  type: string
+                  description: The wording the user approved in conversation
+                    (it may have been co-authored, so it is not checked against
+                    the user's turns alone).
+                headline_verb: { type: string }
+      validation:
+        - Each headline must be exactly the wording the user approved, and must
+          contain a verb.
+    - id: salience
+      task: >
+        Record the first verb of the first recollection as told, and note in
+        one sentence whether the three stories read as problem, then
+        intensification, then resolution — or another order. No interpretation
+        beyond that single observation.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [first_verb_of_first_story, sequence_reading]
+        properties:
+          first_verb_of_first_story: { type: string, x-verbatim: true }
+          sequence_reading: { type: string }
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    These are your stories and your headlines, organized — nothing has been
+    interpreted. Change anything that doesn't match how you told it. Your
+    perspective artifact will be drawn only from what you approve here, and you
+    can revisit or remove this material at any time.
+
+artifact:
+  schema:
+    type: object
+    required: [recollections, first_verb_of_first_story]
+    properties:
+      recollections: { type: array }
+      first_verb_of_first_story: { type: string }
+      sequence_reading: { type: string }
+  render: |
+    {{#each recollections}}{{order}}. “{{headline}}” — {{feeling}}
+    {{/each}}

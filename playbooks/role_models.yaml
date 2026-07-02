@@ -133,8 +133,9 @@ induce:
                   type: array
                   items: { type: string, x-verbatim: true }
           shared_by_all:
-            type: string
+            type: ["string", "null"]
             x-verbatim: true
+            description: Null if the user was not asked or had no answer.
 
     - id: salience
       task: >

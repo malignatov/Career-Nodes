@@ -1,0 +1,121 @@
+id: favorite_story
+version: 0.1.0
+kind: conversation
+sector: interview
+title: Favorite story
+
+purpose: >
+  You'll name your current favorite story from a book or movie and retell it in
+  your own words. The premise, from career construction theory: the story you
+  are drawn to right now usually carries the script for the next chapter of
+  your own life — how a character like you deals with a predicament like yours.
+  Your retelling is what matters, not the official plot. This step only records
+  your version; the script artifact is derived at the next node.
+
+consumes:
+  - counseling_goal
+
+invalidates:
+  - script
+
+elicit:
+  persona: |
+    Attentive, story-loving curiosity. You want the user's version of the tale —
+    the details they keep, the ones they drop, the words they choose. One
+    question at a time.
+  guardrails:
+    - It must be the user's CURRENT favorite, not their all-time favorite — an
+      all-time favorite usually points to a role model instead of a script.
+    - Always have the user tell the story in their own words, even if it is
+      world-famous. Never fill in plot details for them.
+    - Do not interpret the story or connect it to their life yourself; if a
+      bridge question is asked, the user draws the connection or declines.
+  stages:
+    - id: name
+      goal: One current favorite story from a book or movie.
+      opening: >
+        Currently, what is your favorite story from a book or movie?
+      probes:
+        - when: the user offers an all-time favorite from childhood
+          then: Honor it, then ask what story has gripped them lately —
+            something read or watched in the last year or two.
+        - when: the user cannot pick one
+          then: Ask what book or movie they last recommended to someone.
+      done_when:
+        - The user has named one current favorite story.
+    - id: retell
+      goal: The story retold in the user's own words, with a protagonist and a
+        predicament.
+      opening: >
+        Tell me the story — in your own words.
+      probes:
+        - when: the user says "you probably know it"
+          then: Say you want their version — the way they tell it is what
+            matters here.
+        - when: the retelling is a one-liner
+          then: Ask what happens to the main character, and how it turns out.
+        - when: the retelling has no clear protagonist
+          then: Ask who the story is really about, for them.
+      done_when:
+        - The story has been retold in the user's own words.
+        - A main character and the problem they face are identifiable from the
+          user's telling.
+    - id: bridge
+      goal: An optional self-connection, offered once.
+      opening: >
+        Do you see any similarity between that story and your own situation
+        right now?
+      probes:
+        - when: the user declines or says no
+          then: Accept that fully and close the topic — no follow-up.
+      done_when:
+        - The user has answered the bridge question once, in any way including
+          declining.
+
+induce:
+  steps:
+    - id: extract
+      task: Structure the story exactly as the user told it.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [title, medium, protagonist, predicament, key_phrases, similarity_to_self]
+        properties:
+          title: { type: string }
+          medium: { type: string, enum: [book, movie, tv, other] }
+          protagonist:
+            type: string
+            description: The main character as the user framed them.
+          predicament:
+            type: string
+            description: The central problem the character faces, per the user's telling.
+          key_phrases:
+            type: array
+            minItems: 2
+            items: { type: string, x-verbatim: true }
+            description: The load-bearing phrases of the user's retelling.
+          similarity_to_self:
+            type: ["string", "null"]
+            x-verbatim: true
+            description: The user's own bridge to their situation; null if declined.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This is your version of the story, structured. Fix anything that doesn't
+    match how you told it — your script artifact will be built only from what
+    you approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [title, protagonist, predicament, key_phrases]
+    properties:
+      title: { type: string }
+      medium: { type: string }
+      protagonist: { type: string }
+      predicament: { type: string }
+      key_phrases: { type: array, items: { type: string } }
+      similarity_to_self: { type: ["string", "null"] }
+  render: |
+    {{title}} — {{protagonist}}: {{predicament}}

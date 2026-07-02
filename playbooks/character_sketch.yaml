@@ -1,0 +1,73 @@
+id: character_sketch
+version: 0.1.0
+kind: derived
+sector: induction
+title: Character sketch
+
+purpose: >
+  Composes a short portrait of who you are — built only from the words you
+  approved in the role models step. The premise, from career construction
+  theory: the traits you admired in your childhood models are the blueprint you
+  used to build yourself, and they exist as your solution to what preoccupied
+  you early on (bravery exists to solve fear). When your perspective artifact
+  is available, the sketch is framed that way. Nothing is invented here: every
+  trait must be a quote of your own words, and you edit and authorize the
+  result.
+
+consumes:
+  - role_models
+  - perspective
+  - counseling_goal
+
+invalidates:
+  - script
+  - life_portrait
+
+induce:
+  steps:
+    - id: sketch
+      task: >
+        Compose a second-person character sketch of four to eight sentences,
+        addressed to the user ("You are…"), from the role_models artifact.
+        Anchor it on the primacy trait (weight it most) and the repeated
+        traits. Quote the user's descriptor words rather than substituting
+        synonyms. Show with concrete phrasing instead of abstract labels. If a
+        perspective artifact is present, frame the traits as the solution the
+        user constructed to the preoccupation it names — the way bravery solves
+        fear. If two traits sit in tension, keep the tension visible rather
+        than smoothing it over. Never add a trait the user did not state.
+      model_tier: large
+      output_schema:
+        type: object
+        required: [sketch, core_traits, solves]
+        properties:
+          sketch:
+            type: string
+            description: The portrait prose, second person.
+          core_traits:
+            type: array
+            minItems: 2
+            items: { type: string, x-verbatim: true }
+            description: The trait words the sketch is built on, quoted exactly.
+          solves:
+            type: ["string", "null"]
+            description: The preoccupation these traits answer, when the
+              perspective artifact is available; otherwise null.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This sketch is assembled only from your own words. Reword anything that
+    doesn't sound like you — the script and the life portrait will build on
+    what you approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [sketch, core_traits]
+    properties:
+      sketch: { type: string }
+      core_traits: { type: array, items: { type: string } }
+      solves: { type: ["string", "null"] }
+  render: |
+    {{sketch}}

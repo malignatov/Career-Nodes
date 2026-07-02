@@ -52,11 +52,17 @@ Ordered `steps`. Each step is one narrow LLM call:
 
 - `id`, `task` — one sentence of intent.
 - `model_tier` — `small` (interviewing, extraction, checking) or `large`
-  (literary composition; in practice only the life portrait).
-- `output_schema` — JSON Schema. Two conventions:
+  (literary composition; the character sketch and life portrait).
+- `output_schema` — JSON Schema. Three conventions:
   - `x-verbatim: true` on a string means the engine verifies it appears in the
-    source transcript (normalized: case, whitespace, straight/curly quotes).
-    Violations get one retry with the error fed back, then flag for the user.
+    node's verbatim source (normalized: case, whitespace, straight/curly
+    quotes). The source is the user's interview turns **plus every string value
+    of the consumed upstream artifacts** — which is how `derived` nodes, which
+    have no transcript, still get hard quote-grounding. Violations get one
+    retry with the error fed back, then flag for the user.
+  - Optional fields must be nullable (`type: ["string", "null"]`), because the
+    structured-output API requires every property to be emitted — nullable lets
+    the model say "not provided" instead of fabricating content.
   - `x-candidates` (minItems/maxItems 2–3) marks arrays presented as
     alternatives for the user to pick from — the book's own pattern of preparing
     two success formulas in advance.
@@ -75,9 +81,22 @@ Ordered `steps`. Each step is one narrow LLM call:
 - `schema` — shape of the authorized artifact (JSON Schema).
 - `render` — template for the node card on the map.
 
+## `derived` nodes
+
+A playbook with `kind: derived` has no `elicit` block. Its induction consumes
+the authorized artifacts named in `consumes` instead of a transcript, and its
+`x-verbatim` strings are checked against those artifacts' string content. The
+CLI refuses to run a derived node when none of its upstream artifacts exist,
+and warns (but proceeds) when some are missing — e.g. the character sketch can
+be drafted from role models alone before the perspective exists.
+
 Engine-level invariants (not repeated per playbook):
 
 - An artifact is `draft` until the user authorizes it; drafts never propagate.
 - Re-running a node produces a **proposal diffed against the authorized version**,
   never a silent overwrite.
 - Authorizing marks `invalidates` targets stale; staleness is a badge, not a modal.
+- Conversation progress persists to `artifacts/<id>.session.json` after every
+  user turn (`{exchange, stage_index, elicit_done}`); the CLI offers to resume
+  it on the next run and deletes it once the artifact is authorized. Exiting at
+  any point never loses an interview.

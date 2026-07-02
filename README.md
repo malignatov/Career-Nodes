@@ -44,9 +44,10 @@ editing it stales the derived layer without invalidating any interview.
 ## Repository layout
 
 - `playbooks/` — the declarative node definitions (the contract everything builds
-  against). Start with [SCHEMA.md](playbooks/SCHEMA.md), then the two reference
-  playbooks: [counseling_goal.yaml](playbooks/counseling_goal.yaml) and
-  [role_models.yaml](playbooks/role_models.yaml).
+  against). Start with [SCHEMA.md](playbooks/SCHEMA.md). All six conversation
+  nodes exist (goal + the five interview questions), plus the first derived
+  node, [character_sketch.yaml](playbooks/character_sketch.yaml), which composes
+  from authorized upstream artifacts without an interview.
 - `src/` — the CLI harness: playbook loader, LLM adapter (Anthropic API or local
   Ollama), and the elicit → induce → confirm engine.
 - `artifacts/` — authorized artifacts + transcripts, written per node (gitignored;

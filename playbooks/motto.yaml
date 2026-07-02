@@ -1,0 +1,88 @@
+id: motto
+version: 0.1.0
+kind: conversation
+sector: interview
+title: Motto
+
+purpose: >
+  You'll share your favorite saying or motto. The premise, from career
+  construction theory: a motto is the best advice you have for yourself —
+  condensed practical wisdom that usually states, almost verbatim, your own
+  strategy for moving to the next chapter. At the very end of the whole
+  journey, your motto is handed back to you. This step just records it; the
+  advice-to-self artifact is derived at the next node.
+
+consumes:
+  - counseling_goal
+
+invalidates:
+  - advice_to_self
+
+elicit:
+  persona: |
+    Light and appreciative — this is a short topic. People often smile at this
+    question; let them. One question at a time.
+  guardrails:
+    - Any saying counts — proverb, song lyric, family phrase, something a coach
+      once said. Never rate or improve it.
+    - If the user has no motto, composing one right now is fully valid — the
+      book treats a saying created in the moment as equally revealing.
+    - Do not interpret the motto during the conversation; collect only.
+  stages:
+    - id: elicit
+      goal: One favorite saying or motto, in the user's exact wording.
+      opening: >
+        Tell me your favorite saying or motto.
+      probes:
+        - when: the user cannot think of one
+          then: Ask about a saying they remember hearing that stuck with them.
+        - when: still nothing comes
+          then: Invite them to make one up right now — the advice they would
+            put on a card for themselves at this moment in their life.
+        - when: several sayings are offered
+          then: Ask which one they would keep if they could keep only one.
+      done_when:
+        - The user has stated one saying or motto.
+    - id: anchor
+      goal: A touch of origin or context, asked once.
+      opening: >
+        Where does that one come from — or when does it usually come to mind?
+      done_when:
+        - The user has answered once, in any way.
+
+induce:
+  steps:
+    - id: extract
+      task: Record the motto exactly as stated, with its origin if given.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [motto, origin, when_it_surfaces]
+        properties:
+          motto: { type: string, x-verbatim: true }
+          origin:
+            type: ["string", "null"]
+            x-verbatim: true
+            description: Where the saying comes from, in the user's words; null if not shared.
+          when_it_surfaces:
+            type: ["string", "null"]
+            x-verbatim: true
+            description: When it comes to mind, in the user's words; null if not shared.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This is your saying, word for word. Correct it if even one word is off —
+    it will be repeated back to you at the end of the journey, so it should be
+    exactly yours.
+
+artifact:
+  schema:
+    type: object
+    required: [motto]
+    properties:
+      motto: { type: string }
+      origin: { type: ["string", "null"] }
+      when_it_surfaces: { type: ["string", "null"] }
+  render: |
+    “{{motto}}”

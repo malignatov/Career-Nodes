@@ -9,7 +9,12 @@ export interface SessionIO {
   note(text: string): void;
   ask(prompt: string): Promise<string>;
   /** Called after every exchange so the caller can persist progress incrementally. */
-  onTurn?(exchange: ExchangeEntry[]): void;
+  onTurn?(exchange: ExchangeEntry[], stageIndex: number): void;
+}
+
+export interface ResumeState {
+  exchange: ExchangeEntry[];
+  stageIndex: number;
 }
 
 const MAX_TURNS_PER_STAGE = 12;
@@ -84,19 +89,29 @@ export async function runElicit(
   pb: Playbook,
   llm: LlmAdapter,
   io: SessionIO,
+  resume?: ResumeState,
 ): Promise<ElicitResult> {
-  const exchange: ExchangeEntry[] = [];
-  const messages: ChatTurn[] = [];
+  const exchange: ExchangeEntry[] = resume ? [...resume.exchange] : [];
+  const messages: ChatTurn[] = exchange.map((e) => ({
+    role: e.speaker === "user" ? ("user" as const) : ("assistant" as const),
+    content: e.text,
+  }));
+  const stages = pb.elicit!.stages;
+  const startIndex = Math.min(resume?.stageIndex ?? 0, stages.length - 1);
+  let resuming = resume !== undefined && exchange.length > 0;
 
-  for (const [i, stage] of pb.elicit!.stages.entries()) {
+  for (let i = startIndex; i < stages.length; i++) {
+    const stage = stages[i];
     const system = interviewerSystem(pb, stage);
     messages.push({
       role: "user",
-      content:
-        i === 0
+      content: resuming
+        ? "[The session was interrupted earlier and has just been resumed. Welcome the user back in one short sentence and continue this topic where it left off.]"
+        : i === 0
           ? "[The session begins. Greet the user in one short sentence, then ask your anchor question.]"
           : `[Topic complete. Move on to the next topic and ask its anchor question: ${stage.opening.trim()}]`,
     });
+    resuming = false;
 
     let turns = 0;
     while (turns < MAX_TURNS_PER_STAGE) {
@@ -113,7 +128,7 @@ export async function runElicit(
       }
       messages.push({ role: "user", content: answer });
       exchange.push({ speaker: "user", text: answer });
-      io.onTurn?.(exchange);
+      io.onTurn?.(exchange, i);
       turns++;
 
       if (await checkStageDone(llm, stage, exchange)) break;
@@ -130,22 +145,34 @@ function userWords(exchange: ExchangeEntry[]): string {
   return exchange.filter((e) => e.speaker === "user").map((e) => e.text).join("\n");
 }
 
+function stringValuesDeep(v: unknown): string[] {
+  if (typeof v === "string") return [v];
+  if (Array.isArray(v)) return v.flatMap(stringValuesDeep);
+  if (typeof v === "object" && v !== null) return Object.values(v).flatMap(stringValuesDeep);
+  return [];
+}
+
 async function runInduceStep(
   llm: LlmAdapter,
   pb: Playbook,
   step: InduceStep,
   transcript: string,
   upstream: Record<string, unknown>,
+  verbatimSource: string,
   feedback: string | undefined,
 ): Promise<Record<string, unknown>> {
   const system = [
     `You are the induction engine for the "${pb.title}" step of a career construction session.`,
     `Task: ${step.task.trim()}`,
-    "Every string in a field marked x-verbatim in the schema must be an exact quote of the user's own words from the transcript — never paraphrase those.",
+    "Every string in a field marked x-verbatim in the schema must be an exact quote of the user's own words — from the transcript or from the upstream artifacts. Never paraphrase those.",
+    "Optional fields that allow null: emit null rather than inventing content the user never provided.",
     ...(step.validation ?? []).map((v) => `Constraint: ${v}`),
     "Return only JSON matching the schema.",
   ].join("\n\n");
 
+  const sourceBlock = transcript
+    ? `Transcript:\n${transcript}`
+    : "There is no interview transcript for this step — compose strictly from the upstream artifacts below.";
   const upstreamBlock = Object.keys(upstream).length
     ? `\n\nAuthorized upstream artifacts:\n${JSON.stringify(upstream, null, 2)}`
     : "";
@@ -156,7 +183,7 @@ async function runInduceStep(
       tier: step.model_tier,
       system,
       messages: [
-        { role: "user", content: `Transcript:\n${transcript}${upstreamBlock}${feedbackBlock}${extra}` },
+        { role: "user", content: `${sourceBlock}${upstreamBlock}${feedbackBlock}${extra}` },
       ],
       jsonSchema: step.output_schema,
       maxTokens: 8192,
@@ -165,18 +192,14 @@ async function runInduceStep(
   };
 
   let result = await attempt("");
-  const userOnly = transcript
-    .split("\n")
-    .filter((l) => l.startsWith("user:"))
-    .join("\n");
-  let violations = verbatimViolations(result, step.output_schema, userOnly);
+  let violations = verbatimViolations(result, step.output_schema, verbatimSource);
   if (violations.length > 0) {
     result = await attempt(
       `\n\nYour previous attempt contained strings that are not exact quotes of the user. Fix these by quoting the user's actual words:\n${violations
         .map((v) => `- "${v}"`)
         .join("\n")}`,
     );
-    violations = verbatimViolations(result, step.output_schema, userOnly);
+    violations = verbatimViolations(result, step.output_schema, verbatimSource);
     if (violations.length > 0) {
       (result as Record<string, unknown>)._verbatim_warnings = violations;
     }
@@ -193,10 +216,14 @@ export async function runInduce(
   feedback?: string,
 ): Promise<Record<string, unknown>> {
   const transcript = exchange.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
+  const verbatimSource = [
+    ...exchange.filter((e) => e.speaker === "user").map((e) => e.text),
+    ...stringValuesDeep(upstream),
+  ].join("\n");
   const draft: Record<string, unknown> = {};
   for (const step of pb.induce!.steps) {
     io.note(`(inducing: ${step.id}…)`);
-    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, feedback));
+    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback));
   }
   return draft;
 }
