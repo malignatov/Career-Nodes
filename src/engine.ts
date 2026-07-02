@@ -8,6 +8,8 @@ export interface SessionIO {
   say(text: string): void;
   note(text: string): void;
   ask(prompt: string): Promise<string>;
+  /** Called after every exchange so the caller can persist progress incrementally. */
+  onTurn?(exchange: ExchangeEntry[]): void;
 }
 
 const MAX_TURNS_PER_STAGE = 12;
@@ -111,6 +113,7 @@ export async function runElicit(
       }
       messages.push({ role: "user", content: answer });
       exchange.push({ speaker: "user", text: answer });
+      io.onTurn?.(exchange);
       turns++;
 
       if (await checkStageDone(llm, stage, exchange)) break;

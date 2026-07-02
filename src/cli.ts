@@ -14,10 +14,13 @@ async function main(): Promise<void> {
   const llm = createAdapter();
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  mkdirSync(ARTIFACTS_DIR, { recursive: true });
+  const transcriptPath = join(ARTIFACTS_DIR, `${pb.id}.transcript.json`);
   const io: SessionIO = {
     say: (t) => console.log(`\n${t}`),
     note: (t) => console.log(`\x1b[2m${t}\x1b[0m`),
     ask: async (prompt) => rl.question(`\n${prompt} > `),
+    onTurn: (exchange) => writeFileSync(transcriptPath, JSON.stringify(exchange, null, 2)),
   };
 
   console.log(`\n━━━ ${pb.title} ━━━`);
@@ -36,7 +39,7 @@ async function main(): Promise<void> {
 
   const elicited = await runElicit(pb, llm, io);
   if (elicited.aborted) {
-    io.note("(session ended without an artifact)");
+    io.note(`(session ended without an artifact — the conversation so far is saved in ${transcriptPath})`);
     rl.close();
     return;
   }
@@ -47,9 +50,8 @@ async function main(): Promise<void> {
     runInduce(pb, llm, elicited.exchange, upstream, io, feedback),
   );
 
-  mkdirSync(ARTIFACTS_DIR, { recursive: true });
   writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.json`), JSON.stringify(toArtifact(pb, authorized), null, 2));
-  writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.transcript.json`), JSON.stringify(elicited.exchange, null, 2));
+  writeFileSync(transcriptPath, JSON.stringify(elicited.exchange, null, 2));
 
   io.say(`Artifact authorized and saved to ${ARTIFACTS_DIR}/${pb.id}.json`);
   if (pb.invalidates.length > 0) {
