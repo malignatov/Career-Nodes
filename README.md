@@ -56,9 +56,9 @@ editing it stales the derived layer without invalidating any interview.
 
 ```sh
 npm install
+cp .env.example .env                           # then put your ANTHROPIC_API_KEY in .env
 
 # With the Anthropic API (default: haiku for interviewing, opus for composition)
-export ANTHROPIC_API_KEY=sk-ant-...
 npm run interview                              # counseling_goal
 npm run interview -- playbooks/role_models.yaml
 

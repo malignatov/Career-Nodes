@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "interview": "tsx src/cli.ts",
-    "smoke": "tsx scripts/smoke.ts",
+    "interview": "node --env-file-if-exists=.env src/cli.ts",
+    "smoke": "node --env-file-if-exists=.env scripts/smoke.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
