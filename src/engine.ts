@@ -1,8 +1,8 @@
 import type {
   Artifact, ChatTurn, ExchangeEntry, InduceStep, Playbook, Stage,
-} from "./types.js";
-import type { LlmAdapter } from "./llm.js";
-import { verbatimViolations } from "./verbatim.js";
+} from "./types.ts";
+import type { LlmAdapter } from "./llm.ts";
+import { verbatimViolations } from "./verbatim.ts";
 
 export interface SessionIO {
   say(text: string): void;

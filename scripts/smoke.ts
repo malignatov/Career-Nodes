@@ -3,9 +3,9 @@
  * real model with a scripted "user", then auto-authorizes the first candidate.
  * Usage: npm run smoke
  */
-import { loadPlaybook } from "../src/playbook.js";
-import { createAdapter } from "../src/llm.js";
-import { runElicit, runInduce, type SessionIO } from "../src/engine.js";
+import { loadPlaybook } from "../src/playbook.ts";
+import { createAdapter } from "../src/llm.ts";
+import { runElicit, runInduce, type SessionIO } from "../src/engine.ts";
 
 const cannedAnswers = [
   "I keep circling around leaving consulting but I never actually do anything about it. I want to understand what is holding me back.",

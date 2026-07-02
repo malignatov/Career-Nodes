@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ChatTurn, Tier } from "./types.js";
+import type { ChatTurn, Tier } from "./types.ts";
 
 export interface CompleteOptions {
   system: string;

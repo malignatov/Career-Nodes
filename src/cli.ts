@@ -1,10 +1,10 @@
 import { createInterface } from "node:readline/promises";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadPlaybook } from "./playbook.js";
-import { createAdapter } from "./llm.js";
-import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO } from "./engine.js";
-import type { Artifact } from "./types.js";
+import { loadPlaybook } from "./playbook.ts";
+import { createAdapter } from "./llm.ts";
+import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO } from "./engine.ts";
+import type { Artifact } from "./types.ts";
 
 const ARTIFACTS_DIR = "artifacts";
 
