@@ -1,0 +1,189 @@
+id: role_models
+version: 0.1.0
+kind: conversation
+sector: interview
+title: Role models
+
+purpose: >
+  You'll talk about three figures you admired when you were around six years old.
+  The premise, from career construction theory: the traits you say you admired are
+  the blueprint you used to build yourself — it is what you admired, not whom, that
+  matters. This step only records and organizes your own words. The character
+  sketch is drafted at the next node, from what you approve here, and shown for
+  your approval too.
+
+consumes:
+  - counseling_goal
+
+invalidates:
+  - character_sketch
+
+elicit:
+  persona: |
+    You are a career construction interviewer. Warm, playful curiosity; one
+    question at a time. You care about what the user admired, never about whom.
+    Your follow-ups voice inferences, not interpretations — thought-provoking,
+    occasionally humorous, always offered so the user can correct them.
+
+  guardrails:
+    - Never suggest characteristics or admire-worthy traits yourself. Every
+      descriptor must originate from the user.
+    - Never assume what a famous figure "obviously" stands for. One person admires
+      Superman for truth and justice; another admired only his invisible airplane.
+      Always ask what specifically this user admired.
+    - Fictional characters, cartoon figures, and animal characters are fully valid
+      role models — welcome them without surprise.
+    - Parents named as models are recorded as guides, not models. Honor the
+      parent, then ask for someone besides their parents. If the user expresses a
+      collectivist orientation where family expectations weigh heavily, note
+      parental influences with extra care rather than pushing past them.
+    - If a painful memory surfaces, acknowledge it with care, do not probe it
+      here, and remind the user they can skip or pause at any time.
+
+  stages:
+    - id: collect
+      goal: Three admired figures from around age six, none of them parents.
+      opening: >
+        Who did you admire when you were about six years old? Tell me about her
+        or him.
+      probes:
+        - when: the user can't think of anyone
+          then: Suggest the model need not be famous — a relative, neighbor,
+            teacher, or a character from a book, cartoon, or show all count.
+        - when: the user names a parent
+          then: Ask what the parent was like and record those qualities as guide
+            descriptors, then ask whom they admired besides their parents.
+        - when: fewer than three models have been named
+          then: Ask for another — "Who else did you admire back then?"
+      done_when:
+        - Three non-parent models have been named.
+
+    - id: describe
+      goal: At least two descriptor phrases per model, as seen through childhood
+        eyes.
+      opening: >
+        Describe {{model}} to me. Just tell me about them as you viewed them back
+        then — what were they like?
+      probes:
+        - when: the user describes what the model did (actions, plot, feats)
+          then: Ask what the model was like — their characteristics.
+        - when: the user describes the model as they see them today
+          then: Ask how they viewed the model when they were young, and what
+            first drew them to the model.
+        - when: descriptors stay sparse after asking
+          then: Ask what specifically they admired about this one.
+        - when: a descriptor invites an obvious inference
+          then: Offer it as a playful question they can correct — someone who
+            admires Zorro might be asked, "Do you mask your true identity? Do you
+            seek to right wrongs?"
+      done_when:
+        - Each of the three models has at least two descriptor phrases.
+
+    - id: compare
+      goal: Similarities and differences between the user and each model.
+      opening: >
+        How are you similar to {{model}} — and how are you different?
+      probes:
+        - when: all three models have been compared
+          then: Optionally ask what all three have in common.
+      done_when:
+        - A similarity or difference has been noted for each model.
+
+induce:
+  steps:
+    - id: extract
+      task: Structure the models and guides with descriptors in the order spoken.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [models]
+        properties:
+          models:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: object
+              required: [name, named_order, descriptors]
+              properties:
+                name: { type: string }
+                named_order: { type: integer }
+                descriptors:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    properties:
+                      text: { type: string, x-verbatim: true }
+                      spoken_order: { type: integer }
+                similarities:
+                  type: array
+                  items: { type: string, x-verbatim: true }
+                differences:
+                  type: array
+                  items: { type: string, x-verbatim: true }
+          guides:
+            type: array
+            items:
+              type: object
+              properties:
+                name: { type: string }
+                relationship: { type: string }
+                descriptors:
+                  type: array
+                  items: { type: string, x-verbatim: true }
+          shared_by_all:
+            type: string
+            x-verbatim: true
+
+    - id: salience
+      task: >
+        Mark salient self-conceptions by primacy and repetition. Primacy: the
+        first descriptor of the first-named model. Repetition: descriptors
+        repeated or closely echoed across models.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [primacy_trait, repeated_traits]
+        properties:
+          primacy_trait: { type: string, x-verbatim: true }
+          repeated_traits:
+            type: array
+            items:
+              type: object
+              properties:
+                trait: { type: string }
+                echoes:
+                  type: array
+                  minItems: 2
+                  items: { type: string, x-verbatim: true }
+      validation:
+        - primacy_trait must equal the first spoken descriptor of the model with
+          named_order 1.
+        - Each repeated_traits entry must cite echoes from at least two different
+          models.
+
+  # Deliberately NOT composed here: the character sketch. That node consumes this
+  # artifact plus `perspective`, so the sketch can be framed as the solution to
+  # the preoccupation (bravery solves fear). Composing it early would break the
+  # dependency the framework is built on.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    These are your words, organized. Fix anything that doesn't sound like you —
+    your character sketch will be built only from what you approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [models, primacy_trait, repeated_traits]
+    properties:
+      models: { type: array }
+      guides: { type: array }
+      shared_by_all: { type: string }
+      primacy_trait: { type: string }
+      repeated_traits: { type: array }
+  render: |
+    {{#each models}}• {{name}}: {{#each descriptors}}{{text}}, {{/each}}{{/each}}
+    First said: “{{primacy_trait}}” — repeated: {{#each repeated_traits}}{{trait}}; {{/each}}

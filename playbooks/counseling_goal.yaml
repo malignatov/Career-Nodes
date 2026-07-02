@@ -1,0 +1,168 @@
+id: counseling_goal
+version: 0.1.0
+kind: conversation
+sector: goal
+title: Counseling goal
+
+purpose: >
+  Establish, in your own words, what you want from this whole process. Your answer
+  becomes the lens for every later step, and at the very end it is read back to you
+  to ask: did we get there? Nothing is analyzed here beyond restating what you said,
+  and you approve the restatement. You can amend the goal later — your original
+  wording is always kept for that final check.
+
+consumes: []
+
+# The goal parameterizes every induced node, but none of the raw conversations.
+invalidates:
+  - perspective
+  - character_sketch
+  - preferred_settings
+  - script
+  - advice_to_self
+  - life_portrait
+  - identity_statement
+  - action_recipe
+
+# After the life portrait is authorized, the app offers a goal amendment:
+# "Now that you've seen your portrait — is this still the question?"
+# Amendments are versioned; request_verbatim is immutable.
+amendable_after: life_portrait
+
+elicit:
+  persona: |
+    You are a career construction interviewer opening a consultation. Warm, brief,
+    unhurried. Ask one question at a time. In this phase you never analyze,
+    diagnose, or advise. When you reflect something back, use the user's own words.
+
+  guardrails:
+    - Never propose or suggest goals; only ask and reflect.
+    - If the user asks for a test or personality assessment, explain in one
+      sentence that this process works through their own stories instead, then
+      return to the question.
+    - Listen for the request behind the request, and ask about it — but the user
+      decides what their goal is. Do not overrule their framing.
+    - If the user expresses acute distress or mentions self-harm, acknowledge with
+      care, provide crisis resources, and pause the interview.
+
+  stages:
+    - id: open
+      goal: Capture the request in the user's own words.
+      opening: >
+        How can this process be useful to you as you construct your career?
+      probes:
+        - when: the answer is a single broad phrase ("figure things out",
+            "career change", "find my path")
+          then: Ask what would make this genuinely worth their time.
+        - when: several distinct requests appear
+          then: Reflect the list back in their words and ask which matters most
+            right now.
+        - when: the request is about making a decision
+          then: Ask gently whether the hard part is making the choice, or
+            understanding what is blocking the choice. Clients who ask for help
+            choosing often actually want to know what holds them back.
+        - when: the request sounds like confirming a decision already made
+          then: Ask what kind of reassurance would help, and from whom.
+      done_when:
+        - The user has stated a request in at least one full sentence.
+
+    - id: success
+      goal: Elicit at least one concrete success criterion.
+      opening: >
+        Imagine we finish and it was worth it. What are you walking away with?
+      probes:
+        - when: the answer restates the goal abstractly
+          then: Ask what they would do differently the following week if this
+            worked.
+      done_when:
+        - At least one concrete success criterion has been stated.
+
+    - id: wrap
+      goal: Reflect and close.
+      opening: >
+        Reflect the request and success criteria back in the user's own words and
+        ask whether anything is missing.
+      done_when:
+        - The user has confirmed the reflection or finished adding to it.
+
+induce:
+  steps:
+    - id: extract
+      task: Extract the goal fields from the transcript.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [request_verbatim, success_criteria, request_type]
+        properties:
+          request_verbatim:
+            type: string
+            x-verbatim: true
+            description: The user's request exactly as they first stated it.
+          success_criteria:
+            type: array
+            items: { type: string, x-verbatim: true }
+            minItems: 1
+          request_type:
+            type: string
+            enum:
+              - make_a_choice
+              - understand_whats_blocking
+              - reassurance
+              - meaning_or_direction
+              - transition_or_dislocation
+              - other
+          feelings_mentioned:
+            type: array
+            items: { type: string, x-verbatim: true }
+
+    - id: restate
+      task: >
+        Draft alternative one-sentence restatements of the goal, each assembled
+        only from the user's own phrases.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [candidates]
+        properties:
+          candidates:
+            type: array
+            x-candidates: true
+            minItems: 2
+            maxItems: 3
+            items: { type: string }
+      validation:
+        - Every content-bearing phrase in each candidate must appear verbatim in
+          the transcript; connective words may be added.
+
+confirm:
+  present: candidates
+  authorize_language: >
+    This is the question we will keep returning to. You can amend it after you see
+    your life portrait — your original wording stays saved for the final check.
+
+artifact:
+  schema:
+    type: object
+    required: [request_verbatim, restated_goal, success_criteria, request_type]
+    properties:
+      request_verbatim: { type: string }
+      restated_goal: { type: string }
+      success_criteria:
+        type: array
+        items: { type: string }
+      request_type: { type: string }
+      feelings_mentioned:
+        type: array
+        items: { type: string }
+      amendments:
+        type: array
+        items:
+          type: object
+          properties:
+            date: { type: string }
+            restated_goal: { type: string }
+            reason: { type: string }
+  render: |
+    “{{request_verbatim}}”
+    → {{restated_goal}}
+    Worth it if: {{#each success_criteria}}{{this}}; {{/each}}
