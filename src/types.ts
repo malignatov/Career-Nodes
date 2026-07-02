@@ -1,0 +1,68 @@
+export type Tier = "small" | "large";
+
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface Probe {
+  when: string;
+  then: string;
+}
+
+export interface Stage {
+  id: string;
+  goal: string;
+  opening: string;
+  probes?: Probe[];
+  done_when: string[];
+}
+
+export interface InduceStep {
+  id: string;
+  task: string;
+  model_tier: Tier;
+  output_schema: Record<string, unknown>;
+  validation?: string[];
+}
+
+export interface Playbook {
+  id: string;
+  version: string;
+  kind: "conversation" | "derived";
+  sector: string;
+  title: string;
+  purpose: string;
+  consumes: string[];
+  invalidates: string[];
+  amendable_after?: string;
+  elicit?: {
+    persona: string;
+    guardrails: string[];
+    stages: Stage[];
+  };
+  induce?: {
+    steps: InduceStep[];
+  };
+  confirm?: {
+    present: "candidates" | "structured_review";
+    choice_field?: string;
+    authorize_language: string;
+  };
+  artifact?: {
+    schema: Record<string, unknown>;
+    render?: string;
+  };
+}
+
+export interface ExchangeEntry {
+  speaker: "interviewer" | "user";
+  text: string;
+}
+
+export interface Artifact {
+  playbook_id: string;
+  playbook_version: string;
+  authorized_at: string;
+  content: Record<string, unknown>;
+}

@@ -136,6 +136,7 @@ induce:
 
 confirm:
   present: candidates
+  choice_field: restated_goal
   authorize_language: >
     This is the question we will keep returning to. You can amend it after you see
     your life portrait — your original wording stays saved for the final check.

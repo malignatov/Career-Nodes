@@ -1,0 +1,27 @@
+{
+  "name": "career-counseling",
+  "version": "1.0.0",
+  "description": "A local-first app that guides a person through Mark Savickas's career construction counseling (*Career Counseling*, 2nd ed., APA 2019) as a journey across a map of artifacts, with an LLM playing the interviewer under narrow, fully visible instructions.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "interview": "tsx src/cli.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": "true",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "js-yaml": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^26.1.0",
+    "tsx": "^4.22.5",
+    "typescript": "^6.0.3"
+  }
+}

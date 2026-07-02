@@ -47,3 +47,38 @@ editing it stales the derived layer without invalidating any interview.
   against). Start with [SCHEMA.md](playbooks/SCHEMA.md), then the two reference
   playbooks: [counseling_goal.yaml](playbooks/counseling_goal.yaml) and
   [role_models.yaml](playbooks/role_models.yaml).
+- `src/` — the CLI harness: playbook loader, LLM adapter (Anthropic API or local
+  Ollama), and the elicit → induce → confirm engine.
+- `artifacts/` — authorized artifacts + transcripts, written per node (gitignored;
+  this is personal data).
+
+## Running the harness
+
+```sh
+npm install
+
+# With the Anthropic API (default: haiku for interviewing, opus for composition)
+export ANTHROPIC_API_KEY=sk-ant-...
+npm run interview                              # counseling_goal
+npm run interview -- playbooks/role_models.yaml
+
+# With a local model instead
+LLM_PROVIDER=ollama LLM_SMALL_MODEL=llama3.1:8b npm run interview
+
+# Non-interactive end-to-end test (scripted user, real model)
+npm run smoke
+```
+
+Model tiers are overridable via `LLM_SMALL_MODEL` / `LLM_LARGE_MODEL`. During the
+interview, `/skip` advances a topic and `/quit` exits.
+
+## How the engine works
+
+The engine owns progression; the model owns wording. Each conversation node runs
+a stage machine from its playbook: the interviewer model writes one utterance at
+a time, and after each user answer a separate small checker call evaluates the
+stage's `done_when` checklist to decide whether to advance. Induction runs the
+playbook's extraction steps with JSON-schema-constrained output, then verifies
+every `x-verbatim` string against the user's actual words in code — one retry
+with the violations fed back, then the draft is flagged. Nothing becomes an
+artifact until the user authorizes it in the confirm step.
