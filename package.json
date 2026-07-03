@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "interview": "node --env-file-if-exists=.env src/cli.ts",
     "smoke": "node --env-file-if-exists=.env scripts/smoke.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ui": "node --env-file-if-exists=.env src/server.ts"
   },
   "keywords": [],
   "author": "",
@@ -16,11 +17,13 @@
   "private": "true",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
-    "js-yaml": "^5.2.1"
+    "js-yaml": "^5.2.1",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.1.0",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.22.5",
     "typescript": "^6.0.3"
   }
