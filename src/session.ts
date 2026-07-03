@@ -19,6 +19,7 @@ export async function runPlaybookSession(
   pb: Playbook,
   llm: LlmAdapter,
   baseIO: SessionIO,
+  opts: { header?: boolean } = {},
 ): Promise<SessionOutcome> {
   mkdirSync(ARTIFACTS_DIR, { recursive: true });
   const sessionPath = join(ARTIFACTS_DIR, `${pb.id}.session.json`);
@@ -34,8 +35,10 @@ export async function runPlaybookSession(
     },
   };
 
-  io.say(`━━━ ${pb.title} ━━━`);
-  io.say(`What happens in this step (shown in full, always):\n${pb.purpose.trim()}`);
+  if (opts.header !== false) {
+    io.say(`━━━ ${pb.title} ━━━`);
+    io.say(`What happens in this step (shown in full, always):\n${pb.purpose.trim()}`);
+  }
 
   const upstream: Record<string, unknown> = {};
   for (const dep of pb.consumes) {

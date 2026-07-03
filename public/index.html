@@ -4,62 +4,67 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Career Counseling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600&family=Lora:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
-<body class="view-map">
-  <header id="topbar">
-    <button id="mapToggle" title="Map (Esc)">◈ map</button>
-    <div id="crumb">Career construction</div>
-    <div class="legend" id="legend">
-      <span><i class="dot authorized"></i> authorized</span>
-      <span><i class="dot in_progress"></i> in progress</span>
-      <span><i class="dot available"></i> ready</span>
-      <span><i class="dot planned"></i> planned</span>
-    </div>
-  </header>
+<body>
+  <main id="journey"></main>
 
-  <main>
-    <section id="mapHome" aria-label="Journey map"></section>
-
-    <section id="focus" hidden>
-      <div class="focus-col">
-        <div id="focusHead">
-          <h2 id="focusTitle"></h2>
-          <div id="focusStatus" class="status-line"></div>
+  <div id="scrim" hidden>
+    <div id="modal" role="dialog" aria-modal="true">
+      <header id="modalHead">
+        <div class="head-row">
+          <button id="exitBtn">← Journey <span id="exitHint">· saved automatically</span></button>
+          <div class="head-meta">
+            <span id="modalPhase"></span>
+            <span id="modalChip" class="chip"></span>
+          </div>
         </div>
-
-        <details id="briefing" open>
-          <summary>What happens here</summary>
-          <div id="purpose" class="purpose"></div>
-        </details>
-
-        <details id="fullPrompts">
-          <summary>The exact instructions the model receives</summary>
-          <div id="promptSections"></div>
-        </details>
-
-        <section id="artifactCard" hidden>
-          <div class="card-label">Your authorized artifact</div>
-          <pre id="artifactPre" class="artifact"></pre>
-        </section>
-
-        <div id="actions"></div>
-
-        <div id="chat" hidden>
-          <div id="messages"></div>
-          <form id="composer" class="disabled">
-            <textarea id="input" rows="2" placeholder="…" disabled></textarea>
-            <button type="submit">Send</button>
-          </form>
+        <div class="head-row">
+          <h2 id="modalTitle"></h2>
+          <button id="tToggle"><span class="t-glyph">◎</span> Transparency <span id="tArrow">▸</span></button>
         </div>
+        <div id="tPanel" hidden>
+          <div>
+            <div class="t-label">What’s happening</div>
+            <div id="tWhat" class="t-text"></div>
+          </div>
+          <div>
+            <div class="t-label">Model instructions (compiled)</div>
+            <div id="tCompiled" class="t-mono"></div>
+          </div>
+        </div>
+      </header>
+
+      <div id="chatView">
+        <div id="messages"></div>
+        <form id="composer" class="disabled">
+          <input id="input" placeholder="Write in your own words…" autocomplete="off" disabled />
+          <button type="submit">Send</button>
+        </form>
       </div>
-    </section>
-  </main>
 
-  <div id="drawer" hidden>
-    <div id="drawerInner">
-      <div class="drawer-head">Your map <span class="drawer-hint">Esc to close</span></div>
-      <div id="drawerMap"></div>
+      <div id="reviewView" hidden>
+        <div id="reviewExplainer"></div>
+        <div class="draft-panel">
+          <div id="draftKicker"></div>
+          <div id="draftBody"></div>
+          <div id="editArea" hidden>
+            <textarea id="draftTextarea" rows="4"></textarea>
+            <button id="saveEdit">Save wording</button>
+          </div>
+          <div id="verifyLine"></div>
+          <div id="altList" hidden></div>
+        </div>
+        <div class="review-actions">
+          <button id="editBtn" class="outline">Edit wording</button>
+          <button id="changesBtn" class="outline">Ask for changes</button>
+          <button id="authorizeBtn"></button>
+        </div>
+        <div id="reviewFoot"></div>
+      </div>
     </div>
   </div>
 

@@ -11,6 +11,29 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Walks an induced value alongside its schema and collects every string marked x-verbatim. */
+export function gatherMarked(value: unknown, schema: Record<string, unknown>): string[] {
+  const found: string[] = [];
+  function walk(v: unknown, s: unknown): void {
+    if (!isRecord(s)) return;
+    if (s["x-verbatim"] === true && typeof v === "string") {
+      found.push(v);
+      return;
+    }
+    if (Array.isArray(v) && isRecord(s.items)) {
+      for (const item of v) walk(item, s.items);
+      return;
+    }
+    if (isRecord(v) && isRecord(s.properties)) {
+      for (const [key, propSchema] of Object.entries(s.properties)) {
+        if (key in v) walk(v[key], propSchema);
+      }
+    }
+  }
+  walk(value, schema);
+  return found;
+}
+
 /**
  * Walks an induced value alongside its schema and returns every string that is
  * marked `x-verbatim: true` but does not appear (normalized) in the user's words.

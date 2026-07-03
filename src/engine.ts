@@ -2,7 +2,21 @@ import type {
   Artifact, ChatTurn, ExchangeEntry, InduceStep, Playbook, Stage,
 } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
-import { verbatimViolations } from "./verbatim.ts";
+import { gatherMarked, verbatimViolations } from "./verbatim.ts";
+
+export interface ReviewPayload {
+  mode: "candidates" | "structured_review";
+  draft: Record<string, unknown>;
+  candidates: string[];
+  choice_field?: string;
+  authorize_language: string;
+  verified_quotes: string[];
+  warnings: string[];
+}
+
+export type ReviewAction =
+  | { action: "authorize"; value?: string }
+  | { action: "feedback"; text: string };
 
 export interface SessionIO {
   say(text: string): void;
@@ -10,6 +24,8 @@ export interface SessionIO {
   ask(prompt: string): Promise<string>;
   /** Called after every exchange so the caller can persist progress incrementally. */
   onTurn?(exchange: ExchangeEntry[], stageIndex: number): void;
+  /** Structured confirm step. When absent, confirm falls back to ask()-based chat prompts. */
+  review?(payload: ReviewPayload): Promise<ReviewAction>;
 }
 
 export interface ResumeState {
@@ -253,6 +269,13 @@ export async function runInduce(
   return draft;
 }
 
+function collectVerbatim(pb: Playbook, draft: Record<string, unknown>): { verified_quotes: string[]; warnings: string[] } {
+  const warnings = (draft._verbatim_warnings ?? []) as string[];
+  const all = (pb.induce?.steps ?? []).flatMap((step) => gatherMarked(draft, step.output_schema));
+  const verified = [...new Set(all.filter((q) => !warnings.includes(q)))];
+  return { verified_quotes: verified, warnings };
+}
+
 export async function runConfirm(
   pb: Playbook,
   draft: Record<string, unknown>,
@@ -261,6 +284,31 @@ export async function runConfirm(
 ): Promise<Record<string, unknown>> {
   const confirm = pb.confirm!;
   let current = draft;
+
+  if (io.review) {
+    for (;;) {
+      const candidates = (current.candidates ?? []) as string[];
+      const act = await io.review({
+        mode: confirm.present,
+        draft: current,
+        candidates,
+        choice_field: confirm.choice_field,
+        authorize_language: confirm.authorize_language.trim(),
+        ...collectVerbatim(pb, current),
+      });
+      if (act.action === "feedback") {
+        io.note("(revising…)");
+        current = await reinduce(act.text);
+        continue;
+      }
+      if (confirm.present === "candidates") {
+        const field = confirm.choice_field ?? "chosen";
+        const { candidates: _dropped, ...rest } = current;
+        return { ...rest, [field]: act.value ?? candidates[0] ?? "" };
+      }
+      return current;
+    }
+  }
 
   if (confirm.present === "candidates") {
     const candidates = (current.candidates ?? []) as string[];
