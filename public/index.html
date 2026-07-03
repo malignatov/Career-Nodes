@@ -3,25 +3,61 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Career Counseling — map</title>
+  <title>Career Counseling</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
-<body>
-  <header>
-    <h1>Career construction — your map</h1>
-    <div class="legend">
+<body class="view-map">
+  <header id="topbar">
+    <button id="mapToggle" title="Map (Esc)">◈ map</button>
+    <div id="crumb">Career construction</div>
+    <div class="legend" id="legend">
       <span><i class="dot authorized"></i> authorized</span>
       <span><i class="dot in_progress"></i> in progress</span>
       <span><i class="dot available"></i> ready</span>
       <span><i class="dot planned"></i> planned</span>
     </div>
   </header>
+
   <main>
-    <section id="map" aria-label="Journey map"></section>
-    <aside id="panel" class="empty">
-      <p class="hint">Select a checkpoint on the map to see what happens there — and to start the conversation.</p>
-    </aside>
+    <section id="mapHome" aria-label="Journey map"></section>
+
+    <section id="focus" hidden>
+      <div class="focus-col">
+        <div id="focusHead">
+          <h2 id="focusTitle"></h2>
+          <div id="focusStatus" class="status-line"></div>
+        </div>
+
+        <details id="briefing" open>
+          <summary>What happens here — the model's full instructions</summary>
+          <div id="purpose" class="purpose"></div>
+        </details>
+
+        <section id="artifactCard" hidden>
+          <div class="card-label">Your authorized artifact</div>
+          <pre id="artifactPre" class="artifact"></pre>
+        </section>
+
+        <div id="actions"></div>
+
+        <div id="chat" hidden>
+          <div id="messages"></div>
+          <form id="composer" class="disabled">
+            <textarea id="input" rows="2" placeholder="…" disabled></textarea>
+            <button type="submit">Send</button>
+          </form>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div id="drawer" hidden>
+    <div id="drawerInner">
+      <div class="drawer-head">Your map <span class="drawer-hint">Esc to close</span></div>
+      <div id="drawerMap"></div>
+    </div>
+  </div>
+
   <script type="module" src="/app.js"></script>
 </body>
 </html>

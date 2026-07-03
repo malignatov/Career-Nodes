@@ -102,6 +102,7 @@ export async function runElicit(
 
   for (let i = startIndex; i < stages.length; i++) {
     const stage = stages[i];
+    io.note(`(topic ${i + 1} of ${stages.length}: ${stage.id})`);
     const system = interviewerSystem(pb, stage);
     messages.push({
       role: "user",
