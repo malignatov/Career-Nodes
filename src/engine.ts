@@ -19,7 +19,10 @@ export interface ResumeState {
 
 const MAX_TURNS_PER_STAGE = 12;
 
-function interviewerSystem(pb: Playbook, stage: Stage): string {
+export const CHECKER_SYSTEM =
+  "You audit an interview transcript against a checklist. Judge only from what the user actually said. Return JSON only.";
+
+export function interviewerSystem(pb: Playbook, stage: Stage): string {
   const probes = (stage.probes ?? [])
     .map((p) => `- When ${p.when}: ${p.then}`)
     .join("\n");
@@ -45,8 +48,7 @@ async function checkStageDone(
   const checklist = stage.done_when.map((d, i) => `${i}. ${d}`).join("\n");
   const raw = await llm.complete({
     tier: "small",
-    system:
-      "You audit an interview transcript against a checklist. Judge only from what the user actually said. Return JSON only.",
+    system: CHECKER_SYSTEM,
     messages: [
       {
         role: "user",
@@ -146,6 +148,35 @@ function userWords(exchange: ExchangeEntry[]): string {
   return exchange.filter((e) => e.speaker === "user").map((e) => e.text).join("\n");
 }
 
+export function induceStepSystem(pb: Playbook, step: InduceStep): string {
+  return [
+    `You are the induction engine for the "${pb.title}" step of a career construction session.`,
+    `Task: ${step.task.trim()}`,
+    "Every string in a field marked x-verbatim in the schema must be an exact quote of the user's own words — from the transcript or from the upstream artifacts. Never paraphrase those.",
+    "Optional fields that allow null: emit null rather than inventing content the user never provided.",
+    ...(step.validation ?? []).map((v) => `Constraint: ${v}`),
+    "Return only JSON matching the schema.",
+  ].join("\n\n");
+}
+
+/** Everything the models are told for this node, compiled exactly as sent. */
+export function compiledPrompts(pb: Playbook): unknown {
+  return {
+    stages: (pb.elicit?.stages ?? []).map((s) => ({
+      id: s.id,
+      system: interviewerSystem(pb, s),
+      done_when: s.done_when,
+    })),
+    checker: pb.elicit ? CHECKER_SYSTEM : null,
+    induce: (pb.induce?.steps ?? []).map((st) => ({
+      id: st.id,
+      model_tier: st.model_tier,
+      system: induceStepSystem(pb, st),
+      output_schema: st.output_schema,
+    })),
+  };
+}
+
 function stringValuesDeep(v: unknown): string[] {
   if (typeof v === "string") return [v];
   if (Array.isArray(v)) return v.flatMap(stringValuesDeep);
@@ -162,14 +193,7 @@ async function runInduceStep(
   verbatimSource: string,
   feedback: string | undefined,
 ): Promise<Record<string, unknown>> {
-  const system = [
-    `You are the induction engine for the "${pb.title}" step of a career construction session.`,
-    `Task: ${step.task.trim()}`,
-    "Every string in a field marked x-verbatim in the schema must be an exact quote of the user's own words — from the transcript or from the upstream artifacts. Never paraphrase those.",
-    "Optional fields that allow null: emit null rather than inventing content the user never provided.",
-    ...(step.validation ?? []).map((v) => `Constraint: ${v}`),
-    "Return only JSON matching the schema.",
-  ].join("\n\n");
+  const system = induceStepSystem(pb, step);
 
   const sourceBlock = transcript
     ? `Transcript:\n${transcript}`

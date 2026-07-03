@@ -8,6 +8,8 @@ const els = {
   focusStatus: document.getElementById("focusStatus"),
   briefing: document.getElementById("briefing"),
   purpose: document.getElementById("purpose"),
+  fullPrompts: document.getElementById("fullPrompts"),
+  promptSections: document.getElementById("promptSections"),
   artifactCard: document.getElementById("artifactCard"),
   artifactPre: document.getElementById("artifactPre"),
   actions: document.getElementById("actions"),
@@ -102,6 +104,7 @@ async function openFocus(id) {
 
   if (!pb) {
     els.briefing.hidden = true;
+    els.fullPrompts.hidden = true;
     els.artifactCard.hidden = true;
     els.actions.innerHTML = `<p class="hint">This checkpoint is planned — its playbook hasn't been written yet.</p>`;
     return;
@@ -110,6 +113,9 @@ async function openFocus(id) {
   els.briefing.hidden = false;
   els.briefing.open = true;
   els.purpose.textContent = pb.purpose;
+  els.fullPrompts.hidden = false;
+  els.fullPrompts.open = false;
+  renderPrompts(pb.compiled);
 
   if (artifact) {
     els.artifactCard.hidden = false;
@@ -128,6 +134,30 @@ async function openFocus(id) {
   btn.textContent = label;
   btn.addEventListener("click", () => startSession(id));
   els.actions.appendChild(btn);
+}
+
+function renderPrompts(compiled) {
+  const parts = [];
+  for (const stage of compiled.stages) {
+    parts.push(`<h4>Interviewer — system prompt for topic “${esc(stage.id)}”</h4>`);
+    parts.push(`<pre class="prompt">${esc(stage.system)}</pre>`);
+    parts.push(`<h4>Checklist a separate checker call evaluates after each of your answers</h4>`);
+    parts.push(`<pre class="prompt">${esc(stage.done_when.map((d) => `- ${d}`).join("\n"))}</pre>`);
+  }
+  if (compiled.checker) {
+    parts.push(`<h4>Checker — system prompt</h4>`);
+    parts.push(`<pre class="prompt">${esc(compiled.checker)}</pre>`);
+  }
+  for (const step of compiled.induce) {
+    parts.push(`<h4>Drafting step “${esc(step.id)}” (${esc(step.model_tier)} model) — system prompt</h4>`);
+    parts.push(`<pre class="prompt">${esc(step.system)}</pre>`);
+    parts.push(`<h4>…and its required output shape</h4>`);
+    parts.push(`<pre class="prompt">${esc(JSON.stringify(step.output_schema, null, 2))}</pre>`);
+  }
+  parts.push(
+    `<p class="hint">At runtime the models additionally receive: your conversation itself, short bracketed stage directions from the engine (the topic markers you see in the chat), and your authorized upstream artifacts. Nothing else.</p>`,
+  );
+  els.promptSections.innerHTML = parts.join("");
 }
 
 /* ── conversation ────────────────────────────────────── */

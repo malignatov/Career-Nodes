@@ -6,7 +6,7 @@ import { loadPlaybook } from "./playbook.ts";
 import { createAdapter } from "./llm.ts";
 import { runPlaybookSession, ARTIFACTS_DIR } from "./session.ts";
 import { MAP_NODES, MAP_EDGES, MAP_SECTORS } from "./map.ts";
-import type { SessionIO } from "./engine.ts";
+import { compiledPrompts, type SessionIO } from "./engine.ts";
 
 const PORT = Number(process.env.PORT ?? 4780);
 const PUBLIC_DIR = "public";
@@ -61,6 +61,7 @@ const server = createServer((req, res) => {
       consumes: pb.consumes,
       invalidates: pb.invalidates,
       stages: pb.elicit?.stages.map((s) => s.id) ?? [],
+      compiled: compiledPrompts(pb),
     });
   }
 
