@@ -103,6 +103,10 @@ Engine-level invariants (not repeated per playbook):
   never a silent overwrite.
 - Authorizing marks `invalidates` targets stale; staleness is a badge, not a modal.
 - Conversation progress persists to `artifacts/<id>.session.json` after every
-  user turn (`{exchange, stage_index, elicit_done}`); the CLI offers to resume
-  it on the next run and deletes it once the artifact is authorized. Exiting at
-  any point never loses an interview.
+  turn — the user's answers and the interviewer's generated questions alike
+  (`{exchange, stage_index, elicit_done}`) — so resuming never regenerates a
+  question the user already saw; a session whose record ends with an unanswered
+  question resumes with zero model calls. The baked opener alone is not
+  persisted (peeking at a node must not mark it in-progress). The file is
+  deleted once the artifact is authorized. Exiting at any point never loses an
+  interview.

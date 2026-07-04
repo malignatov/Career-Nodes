@@ -153,6 +153,11 @@ export async function runElicit(
       exchange.push({ speaker: "interviewer", text: opener });
       (io.sayAnchor ?? io.say)(opener);
       skipGenerate = true;
+    } else if (resuming && exchange[exchange.length - 1]?.speaker === "interviewer") {
+      // The saved conversation ends with an unanswered question — no model call,
+      // just wait for the answer to the question the user already saw.
+      skipGenerate = true;
+      resuming = false;
     } else {
       messages.push({
         role: "user",
@@ -170,6 +175,10 @@ export async function runElicit(
         messages.push({ role: "assistant", content: question });
         exchange.push({ speaker: "interviewer", text: question });
         io.say(question);
+        // Persist interviewer turns too, so resuming never regenerates a question
+        // the user already saw. The baked opener alone is deliberately not
+        // persisted — merely opening a node must not mark it in-progress.
+        if (exchange.some((e) => e.speaker === "user")) io.onTurn?.(exchange, i);
       }
       skipGenerate = false;
 
