@@ -8,7 +8,9 @@
     "interview": "node --env-file-if-exists=.env src/cli.ts",
     "smoke": "node --env-file-if-exists=.env scripts/smoke.ts",
     "typecheck": "tsc --noEmit",
-    "ui": "node --env-file-if-exists=.env src/server.ts"
+    "ui": "node --env-file-if-exists=.env src/server.ts",
+    "app": "electron app",
+    "app:build": "electron-packager app 'Career Counseling' --platform=darwin --arch=$(node -p process.arch) --out=dist-app --overwrite --electron-version=$(node -p \"require('electron/package.json').version\")"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +26,8 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.1.0",
     "@types/ws": "^8.18.1",
+    "electron": "^43.0.0",
+    "electron-packager": "^17.1.2",
     "tsx": "^4.22.5",
     "typescript": "^6.0.3"
   }

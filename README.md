@@ -73,6 +73,20 @@ npm run smoke
 Model tiers are overridable via `LLM_SMALL_MODEL` / `LLM_LARGE_MODEL`. During the
 interview, `/skip` advances a topic and `/quit` exits.
 
+## macOS app (local testing build)
+
+```sh
+npm run app          # dev: opens the Electron window directly
+npm run app:build    # produces dist-app/Career Counseling-darwin-<arch>/Career Counseling.app
+```
+
+The app spawns the server with Electron's bundled Node (no dependency on shell
+PATH) pointed at this project directory — the API key is read from the
+project's `.env`, artifacts stay in `artifacts/`, and code changes apply on
+next launch without rebuilding. If a server is already running on :4780 the
+app reuses it. Unsigned, local-testing only — not for distribution. The
+project path is baked in `app/main.cjs` (`CAREER_COUNSELING_DIR` overrides).
+
 ## How the engine works
 
 The engine owns progression; the model owns wording. Each conversation node runs

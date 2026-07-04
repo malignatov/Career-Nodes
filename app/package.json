@@ -1,0 +1,7 @@
+{
+  "name": "career-counseling-app",
+  "productName": "Career Counseling",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs"
+}
