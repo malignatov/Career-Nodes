@@ -38,10 +38,14 @@ export interface Playbook {
   consumes: string[];
   invalidates: string[];
   amendable_after?: string;
+  /** Unlock rule: "any" (default for derived) or "all" (default for conversation). */
+  gate?: "all" | "any";
   elicit?: {
     persona: string;
     guardrails: string[];
     stages: Stage[];
+    /** Inject authorized upstream artifacts into the interviewer's context (e.g. the closing ritual). */
+    share_upstream?: boolean;
   };
   induce?: {
     steps: InduceStep[];

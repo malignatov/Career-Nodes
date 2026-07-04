@@ -1,0 +1,82 @@
+id: perspective
+version: 0.1.0
+kind: derived
+sector: induction
+title: Perspective
+
+purpose: >
+  Reads your early recollections as parables about today. The premise, from
+  career construction theory: early memories are not history — they reveal the
+  vantage point from which you view your current transition, and often the
+  preoccupation your life keeps answering. The first story tends to be a précis
+  of the present problem; the sequence often moves from problem toward
+  resolution; your own headlines carry the leitmotifs. If you skipped early
+  recollections, the preoccupation is inferred from your role models instead —
+  admired courage implies familiar fear. Nothing here is a verdict: you edit
+  and authorize every word.
+
+consumes:
+  - early_recollections
+  - role_models
+  - counseling_goal
+
+invalidates:
+  - character_sketch
+  - life_portrait
+
+induce:
+  steps:
+    - id: read
+      task: >
+        Compose the user's perspective on their current transition from the
+        early_recollections artifact. Treat the first recollection as a
+        possible précis of the present problem stated in the counseling goal;
+        weigh the first verb heavily; read the three stories as a sequence
+        (often problem, intensification, resolution — note if the order
+        differs); use the user's own headlines as leitmotifs and quote them
+        exactly. Address the user in the second person. If early_recollections
+        is absent, infer the preoccupation from the role models instead: the
+        admired characteristics are solutions, so name the problem they solve
+        (bravery implies fear, independence implies dependence). Never
+        diagnose; frame everything as a perspective the user may recognize —
+        or correct.
+      model_tier: large
+      output_schema:
+        type: object
+        required: [perspective_statement, preoccupation, first_story_reading, leitmotifs]
+        properties:
+          perspective_statement:
+            type: string
+            description: Two to five second-person sentences — the vantage
+              point from which the user views the current transition.
+          preoccupation:
+            type: string
+            description: The recurring concern at the base of the character
+              arc, named gently.
+          first_story_reading:
+            type: ["string", "null"]
+            description: How the first recollection frames the present problem;
+              null when derived from role models.
+          leitmotifs:
+            type: array
+            items: { type: string, x-verbatim: true }
+            description: The user's own headline words or recurring phrases.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This is a perspective, not a verdict — reword anything that doesn't feel
+    like your own view. Your character sketch and life portrait build on what
+    you approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [perspective_statement, preoccupation]
+    properties:
+      perspective_statement: { type: string }
+      preoccupation: { type: string }
+      first_story_reading: { type: ["string", "null"] }
+      leitmotifs: { type: array, items: { type: string } }
+  render: |
+    {{perspective_statement}}

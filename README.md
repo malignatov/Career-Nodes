@@ -87,6 +87,18 @@ next launch without rebuilding. If a server is already running on :4780 the
 app reuses it. Unsigned, local-testing only — not for distribution. The
 project path is baked in `app/main.cjs` (`CAREER_COUNSELING_DIR` overrides).
 
+```sh
+npm run app:dist     # self-contained shareable build → dist-app/Career-Counseling-arm64.zip
+```
+
+The shareable build bundles the server, playbooks, UI, production deps, and
+the project's `.env` (the API key — recipients bill to it; use a capped,
+revocable key). Recipients' artifacts live in their own
+`~/Library/Application Support/career-counseling-app/artifacts`. Unsigned:
+recipients must allow it once via System Settings → Privacy & Security →
+"Open Anyway" (or `xattr -dr com.apple.quarantine` on the app). For Intel
+Macs: `scripts/package-app.sh x64`.
+
 ## How the engine works
 
 The engine owns progression; the model owns wording. Each conversation node runs

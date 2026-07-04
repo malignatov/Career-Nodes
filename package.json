@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "ui": "node --env-file-if-exists=.env src/server.ts",
     "app": "electron app",
-    "app:build": "electron-packager app 'Career Counseling' --platform=darwin --arch=$(node -p process.arch) --out=dist-app --overwrite --electron-version=$(node -p \"require('electron/package.json').version\")"
+    "app:build": "electron-packager app 'Career Counseling' --platform=darwin --arch=$(node -p process.arch) --out=dist-app --overwrite --electron-version=$(node -p \"require('electron/package.json').version\")",
+    "app:dist": "bash scripts/package-app.sh"
   },
   "keywords": [],
   "author": "",

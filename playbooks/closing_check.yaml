@@ -1,0 +1,122 @@
+id: closing_check
+version: 0.1.0
+kind: conversation
+sector: action
+title: Closing check
+
+purpose: >
+  The closing ritual, straight from the book. Your original request is read
+  back to you word for word, and you — no one else — judge whether it was
+  met. Then you name what's different now, because saying the change out loud
+  is what makes it stick. And at the very end, your own motto is handed back
+  to you: the advice you carried all along, now with a journey behind it.
+  This step records your verdict; it changes nothing else.
+
+consumes:
+  - counseling_goal
+  - action_recipe
+  - motto
+
+invalidates: []
+
+elicit:
+  share_upstream: true
+  persona: |
+    Warm, unhurried, celebratory without flattery. This is a ritual of
+    closure, not another interview. One question at a time. When quoting the
+    user's request or motto from the artifacts, quote them exactly, word for
+    word — never paraphrase them.
+  guardrails:
+    - The user is the only judge of whether their request was met. Accept
+      "partly" and "no" with full respect and without defending the process.
+    - Quote the counseling_goal request_verbatim and the motto exactly as they
+      appear in the artifacts. Never edit, shorten, or improve them.
+    - Do not open new counseling topics; if something big surfaces, note
+      warmly that the map can be revisited any time.
+  stages:
+    - id: verdict
+      goal: The user's own judgment on whether their original request was met.
+      opening: >
+        We've reached the end of the map. Ready to check the journey against
+        where you started?
+      opening_i18n:
+        ru: >
+          Мы дошли до конца карты. Готов сверить путь с тем, с чего ты начинал?
+      probes:
+        - when: the user is ready
+          then: Read their original request back word for word from the
+            counseling_goal artifact, then ask — did we get there?
+        - when: the verdict is "partly" or "no"
+          then: Ask what remains unanswered, and note which checkpoint on the
+            map speaks to it — revisiting is how this process is meant to work.
+      done_when:
+        - The user has given a verdict on their original request — met,
+          partly, or not.
+    - id: difference
+      goal: The change, said in the user's own words.
+      opening: >
+        And compared with the day you first answered that question — what's
+        different now?
+      probes:
+        - when: the user answers abstractly
+          then: Ask what they now do, or are about to do, that they weren't
+            doing before.
+      done_when:
+        - The user has named at least one concrete difference.
+    - id: sendoff
+      goal: Hand the motto back and close.
+      opening: >
+        One last thing before you go.
+      probes:
+        - when: opening the send-off
+          then: Tell the user they had the answer with them all along, quote
+            their motto word for word from the motto artifact, and wish them
+            well on the next chapter — briefly and warmly.
+      done_when:
+        - The user has responded to the send-off in any way.
+
+induce:
+  steps:
+    - id: record
+      task: >
+        Record the closing verdict from the conversation. Quote the user's own
+        words for the verdict and the difference they named.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [goal_met, verdict_words, whats_different]
+        properties:
+          goal_met:
+            type: string
+            enum: [yes, partly, no]
+          verdict_words:
+            type: array
+            minItems: 1
+            items: { type: string, x-verbatim: true }
+          whats_different:
+            type: array
+            minItems: 1
+            items: { type: string, x-verbatim: true }
+          remaining:
+            type: ["string", "null"]
+            description: What still feels unanswered, if the user said so;
+              null otherwise.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    The journey is yours, and so is this record of it. The map stays open —
+    any checkpoint can be revisited, and your goal can be amended for a new
+    round whenever life asks for one.
+
+artifact:
+  schema:
+    type: object
+    required: [goal_met, verdict_words, whats_different]
+    properties:
+      goal_met: { type: string }
+      verdict_words: { type: array, items: { type: string } }
+      whats_different: { type: array, items: { type: string } }
+      remaining: { type: ["string", "null"] }
+  render: |
+    {{goal_met}} — {{#each whats_different}}{{this}}; {{/each}}

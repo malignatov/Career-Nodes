@@ -1,0 +1,66 @@
+id: advice_to_self
+version: 0.1.0
+kind: derived
+sector: induction
+title: Advice to self
+
+purpose: >
+  Unpacks your motto into the call to action it already contains. The premise,
+  from career construction theory: a favorite saying is autotherapy — the best
+  advice you have for yourself, usually stating your own strategy for moving
+  to the next chapter. The answers you seek were already in your pocket; this
+  step just says so plainly. Your motto stays word-for-word yours, and it will
+  be handed back to you at the very end of the journey.
+
+consumes:
+  - motto
+  - counseling_goal
+
+invalidates:
+  - life_portrait
+
+induce:
+  steps:
+    - id: unpack
+      task: >
+        Take the motto exactly as recorded and unfold the advice it contains,
+        addressed to the user in the second person. Connect it directly to the
+        request in the counseling goal: how does this saying answer the very
+        thing the user came here for? State the concrete move the motto is
+        telling the user to make next. Do not improve, correct, or replace the
+        motto — the wisdom must remain the user's own, only made explicit.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [motto, call_to_action, answers_the_request]
+        properties:
+          motto:
+            type: string
+            x-verbatim: true
+            description: The saying, exactly as the user recorded it.
+          call_to_action:
+            type: string
+            description: Two or three second-person sentences — the move the
+              motto is already advising.
+          answers_the_request:
+            type: string
+            description: One or two sentences connecting the motto to the
+              user's stated goal.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This is your own advice, said back to you plainly — adjust anything that
+    doesn't sound like what you meant. The life portrait builds on what you
+    approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [motto, call_to_action]
+    properties:
+      motto: { type: string }
+      call_to_action: { type: string }
+      answers_the_request: { type: string }
+  render: |
+    “{{motto}}” — {{call_to_action}}

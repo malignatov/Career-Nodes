@@ -21,6 +21,7 @@ artifact records the playbook version that formed it).
 | `title` | Map label. |
 | `purpose` | Plain-language paragraph shown to the user *before* the node starts. What happens here, with whose words, and what gets produced. |
 | `consumes` | Upstream node ids whose authorized artifacts are injected as context. |
+| `gate` | Unlock rule against non-goal `consumes`: `any` (default for derived — partial upstream is workable) or `all` (default for conversation; set explicitly on the life portrait and action recipe, which need their full source sets). |
 | `invalidates` | Direct dependents marked stale when this node's artifact is (re)authorized. Transitive propagation is the engine's job — list direct edges only. |
 | `elicit` | Conversation phase (only for `kind: conversation`). |
 | `induce` | Extraction/composition pipeline run when elicitation completes, or on re-run. |
@@ -32,6 +33,9 @@ artifact records the playbook version that formed it).
 - `persona` — tone and stance rules for the interviewer.
 - `guardrails` — hard rules, always in the prompt, non-negotiable. Safety rules
   live here (acknowledge pain, never probe it, offer skip/pause, crisis resources).
+- `share_upstream` — inject the authorized consumed artifacts into the
+  interviewer's context (used by the closing check to read the goal and motto
+  back verbatim). Off by default to keep interview prompts lean.
 - `stages` — a linear state machine. The engine owns stage progression; the model
   only ever writes the next utterance. Each stage:
   - `id`, `goal` — what this stage must obtain.

@@ -4,7 +4,7 @@ import type { Artifact, ExchangeEntry, Playbook } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
 import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO, type SessionLang } from "./engine.ts";
 
-export const ARTIFACTS_DIR = "artifacts";
+export const ARTIFACTS_DIR = process.env.CC_ARTIFACTS_DIR ?? "artifacts";
 
 interface SessionState {
   exchange: ExchangeEntry[];
@@ -76,6 +76,7 @@ export async function runPlaybookSession(
         pb, llm, io,
         resume ? { exchange: resume.exchange, stageIndex: resume.stage_index } : undefined,
         opts.lang,
+        upstream,
       );
       if (elicited.aborted) {
         io.note("(no artifact yet — your progress is saved; open this step again to resume)");

@@ -1,0 +1,96 @@
+id: life_portrait
+version: 0.1.0
+kind: derived
+sector: portrait
+title: Life portrait
+
+purpose: >
+  Assembles everything you authorized into one large story — the life
+  portrait. The premise, from career construction theory: the small stories
+  you told hold together as a macronarrative with six movements, presented in
+  a fixed order: the perspective you keep returning to, the self you built to
+  meet it, the settings that hold you, the script you are drawn to enact, the
+  advice you already carry, and a future scenario that answers the very
+  request you opened with. It is written from your own words and metaphors,
+  bends the arc hopefully without flattering, and is provisional until you
+  authorize it — you are the author; this is a draft for your editing.
+
+consumes:
+  - perspective
+  - character_sketch
+  - preferred_settings
+  - script
+  - advice_to_self
+  - counseling_goal
+
+invalidates:
+  - identity_statement
+  - action_recipe
+
+induce:
+  steps:
+    - id: compose
+      task: >
+        Compose the life portrait from the authorized artifacts, in six titled
+        movements of a few sentences each, second person throughout, then join
+        them into one continuous portrait text. Movement 1 — perspective: the
+        "one damn thing" the user faces again and again, opened with feeling.
+        Movement 2 — self: the character built to meet it, quoting the user's
+        admired descriptor words; show, don't tell. Movement 3 — setting: the
+        places, people, problems, and procedures that hold this self.
+        Movement 4 — script: the storyline that unites self and setting,
+        keeping the transformative scene visible. Movement 5 — advice: the
+        user's motto as the direction the author-self gives the actor-self,
+        quoted exactly. Movement 6 — future scenario: restate the user's
+        original request, then answer it — how the career theme extends the
+        plot in a fitting direction, turning preoccupation toward occupation.
+        Rules: use the user's words and metaphors wherever they exist; keep
+        tensions visible rather than smoothing them; bend the arc hopefully
+        but never flatter; no psychological jargon, no diagnosis; the passive
+        must turn active by the end.
+      model_tier: large
+      output_schema:
+        type: object
+        required: [movements, full_portrait, key_quotes]
+        properties:
+          movements:
+            type: array
+            minItems: 6
+            maxItems: 6
+            items:
+              type: object
+              required: [title, text]
+              properties:
+                title: { type: string }
+                text: { type: string }
+          full_portrait:
+            type: string
+            description: The six movements joined into one continuous
+              second-person portrait.
+          key_quotes:
+            type: array
+            items: { type: string, x-verbatim: true }
+            description: The user's own load-bearing words woven into the
+              portrait.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This is a provisional portrait — you are its author, and it only becomes
+    true when you say so. Rewrite freely; your success formula and action plan
+    grow from what you approve here. Once authorized, you'll also be asked
+    whether your original request still stands or deserves amending.
+
+artifact:
+  schema:
+    type: object
+    required: [movements, full_portrait]
+    properties:
+      movements: { type: array }
+      full_portrait: { type: string }
+      key_quotes: { type: array, items: { type: string } }
+  render: |
+    {{full_portrait}}
+
+# Portrait and recipe need their full source sets before unlocking.
+gate: all

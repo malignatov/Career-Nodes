@@ -54,13 +54,12 @@ function nodeStatus(id: string): string {
   const pb = tryPlaybook(id);
   if (!pb) return "planned";
   if (pb.consumes.length > 0) {
-    if (pb.kind === "conversation") {
-      if (!pb.consumes.every(isAuthorized)) return "planned";
-    } else {
-      // The goal is context, not source material — a derived node unlocks only
-      // when at least one of its non-goal sources is authorized.
-      const sources = pb.consumes.filter((d) => d !== "counseling_goal");
-      if (sources.length > 0 && !sources.some(isAuthorized)) return "planned";
+    // The goal is context, not source material — it never gates derived nodes.
+    const sources = pb.kind === "conversation" ? pb.consumes : pb.consumes.filter((d) => d !== "counseling_goal");
+    const gate = pb.gate ?? (pb.kind === "conversation" ? "all" : "any");
+    if (sources.length > 0) {
+      const met = gate === "all" ? sources.every(isAuthorized) : sources.some(isAuthorized);
+      if (!met) return "planned";
     }
   }
   return "available";
@@ -75,7 +74,7 @@ function firstString(v: unknown): string | null {
   return null;
 }
 
-/** One-line summary of an authorized artifact for its journey card. */
+/** Summary of an authorized artifact for its journey card — shown in full, untruncated. */
 function distill(id: string, content: Record<string, unknown>): string {
   let text: string | null = null;
   if (id === "counseling_goal") text = (content.restated_goal as string) ?? null;
@@ -91,9 +90,16 @@ function distill(id: string, content: Record<string, unknown>): string {
     const recs = (content.recollections ?? []) as { headline?: string }[];
     text = recs.map((r) => r.headline).filter(Boolean).map((h) => `“${h}”`).join(" · ") || null;
   } else if (id === "character_sketch") text = (content.sketch as string) ?? null;
+  else if (id === "perspective") text = (content.perspective_statement as string) ?? null;
+  else if (id === "preferred_settings") text = (content.niche_statement as string) ?? null;
+  else if (id === "script") text = (content.script_statement as string) ?? null;
+  else if (id === "advice_to_self") text = (content.call_to_action as string) ?? null;
+  else if (id === "life_portrait") text = (content.full_portrait as string) ?? null;
+  else if (id === "identity_statement") text = (content.statement as string) ?? null;
+  else if (id === "action_recipe") text = ((content.week_one ?? []) as string[]).join(" · ") || null;
+  else if (id === "closing_check") text = ((content.whats_different ?? []) as string[]).join(" · ") || null;
   text ??= firstString(content);
-  if (!text) return "";
-  return text.length > 150 ? `${text.slice(0, 147)}…` : text;
+  return text ?? "";
 }
 
 function buildJourney(): unknown {

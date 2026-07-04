@@ -7,8 +7,16 @@
 const { app, BrowserWindow, shell } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
+const path = require("node:path");
+const fs = require("node:fs");
 
-const PROJECT_DIR = process.env.CAREER_COUNSELING_DIR ?? "/Users/michael/Claude Code/Career Counseling";
+// Distributable builds carry the whole server under app/server (see
+// scripts/package-app.sh); the dev wrapper points at the live project instead.
+const BUNDLED_SERVER = path.join(__dirname, "server");
+const BUNDLED = fs.existsSync(path.join(BUNDLED_SERVER, "src", "server.ts"));
+const SERVER_DIR =
+  process.env.CAREER_COUNSELING_DIR ??
+  (BUNDLED ? BUNDLED_SERVER : "/Users/michael/Claude Code/Career Counseling");
 const PORT = 4780;
 const URL = `http://localhost:${PORT}`;
 let serverProc = null;
@@ -32,13 +40,18 @@ async function ensureServer() {
     console.log("app: reusing already-running server");
     return;
   }
-  console.log("app: starting server with Electron's bundled Node…");
+  console.log(`app: starting server with Electron's bundled Node (${BUNDLED ? "bundled" : "project"} mode)…`);
   serverProc = spawn(
     process.execPath,
     ["--env-file-if-exists=.env", "src/server.ts"],
     {
-      cwd: PROJECT_DIR,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      cwd: SERVER_DIR,
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+        // Bundled builds keep artifacts per-user, never inside the .app.
+        ...(BUNDLED ? { CC_ARTIFACTS_DIR: path.join(app.getPath("userData"), "artifacts") } : {}),
+      },
       stdio: ["ignore", "inherit", "inherit"],
     },
   );

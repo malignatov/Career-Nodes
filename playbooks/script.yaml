@@ -1,0 +1,88 @@
+id: script
+version: 0.1.0
+kind: derived
+sector: induction
+title: Script
+
+purpose: >
+  Finds the storyline in your favorite story. The premise, from career
+  construction theory: your current favorite story carries the script for the
+  next chapter — a character like you, facing a predicament like yours, and a
+  way through it. The script unites your self (character sketch) with your
+  setting (preferred settings). One duty of care from the book: favorite
+  stories are cultural products, so any limiting assumptions hiding in the
+  script are flagged for your own critical eye — the story is an invitation,
+  never a prescription. You edit and authorize everything.
+
+consumes:
+  - favorite_story
+  - character_sketch
+  - preferred_settings
+  - counseling_goal
+
+invalidates:
+  - life_portrait
+
+induce:
+  steps:
+    - id: compose
+      task: >
+        From the favorite_story artifact — as the user retold it, using their
+        key phrases — articulate the script for the user's next chapter: how a
+        self like theirs (character_sketch) meets a setting like theirs
+        (preferred_settings) and moves through a predicament like the one in
+        the story. Address the user in the second person. Name the
+        transformative scene — the moment in their telling where the turn
+        happens — and state the credo the story carries (the idea a life like
+        this serves). Then, gently and briefly, note anything in the script
+        that could confine rather than free the user (gender expectations,
+        prescribed endings, borrowed obligations) as questions for the user to
+        judge, not corrections. Trace how the script turns passive into
+        active. Never invent plot the user did not tell.
+      model_tier: large
+      output_schema:
+        type: object
+        required: [script_statement, transformative_scene, credo, passive_to_active]
+        properties:
+          script_statement:
+            type: string
+            description: Three to six second-person sentences — the storyline
+              for the next chapter.
+          transformative_scene: { type: string }
+          credo:
+            type: string
+            description: The idea served by a life following this script.
+          passive_to_active:
+            type: string
+            description: One sentence — from being influenced by the problem
+              to influencing it.
+          deconstruction_notes:
+            type: ["string", "null"]
+            description: Possible confining assumptions in the story, framed
+              as open questions; null if none stand out.
+          story_phrases:
+            type: array
+            items: { type: string, x-verbatim: true }
+            description: The user's own phrases from the retelling that carry
+              the script.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    A script is an invitation, not a prescription — rewrite anything that
+    doesn't feel like your storyline. The life portrait builds on what you
+    approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [script_statement, transformative_scene, credo]
+    properties:
+      script_statement: { type: string }
+      transformative_scene: { type: string }
+      credo: { type: string }
+      passive_to_active: { type: string }
+      deconstruction_notes: { type: ["string", "null"] }
+      story_phrases: { type: array, items: { type: string } }
+  render: |
+    {{script_statement}}

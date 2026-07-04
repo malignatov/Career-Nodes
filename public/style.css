@@ -398,16 +398,16 @@ body {
 #draftBody .field-value { font: 500 15px/1.6 Lora, serif; color: var(--ink); }
 #draftBody ul { margin: 2px 0 0; padding-left: 20px; }
 #draftBody li { font: 500 14.5px/1.6 Lora, serif; }
-#draftBody pre {
-  font: 400 12px/1.55 ui-monospace, Menlo, monospace;
+#draftBody .sub-card {
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: 8px;
-  padding: 9px 11px;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  margin: 2px 0 0;
+  border-radius: 10px;
+  padding: 10px 13px;
+  margin: 4px 0 6px;
 }
+#draftBody .sub-card .field-label { font-size: 10px; margin: 6px 0 1px; }
+#draftBody .sub-card .field-label:first-child { margin-top: 0; }
+#draftBody .sub-card .field-value { font-size: 14px; }
 
 #verifyLine { display: flex; align-items: center; gap: 7px; font: 500 11.5px Karla, sans-serif; color: var(--sage); }
 

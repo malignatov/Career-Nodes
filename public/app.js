@@ -316,6 +316,41 @@ function quotesIn(text, quotes) {
   return quotes.filter((q) => text.includes(q)).length;
 }
 
+/* Recursive human rendering of a structured draft — never raw JSON. */
+const HIDDEN_KEYS = new Set([
+  "_verbatim_warnings", "candidates",
+  "named_order", "spoken_order", "first_mentioned_rank", "order",
+]);
+
+function renderValue(value, quotes) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "string") return `<div class="field-value">${markVerbatim(value, quotes)}</div>`;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return `<div class="field-value">${esc(String(value))}</div>`;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "";
+    if (value.every((v) => typeof v === "string")) {
+      return `<ul>${value.map((v) => `<li>${markVerbatim(v, quotes)}</li>`).join("")}</ul>`;
+    }
+    return value.map((v) => `<div class="sub-card">${renderValue(v, quotes)}</div>`).join("");
+  }
+  if (typeof value === "object") return renderFields(value, quotes);
+  return "";
+}
+
+function renderFields(obj, quotes) {
+  const parts = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (HIDDEN_KEYS.has(key)) continue;
+    const rendered = renderValue(value, quotes);
+    if (!rendered) continue;
+    parts.push(`<div class="field-label">${esc(key.replaceAll("_", " "))}</div>`);
+    parts.push(rendered);
+  }
+  return parts.join("");
+}
+
 function renderDraftBody() {
   const { payload, currentText, edited } = modal.review;
   const body = $("draftBody");
@@ -340,19 +375,7 @@ function renderDraftBody() {
     }
   } else {
     $("altList").hidden = true;
-    const parts = [];
-    for (const [key, value] of Object.entries(payload.draft)) {
-      if (key === "_verbatim_warnings" || key === "candidates") continue;
-      parts.push(`<div class="field-label">${esc(key.replaceAll("_", " "))}</div>`);
-      if (typeof value === "string") {
-        parts.push(`<div class="field-value">${markVerbatim(value, payload.verified_quotes)}</div>`);
-      } else if (Array.isArray(value) && value.every((v) => typeof v === "string")) {
-        parts.push(`<ul>${value.map((v) => `<li>${markVerbatim(v, payload.verified_quotes)}</li>`).join("")}</ul>`);
-      } else if (value !== null) {
-        parts.push(`<pre>${markVerbatim(JSON.stringify(value, null, 2), payload.verified_quotes)}</pre>`);
-      }
-    }
-    body.innerHTML = parts.join("");
+    body.innerHTML = renderFields(payload.draft, payload.verified_quotes);
   }
 
   const verify = $("verifyLine");

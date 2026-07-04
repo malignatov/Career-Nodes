@@ -55,7 +55,12 @@ const MAX_TURNS_PER_STAGE = 12;
 export const CHECKER_SYSTEM =
   "You audit an interview transcript against a checklist. Judge only from what the user actually said. Return JSON only.";
 
-export function interviewerSystem(pb: Playbook, stage: Stage, lang?: SessionLang): string {
+export function interviewerSystem(
+  pb: Playbook,
+  stage: Stage,
+  lang?: SessionLang,
+  upstream?: Record<string, unknown>,
+): string {
   const probes = (stage.probes ?? [])
     .map((p) => `- When ${p.when}: ${p.then}`)
     .join("\n");
@@ -71,6 +76,9 @@ export function interviewerSystem(pb: Playbook, stage: Stage, lang?: SessionLang
     "Messages wrapped in [brackets] are stage directions from the application, not the user. Never mention them.",
     lang
       ? `Conduct the entire conversation in ${lang.instruction}. Translate the anchor question faithfully — keep its meaning intact.`
+      : "",
+    pb.elicit!.share_upstream && upstream && Object.keys(upstream).length > 0
+      ? `The user's authorized artifacts, for reference (when instructed to quote from these, quote exactly, word for word):\n${JSON.stringify(upstream, null, 2)}`
       : "",
   ].filter(Boolean).join("\n\n");
 }
@@ -129,6 +137,7 @@ export async function runElicit(
   io: SessionIO,
   resume?: ResumeState,
   lang?: SessionLang,
+  upstream?: Record<string, unknown>,
 ): Promise<ElicitResult> {
   const exchange: ExchangeEntry[] = resume ? [...resume.exchange] : [];
   const messages: ChatTurn[] = exchange.map((e) => ({
@@ -142,7 +151,7 @@ export async function runElicit(
   for (let i = startIndex; i < stages.length; i++) {
     const stage = stages[i];
     io.note(`(topic ${i + 1} of ${stages.length}: ${stage.id})`);
-    const system = interviewerSystem(pb, stage, lang);
+    const system = interviewerSystem(pb, stage, lang, upstream);
     let skipGenerate = false;
 
     if (i === 0 && exchange.length === 0) {

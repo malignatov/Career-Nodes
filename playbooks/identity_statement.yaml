@@ -1,0 +1,65 @@
+id: identity_statement
+version: 0.1.0
+kind: derived
+sector: portrait
+title: Identity statement
+
+purpose: >
+  Distills your life portrait into one sentence you can carry — your success
+  formula. The premise, from career construction theory: the future is already
+  embedded in it. The classic template is "I will be happy and successful
+  when I…", assembled from phrases of your own portrait. Several candidate
+  formulas are drafted; you pick one, reword it, or write your own — the
+  sentence must be one you would actually say.
+
+consumes:
+  - life_portrait
+  - counseling_goal
+
+invalidates:
+  - action_recipe
+
+induce:
+  steps:
+    - id: assemble
+      task: >
+        From the authorized life portrait, assemble two or three alternative
+        success formulas — single first-person sentences following the shape
+        "I will be happy and successful when I …" (adapt the template
+        naturally to the session language and to how the user speaks about
+        themselves). Build each from the portrait's own phrases: the strongest
+        candidates borrow the user's verbs. Each candidate should carry the
+        career theme and point the plot forward; together they should offer a
+        real choice of emphasis, not three wordings of one sentence.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [candidates, source_phrases]
+        properties:
+          candidates:
+            type: array
+            x-candidates: true
+            minItems: 2
+            maxItems: 3
+            items: { type: string }
+          source_phrases:
+            type: array
+            items: { type: string, x-verbatim: true }
+            description: The portrait phrases the formulas were assembled from.
+
+confirm:
+  present: candidates
+  choice_field: statement
+  authorize_language: >
+    This sentence is your compass — you'll reach for it at every confusing
+    choice. Your action plan is built to serve it.
+
+artifact:
+  schema:
+    type: object
+    required: [statement]
+    properties:
+      statement: { type: string }
+      source_phrases: { type: array, items: { type: string } }
+  render: |
+    {{statement}}

@@ -1,0 +1,105 @@
+id: action_recipe
+version: 0.1.0
+kind: derived
+sector: action
+title: Action recipe
+
+purpose: >
+  Turns your success formula into concrete moves in the real world. The
+  premise, from career construction theory: action, not decidedness, carries
+  you forward — you learn which future you want by exploring it. The plan
+  names two or three directions that fit your authorized artifacts, assigns
+  each the book's information-seeking behaviors (writing, observing, reading,
+  listening, visiting, talking), sets three first steps for the coming week,
+  and names the barrier most likely to stall you — with its counter-move.
+  Everything must occur in the real world, and you authorize all of it.
+
+consumes:
+  - identity_statement
+  - life_portrait
+  - preferred_settings
+  - counseling_goal
+
+invalidates:
+  - closing_check
+
+induce:
+  steps:
+    - id: plan
+      task: >
+        From the identity statement, life portrait, and preferred settings,
+        draft the user's exploration plan, second person. Propose two or three
+        directions (occupations, roles, or paths) that would let the user live
+        their formula — for each, say in one sentence why it fits their
+        authorized artifacts (cite their own words where possible), name its
+        exploration stage (crystallize: comparing broad options; specify:
+        deepening one; actualize: securing a real position or trial), and give
+        two or three concrete exploration actions drawn from the six
+        information-seeking behaviors — writing, observing, reading,
+        listening, visiting, talking — each naming a real-world step the user
+        could take. Then set week_one: the three smallest concrete moves for
+        the next seven days. Finally, from the portrait's tensions, name the
+        single most likely barrier for THIS user (a feeling like anxiety or
+        guilt, a practical constraint, or an unsupportive audience) and give
+        one gentle counter-move; if the barrier is a feeling, name it kindly.
+        No generic advice: every item must trace back to the user's artifacts.
+      model_tier: large
+      output_schema:
+        type: object
+        required: [directions, week_one, barrier]
+        properties:
+          directions:
+            type: array
+            minItems: 2
+            maxItems: 3
+            items:
+              type: object
+              required: [name, why_it_fits, stage, actions]
+              properties:
+                name: { type: string }
+                why_it_fits: { type: string }
+                stage: { type: string, enum: [crystallize, specify, actualize] }
+                actions:
+                  type: array
+                  minItems: 2
+                  maxItems: 3
+                  items:
+                    type: object
+                    required: [behavior, step]
+                    properties:
+                      behavior:
+                        type: string
+                        enum: [writing, observing, reading, listening, visiting, talking]
+                      step: { type: string }
+          week_one:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items: { type: string }
+          barrier:
+            type: object
+            required: [name, counter_move]
+            properties:
+              name: { type: string }
+              counter_move: { type: string }
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This plan only counts if it happens in the real world — trim anything you
+    won't actually do, and make the first steps embarrassingly small. When
+    you've explored, come back for the closing check.
+
+artifact:
+  schema:
+    type: object
+    required: [directions, week_one, barrier]
+    properties:
+      directions: { type: array }
+      week_one: { type: array, items: { type: string } }
+      barrier: { type: object }
+  render: |
+    {{#each week_one}}• {{this}}
+    {{/each}}
+
+gate: all

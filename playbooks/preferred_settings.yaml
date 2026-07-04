@@ -1,0 +1,86 @@
+id: preferred_settings
+version: 0.1.0
+kind: derived
+sector: induction
+title: Preferred settings
+
+purpose: >
+  Turns your favorite media into a picture of where you like to be. The
+  premise, from career construction theory: favorite shows, sites, and
+  magazines are vicarious environments — trustworthy evidence of the settings
+  you seek. They are analyzed along four dimensions: places, people, problems,
+  and procedures, and summarized in the Holland (RIASEC) vocabulary. This is a
+  description of attraction, not a prescription of jobs — occupations come
+  later, and you authorize everything.
+
+consumes:
+  - favorite_media
+  - counseling_goal
+
+invalidates:
+  - script
+  - life_portrait
+
+induce:
+  steps:
+    - id: analyze
+      task: >
+        From the favorite_media artifact, describe the user's preferred
+        occupational settings along the book's four dimensions — the places
+        they want to be in, the people they want around them, the problems
+        they prefer to address, and the procedures they like to use. Ground
+        every dimension in the user's stated attractions and quote their words
+        where they carry the meaning. Confirm or refine the RIASEC codes from
+        the media artifact, basing each code on the stated attraction rather
+        than the title. Close with a short second-person niche statement — the
+        kind of stage on which this user can perform themselves.
+      model_tier: small
+      output_schema:
+        type: object
+        required: [places, people, problems, procedures, riasec, niche_statement]
+        properties:
+          places: { type: string }
+          people: { type: string }
+          problems: { type: string }
+          procedures: { type: string }
+          riasec:
+            type: object
+            required: [codes, rationale]
+            properties:
+              codes:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items: { type: string, enum: [R, I, A, S, E, C] }
+              rationale: { type: string }
+          niche_statement:
+            type: string
+            description: Two or three second-person sentences describing the
+              setting that would hold this user well.
+          evidence:
+            type: array
+            items: { type: string, x-verbatim: true }
+            description: The user's own attraction phrases that carry this
+              reading.
+
+confirm:
+  present: structured_review
+  authorize_language: >
+    This describes where you're drawn, in your own evidence — correct anything
+    that doesn't ring true. Your script and life portrait build on what you
+    approve here.
+
+artifact:
+  schema:
+    type: object
+    required: [places, people, problems, procedures, riasec, niche_statement]
+    properties:
+      places: { type: string }
+      people: { type: string }
+      problems: { type: string }
+      procedures: { type: string }
+      riasec: { type: object }
+      niche_statement: { type: string }
+      evidence: { type: array, items: { type: string } }
+  render: |
+    {{niche_statement}}
