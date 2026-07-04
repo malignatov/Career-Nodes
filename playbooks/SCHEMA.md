@@ -37,6 +37,12 @@ artifact records the playbook version that formed it).
   - `id`, `goal` — what this stage must obtain.
   - `opening` — the stage's anchor question (book wording wherever possible; it is
     load-bearing). May contain `{{placeholders}}` filled by the engine.
+  - `opening_i18n` — optional translated anchor wordings keyed by language code
+    (`ru: …`). Used verbatim for the session's language when present.
+    The **first stage's opener is baked, not generated**: the engine emits
+    greeting + anchor question deterministically (no model call), seeds it into
+    the transcript as the interviewer's first turn, and flags it to the UI as an
+    anchor question.
   - `probes` — `when`/`then` pairs in natural language. Compiled into the stage
     prompt; the interviewer model applies them judgmentally. They are scaffolding,
     not branches the engine executes.

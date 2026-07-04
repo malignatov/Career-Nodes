@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { join } from "node:path";
 import type { Artifact, ExchangeEntry, Playbook } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
-import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO } from "./engine.ts";
+import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO, type SessionLang } from "./engine.ts";
 
 export const ARTIFACTS_DIR = "artifacts";
 
@@ -19,7 +19,7 @@ export async function runPlaybookSession(
   pb: Playbook,
   llm: LlmAdapter,
   baseIO: SessionIO,
-  opts: { header?: boolean; language?: string; autoResume?: boolean } = {},
+  opts: { header?: boolean; lang?: SessionLang; autoResume?: boolean } = {},
 ): Promise<SessionOutcome> {
   mkdirSync(ARTIFACTS_DIR, { recursive: true });
   const sessionPath = join(ARTIFACTS_DIR, `${pb.id}.session.json`);
@@ -75,7 +75,7 @@ export async function runPlaybookSession(
       const elicited = await runElicit(
         pb, llm, io,
         resume ? { exchange: resume.exchange, stageIndex: resume.stage_index } : undefined,
-        opts.language,
+        opts.lang,
       );
       if (elicited.aborted) {
         io.note("(no artifact yet — your progress is saved; open this step again to resume)");
@@ -100,9 +100,9 @@ export async function runPlaybookSession(
     io.note("(derived step — no interview; drafting from your authorized artifacts)");
   }
 
-  const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.language);
+  const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.lang);
   const authorized = await runConfirm(pb, draft, io, (feedback) =>
-    runInduce(pb, llm, exchange, upstream, io, feedback, opts.language),
+    runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang),
   );
 
   writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.json`), JSON.stringify(toArtifact(pb, authorized), null, 2));

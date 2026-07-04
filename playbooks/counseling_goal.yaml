@@ -50,6 +50,9 @@ elicit:
       goal: Capture the request in the user's own words.
       opening: >
         How can this process be useful to you as you construct your career?
+      opening_i18n:
+        ru: >
+          Чем этот процесс может быть полезен тебе в построении твоей карьеры?
       probes:
         - when: the answer is a single broad phrase ("figure things out",
             "career change", "find my path")

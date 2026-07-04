@@ -6,14 +6,14 @@ import { loadPlaybook } from "./playbook.ts";
 import { createAdapter } from "./llm.ts";
 import { runPlaybookSession, ARTIFACTS_DIR } from "./session.ts";
 import { MAP_NODES, MAP_EDGES, MAP_SECTORS } from "./map.ts";
-import { compiledPrompts, type ReviewAction, type SessionIO } from "./engine.ts";
+import { compiledPrompts, type ReviewAction, type SessionIO, type SessionLang } from "./engine.ts";
 import type { Artifact, Playbook } from "./types.ts";
 
 const PORT = Number(process.env.PORT ?? 4780);
 const PUBLIC_DIR = "public";
 const ID_RE = /^[a-z_]+$/;
-const LANG_NAMES: Record<string, string | undefined> = {
-  ru: "Russian, addressing the user with the informal, warm “ты” (never the formal “вы”)",
+const SESSION_LANGS: Record<string, SessionLang | undefined> = {
+  ru: { code: "ru", instruction: "Russian, addressing the user with the informal, warm “ты” (never the formal “вы”)" },
 };
 const llm = createAdapter();
 
@@ -130,7 +130,7 @@ const server = createServer((req, res) => {
     if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
     const pb = tryPlaybook(id);
     if (!pb) return json(res, 404, { planned: true });
-    const language = LANG_NAMES[url.searchParams.get("lang") ?? ""];
+    const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
     return json(res, 200, {
       id: pb.id,
       title: pb.title,
@@ -139,7 +139,7 @@ const server = createServer((req, res) => {
       consumes: pb.consumes,
       invalidates: pb.invalidates,
       stages: pb.elicit?.stages.map((s) => s.id) ?? [],
-      compiled: compiledPrompts(pb, language),
+      compiled: compiledPrompts(pb, lang),
     });
   }
 
@@ -211,6 +211,7 @@ wss.on("connection", (ws, req) => {
 
   const io: SessionIO = {
     say: (t) => send({ type: "say", text: t }),
+    sayAnchor: (t) => send({ type: "say", text: t, anchor: true }),
     note: (t) => send({ type: "note", text: t }),
     ask: (prompt) =>
       new Promise((resolve, reject) => {
@@ -225,9 +226,9 @@ wss.on("connection", (ws, req) => {
   };
 
   const pb = loadPlaybook(playbookPath(id));
-  const language = LANG_NAMES[url.searchParams.get("lang") ?? ""];
+  const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
   const autoResume = url.searchParams.get("resume") === "1";
-  runPlaybookSession(pb, llm, io, { header: false, language, autoResume })
+  runPlaybookSession(pb, llm, io, { header: false, lang, autoResume })
     .then((outcome) => {
       send({ type: "done", text: outcome });
       if (open) ws.close();

@@ -325,6 +325,13 @@ body {
   max-width: 92%;
 }
 .msg.error { align-self: center; background: #F5DDD6; color: var(--mark-ink); border-radius: 12px; font-size: 12.5px; }
+.msg.note.anchor {
+  align-self: flex-start;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: -5px;
+}
 
 #composer {
   display: flex;

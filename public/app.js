@@ -256,7 +256,10 @@ function connect(id, resuming = false) {
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
-    if (msg.type === "say") addMsg("say", msg.text);
+    if (msg.type === "say") {
+      if (msg.anchor) addMsg("note anchor", t("anchor_label"));
+      addMsg("say", msg.text);
+    }
     else if (msg.type === "note") addMsg("note", localizeNote(msg.text));
     else if (msg.type === "error") addMsg("error", msg.text);
     else if (msg.type === "ask") enableComposer(msg.text);

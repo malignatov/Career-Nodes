@@ -33,6 +33,9 @@ elicit:
       goal: One favorite saying or motto, in the user's exact wording.
       opening: >
         Tell me your favorite saying or motto.
+      opening_i18n:
+        ru: >
+          Назови свою любимую поговорку или девиз.
       probes:
         - when: the user cannot think of one
           then: Ask about a saying they remember hearing that stuck with them.

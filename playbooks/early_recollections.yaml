@@ -48,6 +48,11 @@ elicit:
         What are your earliest recollections? I'm interested in hearing three
         stories about things you recall happening to you when you were about
         three to six years old — or as early as you can remember.
+      opening_i18n:
+        ru: >
+          Какие твои самые ранние воспоминания? Мне интересно услышать три
+          истории о том, что случалось с тобой лет в три–шесть — или так рано,
+          как ты только можешь вспомнить.
       probes:
         - when: only a fragment or image comes
           then: Welcome it — ask them to describe the scene as they see it.

@@ -34,6 +34,9 @@ elicit:
       goal: Two or three favorite media the user returns to regularly.
       opening: >
         Do you watch any television programs regularly? Which ones?
+      opening_i18n:
+        ru: >
+          Есть ли передачи или сериалы, которые ты регулярно смотришь? Какие?
       probes:
         - when: the user rarely watches television
           then: Ask which websites they visit again and again.

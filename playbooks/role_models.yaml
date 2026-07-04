@@ -46,6 +46,10 @@ elicit:
       opening: >
         Who did you admire when you were about six years old? Tell me about her
         or him.
+      opening_i18n:
+        ru: >
+          Кто был твоим кумиром, когда тебе было лет шесть? Расскажи мне о нём —
+          или о ней.
       probes:
         - when: the user can't think of anyone
           then: Suggest the model need not be famous — a relative, neighbor,

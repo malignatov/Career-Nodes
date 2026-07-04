@@ -14,6 +14,8 @@ export interface Stage {
   id: string;
   goal: string;
   opening: string;
+  /** Translated anchor wording, keyed by language code (e.g. ru). */
+  opening_i18n?: Record<string, string>;
   probes?: Probe[];
   done_when: string[];
 }

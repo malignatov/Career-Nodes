@@ -35,6 +35,9 @@ elicit:
       goal: One current favorite story from a book or movie.
       opening: >
         Currently, what is your favorite story from a book or movie?
+      opening_i18n:
+        ru: >
+          Какая история из книги или фильма — твоя любимая сейчас?
       probes:
         - when: the user offers an all-time favorite from childhood
           then: Honor it, then ask what story has gripped them lately —

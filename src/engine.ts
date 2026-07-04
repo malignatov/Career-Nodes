@@ -26,6 +26,23 @@ export interface SessionIO {
   onTurn?(exchange: ExchangeEntry[], stageIndex: number): void;
   /** Structured confirm step. When absent, confirm falls back to ask()-based chat prompts. */
   review?(payload: ReviewPayload): Promise<ReviewAction>;
+  /** A deterministic anchor-question message (baked, not model-generated). Falls back to say(). */
+  sayAnchor?(text: string): void;
+}
+
+export interface SessionLang {
+  code: string;
+  instruction: string;
+}
+
+const GREETINGS: Record<string, string> = {
+  en: "Hi — I'm glad you're here.",
+  ru: "Привет! Хорошо, что ты здесь.",
+};
+
+function stageOpening(stage: Stage, lang?: SessionLang): string {
+  const localized = lang ? stage.opening_i18n?.[lang.code] : undefined;
+  return (localized ?? stage.opening).trim();
 }
 
 export interface ResumeState {
@@ -38,7 +55,7 @@ const MAX_TURNS_PER_STAGE = 12;
 export const CHECKER_SYSTEM =
   "You audit an interview transcript against a checklist. Judge only from what the user actually said. Return JSON only.";
 
-export function interviewerSystem(pb: Playbook, stage: Stage, language?: string): string {
+export function interviewerSystem(pb: Playbook, stage: Stage, lang?: SessionLang): string {
   const probes = (stage.probes ?? [])
     .map((p) => `- When ${p.when}: ${p.then}`)
     .join("\n");
@@ -48,12 +65,12 @@ export function interviewerSystem(pb: Playbook, stage: Stage, language?: string)
     "Hard rules you must never break:",
     ...pb.elicit!.guardrails.map((g) => `- ${g}`),
     `Current topic goal: ${stage.goal}`,
-    `Anchor question for this topic (use this wording, adapted only lightly to the flow): ${stage.opening.trim()}`,
+    `Anchor question for this topic (use this wording, adapted only lightly to the flow): ${stageOpening(stage, lang)}`,
     probes ? `Probe guidance:\n${probes}` : "",
     "Ask exactly one question per message and keep each message to a few sentences.",
     "Messages wrapped in [brackets] are stage directions from the application, not the user. Never mention them.",
-    language
-      ? `Conduct the entire conversation in ${language}. Translate the anchor question faithfully — keep its meaning intact.`
+    lang
+      ? `Conduct the entire conversation in ${lang.instruction}. Translate the anchor question faithfully — keep its meaning intact.`
       : "",
   ].filter(Boolean).join("\n\n");
 }
@@ -111,7 +128,7 @@ export async function runElicit(
   llm: LlmAdapter,
   io: SessionIO,
   resume?: ResumeState,
-  language?: string,
+  lang?: SessionLang,
 ): Promise<ElicitResult> {
   const exchange: ExchangeEntry[] = resume ? [...resume.exchange] : [];
   const messages: ChatTurn[] = exchange.map((e) => ({
@@ -125,23 +142,36 @@ export async function runElicit(
   for (let i = startIndex; i < stages.length; i++) {
     const stage = stages[i];
     io.note(`(topic ${i + 1} of ${stages.length}: ${stage.id})`);
-    const system = interviewerSystem(pb, stage, language);
-    messages.push({
-      role: "user",
-      content: resuming
-        ? "[The session was interrupted earlier and has just been resumed. Welcome the user back in one short sentence and continue this topic where it left off.]"
-        : i === 0
-          ? "[The session begins. Greet the user in one short sentence, then ask your anchor question.]"
-          : `[Topic complete. Move on to the next topic and ask its anchor question: ${stage.opening.trim()}]`,
-    });
-    resuming = false;
+    const system = interviewerSystem(pb, stage, lang);
+    let skipGenerate = false;
+
+    if (i === 0 && exchange.length === 0) {
+      // The session opener is deterministic: the anchor question is meant to be
+      // asked of everyone, verbatim — no model call, no latency, no variation.
+      const opener = `${GREETINGS[lang?.code ?? "en"] ?? GREETINGS.en}\n\n${stageOpening(stage, lang)}`;
+      messages.push({ role: "assistant", content: opener });
+      exchange.push({ speaker: "interviewer", text: opener });
+      (io.sayAnchor ?? io.say)(opener);
+      skipGenerate = true;
+    } else {
+      messages.push({
+        role: "user",
+        content: resuming
+          ? "[The session was interrupted earlier and has just been resumed. Welcome the user back in one short sentence and continue this topic where it left off.]"
+          : `[Topic complete. Move on to the next topic and ask its anchor question: ${stageOpening(stage, lang)}]`,
+      });
+      resuming = false;
+    }
 
     let turns = 0;
     while (turns < MAX_TURNS_PER_STAGE) {
-      const question = await llm.complete({ tier: "small", system, messages });
-      messages.push({ role: "assistant", content: question });
-      exchange.push({ speaker: "interviewer", text: question });
-      io.say(question);
+      if (!skipGenerate) {
+        const question = await llm.complete({ tier: "small", system, messages });
+        messages.push({ role: "assistant", content: question });
+        exchange.push({ speaker: "interviewer", text: question });
+        io.say(question);
+      }
+      skipGenerate = false;
 
       const answer = await io.ask("you");
       if (answer.trim() === "/quit") return { exchange, userWords: userWords(exchange), aborted: true };
@@ -168,7 +198,7 @@ function userWords(exchange: ExchangeEntry[]): string {
   return exchange.filter((e) => e.speaker === "user").map((e) => e.text).join("\n");
 }
 
-export function induceStepSystem(pb: Playbook, step: InduceStep, language?: string): string {
+export function induceStepSystem(pb: Playbook, step: InduceStep, lang?: SessionLang): string {
   return [
     `You are the induction engine for the "${pb.title}" step of a career construction session.`,
     `Task: ${step.task.trim()}`,
@@ -176,25 +206,25 @@ export function induceStepSystem(pb: Playbook, step: InduceStep, language?: stri
     "Optional fields that allow null: emit null rather than inventing content the user never provided.",
     ...(step.validation ?? []).map((v) => `Constraint: ${v}`),
     "Return only JSON matching the schema.",
-    language
-      ? `Write all free-text output in ${language}. Strings marked x-verbatim must remain exactly as the user said them, in the user's own language.`
+    lang
+      ? `Write all free-text output in ${lang.instruction}. Strings marked x-verbatim must remain exactly as the user said them, in the user's own language.`
       : "",
   ].filter(Boolean).join("\n\n");
 }
 
 /** Everything the models are told for this node, compiled exactly as sent. */
-export function compiledPrompts(pb: Playbook, language?: string): unknown {
+export function compiledPrompts(pb: Playbook, lang?: SessionLang): unknown {
   return {
     stages: (pb.elicit?.stages ?? []).map((s) => ({
       id: s.id,
-      system: interviewerSystem(pb, s, language),
+      system: interviewerSystem(pb, s, lang),
       done_when: s.done_when,
     })),
     checker: pb.elicit ? CHECKER_SYSTEM : null,
     induce: (pb.induce?.steps ?? []).map((st) => ({
       id: st.id,
       model_tier: st.model_tier,
-      system: induceStepSystem(pb, st, language),
+      system: induceStepSystem(pb, st, lang),
       output_schema: st.output_schema,
     })),
   };
@@ -215,9 +245,9 @@ async function runInduceStep(
   upstream: Record<string, unknown>,
   verbatimSource: string,
   feedback: string | undefined,
-  language: string | undefined,
+  lang: SessionLang | undefined,
 ): Promise<Record<string, unknown>> {
-  const system = induceStepSystem(pb, step, language);
+  const system = induceStepSystem(pb, step, lang);
 
   const sourceBlock = transcript
     ? `Transcript:\n${transcript}`
@@ -263,7 +293,7 @@ export async function runInduce(
   upstream: Record<string, unknown>,
   io: SessionIO,
   feedback?: string,
-  language?: string,
+  lang?: SessionLang,
 ): Promise<Record<string, unknown>> {
   const transcript = exchange.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
   const verbatimSource = [
@@ -273,7 +303,7 @@ export async function runInduce(
   const draft: Record<string, unknown> = {};
   for (const step of pb.induce!.steps) {
     io.note(`(inducing: ${step.id}…)`);
-    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback, language));
+    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback, lang));
   }
   return draft;
 }
