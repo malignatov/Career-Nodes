@@ -283,7 +283,7 @@ $("composer").addEventListener("submit", (e) => {
 
 /* ── review & authorize ──────────────────────────────── */
 
-function shortName(node) {
+function shortEntry(node) {
   const dict = STR[lang].short;
   return dict[node.id] ?? dict.default;
 }
@@ -355,10 +355,10 @@ function showReview(payload) {
   modal.review = { payload, currentText: payload.candidates[0] ?? "", edited: false };
   setView("review");
 
-  const name = shortName(modal.node);
-  $("reviewExplainer").textContent = t("review_explainer", name);
-  $("draftKicker").textContent = t("kicker", name);
-  $("authorizeBtn").textContent = t("authorize", name);
+  const short = shortEntry(modal.node);
+  $("reviewExplainer").textContent = t("review_explainer", short.label);
+  $("draftKicker").textContent = t("kicker", short.label);
+  $("authorizeBtn").textContent = short.auth;
   $("reviewFoot").textContent = payload.authorize_language;
   $("editBtn").hidden = payload.mode !== "candidates";
   $("editBtn").textContent = t("edit_wording");

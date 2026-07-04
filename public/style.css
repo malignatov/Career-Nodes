@@ -209,6 +209,8 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(61, 54, 45, 0.38);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
   display: flex;
   align-items: center;
   justify-content: center;

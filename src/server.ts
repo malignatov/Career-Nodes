@@ -12,7 +12,9 @@ import type { Artifact, Playbook } from "./types.ts";
 const PORT = Number(process.env.PORT ?? 4780);
 const PUBLIC_DIR = "public";
 const ID_RE = /^[a-z_]+$/;
-const LANG_NAMES: Record<string, string | undefined> = { ru: "Russian" };
+const LANG_NAMES: Record<string, string | undefined> = {
+  ru: "Russian, addressing the user with the informal, warm “ты” (never the formal “вы”)",
+};
 const llm = createAdapter();
 
 const MIME: Record<string, string> = {
