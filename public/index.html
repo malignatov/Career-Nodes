@@ -28,11 +28,11 @@
         </div>
         <div id="tPanel" hidden>
           <div>
-            <div class="t-label">What’s happening</div>
+            <div class="t-label" id="tLabelWhat">What’s happening</div>
             <div id="tWhat" class="t-text"></div>
           </div>
           <div>
-            <div class="t-label">Model instructions (compiled)</div>
+            <div class="t-label" id="tLabelCompiled">Model instructions (compiled)</div>
             <div id="tCompiled" class="t-mono"></div>
           </div>
         </div>
@@ -42,7 +42,7 @@
         <div id="messages"></div>
         <form id="composer" class="disabled">
           <input id="input" placeholder="Write in your own words…" autocomplete="off" disabled />
-          <button type="submit">Send</button>
+          <button type="submit" id="sendBtn">Send</button>
         </form>
       </div>
 

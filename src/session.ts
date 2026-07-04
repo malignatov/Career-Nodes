@@ -19,7 +19,7 @@ export async function runPlaybookSession(
   pb: Playbook,
   llm: LlmAdapter,
   baseIO: SessionIO,
-  opts: { header?: boolean } = {},
+  opts: { header?: boolean; language?: string } = {},
 ): Promise<SessionOutcome> {
   mkdirSync(ARTIFACTS_DIR, { recursive: true });
   const sessionPath = join(ARTIFACTS_DIR, `${pb.id}.session.json`);
@@ -71,6 +71,7 @@ export async function runPlaybookSession(
       const elicited = await runElicit(
         pb, llm, io,
         resume ? { exchange: resume.exchange, stageIndex: resume.stage_index } : undefined,
+        opts.language,
       );
       if (elicited.aborted) {
         io.note("(no artifact yet — your progress is saved; open this step again to resume)");
@@ -95,9 +96,9 @@ export async function runPlaybookSession(
     io.note("(derived step — no interview; drafting from your authorized artifacts)");
   }
 
-  const draft = await runInduce(pb, llm, exchange, upstream, io);
+  const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.language);
   const authorized = await runConfirm(pb, draft, io, (feedback) =>
-    runInduce(pb, llm, exchange, upstream, io, feedback),
+    runInduce(pb, llm, exchange, upstream, io, feedback, opts.language),
   );
 
   writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.json`), JSON.stringify(toArtifact(pb, authorized), null, 2));

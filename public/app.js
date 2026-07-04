@@ -1,9 +1,28 @@
+import { STR, PHASES, NODES } from "/i18n.js";
+
 const $ = (id) => document.getElementById(id);
 const journeyEl = $("journey");
 
+let lang = localStorage.getItem("lang") ?? "en";
+let theme = localStorage.getItem("theme") ?? "light";
 let journey = null;
 let ws = null;
 let modal = null; // { node, view, feedbackMode, review: {payload, currentText, edited} }
+
+const t = (key, ...args) => {
+  const v = STR[lang][key] ?? STR.en[key];
+  return typeof v === "function" ? v(...args) : v;
+};
+const nodeTitle = (n) => (NODES[lang]?.[n.id]?.title) ?? n.title;
+const nodeDesc = (n) => (NODES[lang]?.[n.id]?.desc) ?? n.desc;
+const phaseLabel = (sector) => PHASES[lang]?.[sector.n] ?? sector.label;
+const byId = (id) => journey.nodes.find((n) => n.id === id);
+
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.lang = lang;
+}
+applyTheme();
 
 /* ── journey home ────────────────────────────────────── */
 
@@ -13,29 +32,31 @@ async function loadJourney() {
 }
 
 function chipHtml(status) {
-  const label = status === "authorized" ? "AUTHORIZED ✓" : status.replace("_", " ").toUpperCase();
-  return `<span class="chip ${status}">${label}</span>`;
+  return `<span class="chip ${status}">${t(`chip_${status}`)}</span>`;
 }
 
 function depHint(n) {
-  if (n.hint) return n.hint;
+  if (n.id === "counseling_goal") return t("goal_hint");
+  if (n.id === "closing_check") return t("closing_hint");
+  if (n.id === "life_portrait") return t("portrait_hint");
   const parts = [];
-  if (n.kind === "conversation" && n.feeds.length) parts.push(`↳ feeds ${n.feeds.join(", ")}`);
-  if (n.kind === "derived" && n.uses.length) parts.push(`· uses ${n.uses.join(", ")}`);
-  if (n.skippable) parts.push("· fallback: Role models");
+  const names = (ids) => ids.map((id) => nodeTitle(byId(id))).join(", ");
+  if (n.kind === "conversation" && n.feeds.length) parts.push(t("feeds", names(n.feeds)));
+  if (n.kind === "derived" && n.uses.length) parts.push(t("uses", names(n.uses)));
+  if (n.skippable) parts.push(t("fallback_hint"));
   return parts.join(" ");
 }
 
 function actionLabel(n) {
-  if (n.status === "authorized") return "Redo";
-  if (n.status === "in_progress") return "Resume";
-  return n.kind === "conversation" ? "Start" : "Draft";
+  if (n.status === "authorized") return t("btn_redo");
+  if (n.status === "in_progress") return t("btn_resume");
+  return n.kind === "conversation" ? t("btn_start") : t("btn_draft");
 }
 
 function summaryLine(n) {
   if (n.status === "authorized" && n.distilled) return `<div class="summary distilled">${esc(n.distilled)}</div>`;
-  if (n.status === "in_progress") return `<div class="summary">Conversation in progress — your words are saved after every turn.</div>`;
-  return `<div class="summary">${esc(n.desc)}</div>`;
+  if (n.status === "in_progress") return `<div class="summary">${t("in_progress_summary")}</div>`;
+  return `<div class="summary">${esc(nodeDesc(n))}</div>`;
 }
 
 function renderJourney() {
@@ -44,25 +65,29 @@ function renderJourney() {
   parts.push(`
     <div class="j-header">
       <div>
-        <div class="j-title">Your journey</div>
-        <div class="j-sub">You author every step — nothing moves forward without your approval.</div>
+        <div class="j-title">${t("journey_title")}</div>
+        <div class="j-sub">${t("journey_sub")}</div>
       </div>
       <div class="j-progress">
-        <div class="j-count">${journey.authorized} of ${journey.total} authorized</div>
+        <div class="j-tools">
+          <button id="themeBtn" class="tool-btn">${theme === "light" ? t("theme_dark") : t("theme_light")}</button>
+          <button id="langBtn" class="tool-btn">${lang === "en" ? "RU" : "EN"}</button>
+        </div>
+        <div class="j-count">${t("authorized_of", journey.authorized, journey.total)}</div>
         <div class="j-bar"><div class="j-fill" style="width:${pct}%"></div></div>
       </div>
     </div>`);
 
   for (const sector of journey.sectors) {
     const nodes = journey.nodes.filter((n) => n.sector === sector.n);
-    parts.push(`<div class="phase-label">${esc(sector.label)}</div>`);
+    parts.push(`<div class="phase-label">${esc(phaseLabel(sector))}</div>`);
 
     for (const n of nodes.filter((x) => x.status !== "planned")) {
       const btnClass = n.status === "authorized" ? "btn-outline" : "btn-fill";
-      const chips = (n.skippable && n.status !== "authorized" ? `<span class="chip skippable">SKIPPABLE</span>` : "") + chipHtml(n.status);
+      const chips = (n.skippable && n.status !== "authorized" ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + chipHtml(n.status);
       parts.push(`
         <div class="node-card">
-          <div class="row1"><div class="title">${esc(n.title)}</div><div class="chips">${chips}</div></div>
+          <div class="row1"><div class="title">${esc(nodeTitle(n))}</div><div class="chips">${chips}</div></div>
           ${summaryLine(n)}
           <div class="row3">
             <div class="dep">${esc(depHint(n))}</div>
@@ -74,16 +99,16 @@ function renderJourney() {
     const planned = nodes.filter((x) => x.status === "planned");
     if (sector.n <= 2) {
       for (const n of planned) {
-        const chips = (n.skippable ? `<span class="chip skippable">SKIPPABLE</span>` : "") + chipHtml("planned");
+        const chips = (n.skippable ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + chipHtml("planned");
         parts.push(`
           <div class="node-row">
-            <div class="title">${esc(n.title)} <span class="dep">${esc(depHint(n))}</span></div>
+            <div class="title">${esc(nodeTitle(n))} <span class="dep">${esc(depHint(n))}</span></div>
             <div class="chips">${chips}</div>
           </div>`);
       }
     } else if (planned.length) {
       parts.push(`<div class="cond-grid">${planned
-        .map((n) => `<div class="cond-cell">${esc(n.title)} <span class="dep">${esc(depHint(n))}</span></div>`)
+        .map((n) => `<div class="cond-cell">${esc(nodeTitle(n))} <span class="dep">${esc(depHint(n))}</span></div>`)
         .join("")}</div>`);
     }
   }
@@ -92,6 +117,18 @@ function renderJourney() {
   for (const btn of journeyEl.querySelectorAll("[data-open]")) {
     btn.addEventListener("click", () => openModal(btn.dataset.open));
   }
+  $("themeBtn").addEventListener("click", () => {
+    theme = theme === "light" ? "dark" : "light";
+    localStorage.setItem("theme", theme);
+    applyTheme();
+    renderJourney();
+  });
+  $("langBtn").addEventListener("click", () => {
+    lang = lang === "en" ? "ru" : "en";
+    localStorage.setItem("lang", lang);
+    applyTheme();
+    renderJourney();
+  });
 }
 
 /* ── modal shell ─────────────────────────────────────── */
@@ -99,31 +136,43 @@ function renderJourney() {
 function setChip(status) {
   const chip = $("modalChip");
   chip.className = `chip ${status}`;
-  chip.textContent = status === "authorized" ? "AUTHORIZED ✓" : status.replace("_", " ").toUpperCase();
+  chip.textContent = t(`chip_${status}`);
 }
 
 function setView(view) {
   modal.view = view;
   $("chatView").hidden = view !== "chat";
   $("reviewView").hidden = view !== "review";
-  $("exitHint").textContent = view === "review" ? "· draft kept until you decide" : "· saved automatically";
+  $("exitHint").textContent = view === "review" ? t("exit_draft") : t("exit_saved");
   setChip(view === "review" ? "drafted" : "in_progress");
 }
 
+function applyModalStrings() {
+  $("exitBtn").childNodes[0].textContent = `${t("exit")} `;
+  $("tToggle").childNodes[1].textContent = ` ${t("transparency")} `;
+  $("tLabelWhat").textContent = t("t_what");
+  $("tLabelCompiled").textContent = t("t_compiled");
+  $("input").placeholder = t("placeholder");
+  $("sendBtn").textContent = t("send");
+  $("changesBtn").textContent = t("ask_changes");
+  $("saveEdit").textContent = t("save_wording");
+}
+
 async function openModal(id) {
-  const node = journey.nodes.find((n) => n.id === id);
+  const node = byId(id);
   modal = { node, view: "chat", feedbackMode: false, review: null };
 
-  $("modalTitle").textContent = node.title;
-  $("modalPhase").textContent = journey.sectors.find((s) => s.n === node.sector)?.label ?? "";
+  applyModalStrings();
+  $("modalTitle").textContent = nodeTitle(node);
+  $("modalPhase").textContent = phaseLabel(journey.sectors.find((s) => s.n === node.sector));
   $("messages").innerHTML = "";
   $("tPanel").hidden = true;
   $("tArrow").textContent = "▸";
   $("scrim").hidden = false;
   setView("chat");
 
-  const pb = await (await fetch(`/api/playbook/${id}`)).json();
-  $("tWhat").textContent = pb.purpose;
+  const pb = await (await fetch(`/api/playbook/${id}?lang=${lang}`)).json();
+  $("tWhat").textContent = (lang !== "en" ? `${t("playbook_lang_note")}\n\n` : "") + pb.purpose;
   $("tCompiled").innerHTML = compiledHtml(pb.compiled);
 
   connect(id);
@@ -143,15 +192,15 @@ function closeModal() {
 function compiledHtml(compiled) {
   const parts = [];
   for (const stage of compiled.stages) {
-    parts.push(`<h5>Interviewer — topic “${esc(stage.id)}”</h5>${esc(stage.system)}`);
-    parts.push(`<h5>Completion checklist (separate checker call)</h5>${esc(stage.done_when.map((d) => `- ${d}`).join("\n"))}`);
+    parts.push(`<h5>${esc(t("t_interviewer", stage.id))}</h5>${esc(stage.system)}`);
+    parts.push(`<h5>${esc(t("t_checklist"))}</h5>${esc(stage.done_when.map((d) => `- ${d}`).join("\n"))}`);
   }
-  if (compiled.checker) parts.push(`<h5>Checker — system prompt</h5>${esc(compiled.checker)}`);
+  if (compiled.checker) parts.push(`<h5>${esc(t("t_checker"))}</h5>${esc(compiled.checker)}`);
   for (const step of compiled.induce) {
-    parts.push(`<h5>Drafting step “${esc(step.id)}” (${esc(step.model_tier)} model)</h5>${esc(step.system)}`);
-    parts.push(`<h5>Required output shape</h5>${esc(JSON.stringify(step.output_schema, null, 2))}`);
+    parts.push(`<h5>${esc(t("t_step", step.id, step.model_tier))}</h5>${esc(step.system)}`);
+    parts.push(`<h5>${esc(t("t_shape"))}</h5>${esc(JSON.stringify(step.output_schema, null, 2))}`);
   }
-  parts.push(`<h5>Added at runtime</h5>Your conversation, short bracketed stage directions, and your authorized upstream artifacts. Nothing else.`);
+  parts.push(`<h5>${esc(t("t_runtime_label"))}</h5>${esc(t("t_runtime"))}`);
   return parts.join("\n");
 }
 
@@ -165,11 +214,22 @@ function addMsg(cls, text) {
   $("messages").scrollTop = $("messages").scrollHeight;
 }
 
+/** Engine notes arrive in English; map the known ones to the UI language. */
+function localizeNote(text) {
+  if (lang === "en") return text;
+  const topic = text.match(/^\(topic (\d+) of (\d+): (.+)\)$/);
+  if (topic) return t("topic_note", topic[1], topic[2], topic[3]);
+  if (text.startsWith("(the conversation is complete")) return t("drafting_note");
+  if (text.startsWith("(revising")) return t("revising_note");
+  return text;
+}
+
 function enableComposer(placeholder) {
   $("composer").classList.remove("disabled");
   $("input").disabled = false;
-  // The engine's per-turn ask label ("you") is a CLI-ism — keep the design placeholder.
-  $("input").placeholder = placeholder && placeholder !== "you" ? placeholder : "Write in your own words…";
+  if (placeholder && placeholder.includes("esume")) $("input").placeholder = t("placeholder_resume");
+  else if (placeholder && placeholder !== "you") $("input").placeholder = placeholder;
+  else $("input").placeholder = t("placeholder");
   $("input").focus();
 }
 
@@ -179,12 +239,13 @@ function disableComposer() {
 }
 
 function connect(id) {
-  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}`);
+  const langParam = lang === "en" ? "" : `&lang=${lang}`;
+  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}`);
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === "say") addMsg("say", msg.text);
-    else if (msg.type === "note") addMsg("note", msg.text);
+    else if (msg.type === "note") addMsg("note", localizeNote(msg.text));
     else if (msg.type === "error") addMsg("error", msg.text);
     else if (msg.type === "ask") enableComposer(msg.text);
     else if (msg.type === "review") showReview(msg.payload);
@@ -193,7 +254,7 @@ function connect(id) {
         setChip("authorized");
         setTimeout(closeModal, 600);
       } else {
-        addMsg("note", `Session ended (${msg.text}) — your progress is saved.`);
+        addMsg("note", t("session_saved", msg.text));
       }
     }
   };
@@ -201,7 +262,7 @@ function connect(id) {
   ws.onclose = () => {
     ws = null;
     disableComposer();
-    if (modal) addMsg("note", "Connection closed — reopen this step to continue; everything is saved.");
+    if (modal) addMsg("note", t("conn_closed"));
   };
 }
 
@@ -223,8 +284,8 @@ $("composer").addEventListener("submit", (e) => {
 /* ── review & authorize ──────────────────────────────── */
 
 function shortName(node) {
-  const map = { counseling_goal: "goal", motto: "motto", identity_statement: "statement", life_portrait: "portrait" };
-  return map[node.id] ?? "draft";
+  const dict = STR[lang].short;
+  return dict[node.id] ?? dict.default;
 }
 
 function markVerbatim(text, quotes) {
@@ -251,7 +312,7 @@ function renderDraftBody() {
     if (!edited && others.length) {
       alt.hidden = false;
       alt.innerHTML =
-        `<div class="alt-label">Alternative phrasings — click to swap</div>` +
+        `<div class="alt-label">${t("alt_label")}</div>` +
         others.map((c, i) => `<button class="alt-option" data-alt="${i}">${markVerbatim(c, payload.verified_quotes)}</button>`).join("");
       alt.querySelectorAll("[data-alt]").forEach((b) =>
         b.addEventListener("click", () => {
@@ -281,14 +342,12 @@ function renderDraftBody() {
 
   const verify = $("verifyLine");
   if (edited) {
-    verify.innerHTML = `<span>✓</span> Edited by you — your own words, verbatim by definition`;
+    verify.innerHTML = `<span>✓</span> ${t("edited_by_you")}`;
   } else {
     const n = payload.mode === "candidates"
       ? quotesIn(currentText, payload.verified_quotes)
       : payload.verified_quotes.length;
-    verify.innerHTML = n > 0
-      ? `<span>✓</span> ${n} verbatim quote${n === 1 ? "" : "s"} verified against your transcript`
-      : "";
+    verify.innerHTML = n > 0 ? `<span>✓</span> ${t("verified", n)}` : "";
   }
 }
 
@@ -297,12 +356,12 @@ function showReview(payload) {
   setView("review");
 
   const name = shortName(modal.node);
-  $("reviewExplainer").textContent =
-    `Your ${name}, distilled from the conversation. Highlighted phrases are your exact words — nothing was paraphrased.`;
-  $("draftKicker").textContent = `Draft · your ${name}`;
-  $("authorizeBtn").textContent = `Authorize this ${name}`;
+  $("reviewExplainer").textContent = t("review_explainer", name);
+  $("draftKicker").textContent = t("kicker", name);
+  $("authorizeBtn").textContent = t("authorize", name);
   $("reviewFoot").textContent = payload.authorize_language;
   $("editBtn").hidden = payload.mode !== "candidates";
+  $("editBtn").textContent = t("edit_wording");
   $("editArea").hidden = true;
   $("draftBody").hidden = false;
   renderDraftBody();
@@ -313,7 +372,7 @@ $("editBtn").addEventListener("click", () => {
   $("editArea").hidden = !editing;
   $("draftBody").hidden = editing;
   if (editing) $("draftTextarea").value = modal.review.currentText;
-  $("editBtn").textContent = editing ? "Cancel edit" : "Edit wording";
+  $("editBtn").textContent = editing ? t("cancel_edit") : t("edit_wording");
 });
 
 $("saveEdit").addEventListener("click", () => {
@@ -324,15 +383,15 @@ $("saveEdit").addEventListener("click", () => {
   }
   $("editArea").hidden = true;
   $("draftBody").hidden = false;
-  $("editBtn").textContent = "Edit wording";
+  $("editBtn").textContent = t("edit_wording");
   renderDraftBody();
 });
 
 $("changesBtn").addEventListener("click", () => {
   setView("chat");
   modal.feedbackMode = true;
-  addMsg("say", "What should change in this draft? Tell me in a sentence or two, and I'll redraft it from your words.");
-  enableComposer("Describe what to change…");
+  addMsg("say", t("changes_prompt"));
+  enableComposer(t("placeholder_changes"));
 });
 
 $("authorizeBtn").addEventListener("click", () => {

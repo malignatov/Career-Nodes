@@ -31,6 +31,43 @@
   --u-ink: #33402F;
 }
 
+[data-theme="dark"] {
+  --canvas: #1B1815;
+  --card: #252119;
+  --surface: #2A251D;
+  --panel: #302A21;
+  --panel2: #2C2720;
+  --border: #423A2D;
+  --border-dashed: #4A4234;
+  --hairline: #383126;
+  --ink: #EDE5D8;
+  --ink2: #D3C8B6;
+  --ink3: #C2B6A1;
+  --muted: #9C9080;
+  --faint: #837769;
+  --faint2: #6F6558;
+  --accent: #C97B55;
+  --mark-bg: #4A3226;
+  --mark-ink: #EBA985;
+  --sage: #9DB48F;
+  --sage-bg: #2C3527;
+  --amber: #D8A95E;
+  --amber-bg: #3E3420;
+  --tealc: #83B3B0;
+  --teal-bg: #253432;
+  --violet: #AC9ED0;
+  --violet-bg: #332C44;
+  --warmgray: #8E8272;
+  --warmgray-bg: #2B2721;
+  --c-bubble: #322C22;
+  --u-bubble: #2C3A2A;
+  --u-ink: #CBDCC3;
+}
+[data-theme="dark"] #scrim { background: rgba(0, 0, 0, 0.55); }
+[data-theme="dark"] #modal { box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); }
+[data-theme="dark"] #authorizeBtn, [data-theme="dark"] .j-fill { color: #1B1815; }
+[data-theme="dark"] #authorizeBtn { color: #1B1815; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
@@ -63,6 +100,17 @@ body {
 .j-title { font: 600 26px Lora, serif; color: var(--ink); }
 .j-sub { font: 400 13px Karla, sans-serif; color: var(--muted); margin-top: 3px; }
 .j-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.j-tools { display: flex; gap: 8px; margin-bottom: 2px; }
+.tool-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 12px;
+  font: 600 11px Karla, sans-serif;
+  color: var(--ink3);
+  cursor: pointer;
+}
+.tool-btn:hover { background: var(--panel); }
 .j-count { font: 500 12px Karla, sans-serif; color: var(--muted); }
 .j-bar { width: 180px; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
 .j-fill { height: 100%; background: var(--sage); border-radius: 99px; transition: width 0.4s ease; }
@@ -169,8 +217,8 @@ body {
 }
 
 #modal {
-  width: 560px;
-  max-width: 100%;
+  /* Same width as the journey cards: 900px container minus its 32px side padding. */
+  width: min(836px, 100%);
   max-height: 100%;
   background: var(--surface);
   border-radius: 22px;

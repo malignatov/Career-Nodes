@@ -12,6 +12,7 @@ import type { Artifact, Playbook } from "./types.ts";
 const PORT = Number(process.env.PORT ?? 4780);
 const PUBLIC_DIR = "public";
 const ID_RE = /^[a-z_]+$/;
+const LANG_NAMES: Record<string, string | undefined> = { ru: "Russian" };
 const llm = createAdapter();
 
 const MIME: Record<string, string> = {
@@ -63,10 +64,6 @@ function nodeStatus(id: string): string {
   return "available";
 }
 
-function titleOf(id: string): string {
-  return MAP_NODES.find((n) => n.id === id)?.title ?? id;
-}
-
 function firstString(v: unknown): string | null {
   if (typeof v === "string" && v.trim()) return v;
   if (Array.isArray(v)) for (const item of v) { const s = firstString(item); if (s) return s; }
@@ -111,11 +108,10 @@ function buildJourney(): unknown {
       ...n,
       status,
       distilled,
-      feeds: MAP_EDGES.filter(([from, to]) => from === n.id && to !== n.id && n.id !== "counseling_goal")
-        .map(([, to]) => titleOf(to)),
-      uses: MAP_EDGES.filter(([, to]) => to === n.id && n.id !== "counseling_goal")
-        .map(([from]) => titleOf(from))
-        .filter((t) => t !== "Goal setting"),
+      feeds: n.id === "counseling_goal" ? [] : MAP_EDGES.filter(([from]) => from === n.id).map(([, to]) => to),
+      uses: n.id === "counseling_goal"
+        ? []
+        : MAP_EDGES.filter(([, to]) => to === n.id).map(([from]) => from).filter((f) => f !== "counseling_goal"),
     };
   });
   return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length };
@@ -132,6 +128,7 @@ const server = createServer((req, res) => {
     if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
     const pb = tryPlaybook(id);
     if (!pb) return json(res, 404, { planned: true });
+    const language = LANG_NAMES[url.searchParams.get("lang") ?? ""];
     return json(res, 200, {
       id: pb.id,
       title: pb.title,
@@ -140,7 +137,7 @@ const server = createServer((req, res) => {
       consumes: pb.consumes,
       invalidates: pb.invalidates,
       stages: pb.elicit?.stages.map((s) => s.id) ?? [],
-      compiled: compiledPrompts(pb),
+      compiled: compiledPrompts(pb, language),
     });
   }
 
@@ -217,7 +214,8 @@ wss.on("connection", (ws, req) => {
   };
 
   const pb = loadPlaybook(playbookPath(id));
-  runPlaybookSession(pb, llm, io, { header: false })
+  const language = LANG_NAMES[url.searchParams.get("lang") ?? ""];
+  runPlaybookSession(pb, llm, io, { header: false, language })
     .then((outcome) => {
       send({ type: "done", text: outcome });
       if (open) ws.close();

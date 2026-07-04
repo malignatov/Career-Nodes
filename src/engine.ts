@@ -38,7 +38,7 @@ const MAX_TURNS_PER_STAGE = 12;
 export const CHECKER_SYSTEM =
   "You audit an interview transcript against a checklist. Judge only from what the user actually said. Return JSON only.";
 
-export function interviewerSystem(pb: Playbook, stage: Stage): string {
+export function interviewerSystem(pb: Playbook, stage: Stage, language?: string): string {
   const probes = (stage.probes ?? [])
     .map((p) => `- When ${p.when}: ${p.then}`)
     .join("\n");
@@ -52,6 +52,9 @@ export function interviewerSystem(pb: Playbook, stage: Stage): string {
     probes ? `Probe guidance:\n${probes}` : "",
     "Ask exactly one question per message and keep each message to a few sentences.",
     "Messages wrapped in [brackets] are stage directions from the application, not the user. Never mention them.",
+    language
+      ? `Conduct the entire conversation in ${language}. Translate the anchor question faithfully — keep its meaning intact.`
+      : "",
   ].filter(Boolean).join("\n\n");
 }
 
@@ -108,6 +111,7 @@ export async function runElicit(
   llm: LlmAdapter,
   io: SessionIO,
   resume?: ResumeState,
+  language?: string,
 ): Promise<ElicitResult> {
   const exchange: ExchangeEntry[] = resume ? [...resume.exchange] : [];
   const messages: ChatTurn[] = exchange.map((e) => ({
@@ -121,7 +125,7 @@ export async function runElicit(
   for (let i = startIndex; i < stages.length; i++) {
     const stage = stages[i];
     io.note(`(topic ${i + 1} of ${stages.length}: ${stage.id})`);
-    const system = interviewerSystem(pb, stage);
+    const system = interviewerSystem(pb, stage, language);
     messages.push({
       role: "user",
       content: resuming
@@ -164,7 +168,7 @@ function userWords(exchange: ExchangeEntry[]): string {
   return exchange.filter((e) => e.speaker === "user").map((e) => e.text).join("\n");
 }
 
-export function induceStepSystem(pb: Playbook, step: InduceStep): string {
+export function induceStepSystem(pb: Playbook, step: InduceStep, language?: string): string {
   return [
     `You are the induction engine for the "${pb.title}" step of a career construction session.`,
     `Task: ${step.task.trim()}`,
@@ -172,22 +176,25 @@ export function induceStepSystem(pb: Playbook, step: InduceStep): string {
     "Optional fields that allow null: emit null rather than inventing content the user never provided.",
     ...(step.validation ?? []).map((v) => `Constraint: ${v}`),
     "Return only JSON matching the schema.",
-  ].join("\n\n");
+    language
+      ? `Write all free-text output in ${language}. Strings marked x-verbatim must remain exactly as the user said them, in the user's own language.`
+      : "",
+  ].filter(Boolean).join("\n\n");
 }
 
 /** Everything the models are told for this node, compiled exactly as sent. */
-export function compiledPrompts(pb: Playbook): unknown {
+export function compiledPrompts(pb: Playbook, language?: string): unknown {
   return {
     stages: (pb.elicit?.stages ?? []).map((s) => ({
       id: s.id,
-      system: interviewerSystem(pb, s),
+      system: interviewerSystem(pb, s, language),
       done_when: s.done_when,
     })),
     checker: pb.elicit ? CHECKER_SYSTEM : null,
     induce: (pb.induce?.steps ?? []).map((st) => ({
       id: st.id,
       model_tier: st.model_tier,
-      system: induceStepSystem(pb, st),
+      system: induceStepSystem(pb, st, language),
       output_schema: st.output_schema,
     })),
   };
@@ -208,8 +215,9 @@ async function runInduceStep(
   upstream: Record<string, unknown>,
   verbatimSource: string,
   feedback: string | undefined,
+  language: string | undefined,
 ): Promise<Record<string, unknown>> {
-  const system = induceStepSystem(pb, step);
+  const system = induceStepSystem(pb, step, language);
 
   const sourceBlock = transcript
     ? `Transcript:\n${transcript}`
@@ -255,6 +263,7 @@ export async function runInduce(
   upstream: Record<string, unknown>,
   io: SessionIO,
   feedback?: string,
+  language?: string,
 ): Promise<Record<string, unknown>> {
   const transcript = exchange.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
   const verbatimSource = [
@@ -264,7 +273,7 @@ export async function runInduce(
   const draft: Record<string, unknown> = {};
   for (const step of pb.induce!.steps) {
     io.note(`(inducing: ${step.id}…)`);
-    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback));
+    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback, language));
   }
   return draft;
 }
