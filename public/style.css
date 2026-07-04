@@ -151,7 +151,18 @@ body {
 .node-card .title { font: 600 17px Lora, serif; color: var(--ink); }
 .node-card .chips { display: flex; gap: 6px; }
 .node-card .summary { font: 400 13px/1.5 Karla, sans-serif; color: var(--muted); }
-.node-card .summary.distilled { font: 500 13.5px/1.55 Lora, serif; color: var(--ink2); font-style: italic; }
+.node-card .summary.distilled { font: 500 13.5px/1.6 Lora, serif; color: var(--ink2); font-style: italic; }
+.summary.distilled p { margin: 0 0 9px; white-space: pre-line; }
+.summary.distilled p:last-child { margin-bottom: 0; }
+.summary.distilled .sum-label {
+  font: 600 10px Karla, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-style: normal;
+  margin: 11px 0 3px;
+}
+.summary.distilled .sum-label:first-child { margin-top: 2px; }
 .node-card .row3 { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; gap: 10px; }
 .node-card .dep { font: 500 11px Karla, sans-serif; color: var(--faint); }
 

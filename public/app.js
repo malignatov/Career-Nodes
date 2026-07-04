@@ -54,7 +54,12 @@ function actionLabel(n) {
 }
 
 function summaryLine(n) {
-  if (n.status === "authorized" && n.distilled) return `<div class="summary distilled">${esc(n.distilled)}</div>`;
+  if (n.status === "authorized" && n.distilled?.length) {
+    const parts = n.distilled
+      .map((p) => `${p.label ? `<div class="sum-label">${esc(p.label)}</div>` : ""}<p>${esc(p.text)}</p>`)
+      .join("");
+    return `<div class="summary distilled">${parts}</div>`;
+  }
   if (n.status === "in_progress") return `<div class="summary">${t("in_progress_summary")}</div>`;
   return `<div class="summary">${esc(nodeDesc(n))}</div>`;
 }

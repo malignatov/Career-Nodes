@@ -74,32 +74,52 @@ function firstString(v: unknown): string | null {
   return null;
 }
 
-/** Summary of an authorized artifact for its journey card — shown in full, untruncated. */
-function distill(id: string, content: Record<string, unknown>): string {
-  let text: string | null = null;
-  if (id === "counseling_goal") text = (content.restated_goal as string) ?? null;
-  else if (id === "motto") text = content.motto ? `“${content.motto as string}”` : null;
-  else if (id === "role_models") {
-    const models = (content.models ?? []) as { name?: string }[];
-    text = models.map((m) => m.name).filter(Boolean).join(" · ") || null;
-  } else if (id === "favorite_story") text = (content.title as string) ?? null;
-  else if (id === "favorite_media") {
-    const media = (content.media ?? []) as { title?: string }[];
-    text = media.map((m) => m.title).filter(Boolean).join(" · ") || null;
-  } else if (id === "early_recollections") {
-    const recs = (content.recollections ?? []) as { headline?: string }[];
-    text = recs.map((r) => r.headline).filter(Boolean).map((h) => `“${h}”`).join(" · ") || null;
-  } else if (id === "character_sketch") text = (content.sketch as string) ?? null;
-  else if (id === "perspective") text = (content.perspective_statement as string) ?? null;
-  else if (id === "preferred_settings") text = (content.niche_statement as string) ?? null;
-  else if (id === "script") text = (content.script_statement as string) ?? null;
-  else if (id === "advice_to_self") text = (content.call_to_action as string) ?? null;
-  else if (id === "life_portrait") text = (content.full_portrait as string) ?? null;
-  else if (id === "identity_statement") text = (content.statement as string) ?? null;
-  else if (id === "action_recipe") text = ((content.week_one ?? []) as string[]).join(" · ") || null;
-  else if (id === "closing_check") text = ((content.whats_different ?? []) as string[]).join(" · ") || null;
-  text ??= firstString(content);
-  return text ?? "";
+interface DistilledPart {
+  label: string | null;
+  text: string;
+}
+
+/** Structured summary of an authorized artifact for its journey card — full text, no truncation. */
+function distill(id: string, content: Record<string, unknown>): DistilledPart[] {
+  const one = (text: unknown, label: string | null = null): DistilledPart[] =>
+    typeof text === "string" && text.trim() ? [{ label, text }] : [];
+
+  switch (id) {
+    case "counseling_goal": return one(content.restated_goal);
+    case "motto": return one(content.motto ? `“${content.motto as string}”` : null);
+    case "role_models": {
+      const models = (content.models ?? []) as { name?: string }[];
+      return one(models.map((m) => m.name).filter(Boolean).join(" · "));
+    }
+    case "favorite_story": return one(content.title);
+    case "favorite_media": {
+      const media = (content.media ?? []) as { title?: string }[];
+      return one(media.map((m) => m.title).filter(Boolean).join(" · "));
+    }
+    case "early_recollections": {
+      const recs = (content.recollections ?? []) as { headline?: string }[];
+      return one(recs.map((r) => r.headline).filter(Boolean).map((h) => `“${h}”`).join(" · "));
+    }
+    case "character_sketch": return one(content.sketch);
+    case "perspective": return one(content.perspective_statement);
+    case "preferred_settings": return one(content.niche_statement);
+    case "script": return one(content.script_statement);
+    case "advice_to_self": return one(content.call_to_action);
+    case "life_portrait": {
+      const movements = (content.movements ?? []) as { title?: string; text?: string }[];
+      const parts = movements
+        .filter((m) => typeof m.text === "string" && m.text.trim())
+        .map((m) => ({ label: m.title ?? null, text: m.text as string }));
+      return parts.length > 0 ? parts : one(content.full_portrait);
+    }
+    case "identity_statement": return one(content.statement);
+    case "action_recipe": {
+      const week = (content.week_one ?? []) as string[];
+      return one(week.map((w) => `• ${w}`).join("\n"));
+    }
+    case "closing_check": return one(((content.whats_different ?? []) as string[]).join(" · "));
+    default: return one(firstString(content));
+  }
 }
 
 function buildJourney(): unknown {
@@ -107,7 +127,7 @@ function buildJourney(): unknown {
   const nodes = MAP_NODES.map((n) => {
     const status = nodeStatus(n.id);
     if (status === "authorized") authorized++;
-    let distilled = "";
+    let distilled: DistilledPart[] = [];
     if (status === "authorized") {
       const art = JSON.parse(readFileSync(join(ARTIFACTS_DIR, `${n.id}.json`), "utf8")) as Artifact;
       distilled = distill(n.id, art.content);
