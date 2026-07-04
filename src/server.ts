@@ -4,7 +4,7 @@ import { join, normalize } from "node:path";
 import { WebSocketServer } from "ws";
 import { loadPlaybook } from "./playbook.ts";
 import { createAdapter } from "./llm.ts";
-import { runPlaybookSession, ARTIFACTS_DIR } from "./session.ts";
+import { runPlaybookSession, runReviewSession, ARTIFACTS_DIR } from "./session.ts";
 import { MAP_NODES, MAP_EDGES, MAP_SECTORS } from "./map.ts";
 import { compiledPrompts, type ReviewAction, type SessionIO, type SessionLang } from "./engine.ts";
 import type { Artifact, Playbook } from "./types.ts";
@@ -220,7 +220,9 @@ wss.on("connection", (ws, req) => {
       const act: ReviewAction =
         msg.action === "feedback"
           ? { action: "feedback", text: msg.text ?? "" }
-          : { action: "authorize", value: msg.value };
+          : msg.action === "reprocess"
+            ? { action: "reprocess" }
+            : { action: "authorize", value: msg.value };
       pendingReviews.shift()?.resolve(act);
     }
   });
@@ -254,7 +256,10 @@ wss.on("connection", (ws, req) => {
   const pb = loadPlaybook(playbookPath(id));
   const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
   const autoResume = url.searchParams.get("resume") === "1";
-  runPlaybookSession(pb, llm, io, { header: false, lang, autoResume })
+  const reviewMode = url.searchParams.get("mode") === "review";
+  (reviewMode
+    ? runReviewSession(pb, llm, io, { lang })
+    : runPlaybookSession(pb, llm, io, { header: false, lang, autoResume }))
     .then((outcome) => {
       send({ type: "done", text: outcome });
       if (open) ws.close();

@@ -14,6 +14,72 @@ interface SessionState {
 
 export type SessionOutcome = "authorized" | "aborted" | "blocked";
 
+function loadUpstream(pb: Playbook, io: SessionIO): Record<string, unknown> {
+  const upstream: Record<string, unknown> = {};
+  for (const dep of pb.consumes) {
+    const depPath = join(ARTIFACTS_DIR, `${dep}.json`);
+    if (existsSync(depPath)) {
+      upstream[dep] = (JSON.parse(readFileSync(depPath, "utf8")) as Artifact).content;
+    } else {
+      io.note(`(note: upstream artifact "${dep}" not found — continuing without it)`);
+    }
+  }
+  return upstream;
+}
+
+function saveArtifact(pb: Playbook, content: Record<string, unknown>, exchange: ExchangeEntry[]): void {
+  writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.json`), JSON.stringify(toArtifact(pb, content), null, 2));
+  if (exchange.length > 0) {
+    writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.transcript.json`), JSON.stringify(exchange, null, 2));
+  }
+}
+
+/**
+ * Edit mode for an already-authorized node: present the saved artifact in the
+ * review step immediately (no model call), then let the user amend it turn by
+ * turn, reprocess it from sources, or re-authorize as is.
+ */
+export async function runReviewSession(
+  pb: Playbook,
+  llm: LlmAdapter,
+  io: SessionIO,
+  opts: { lang?: SessionLang } = {},
+): Promise<SessionOutcome> {
+  mkdirSync(ARTIFACTS_DIR, { recursive: true });
+  const artPath = join(ARTIFACTS_DIR, `${pb.id}.json`);
+  if (!existsSync(artPath)) {
+    io.say("There is no authorized artifact for this step yet.");
+    return "blocked";
+  }
+  const upstream = loadUpstream(pb, io);
+
+  const transcriptPath = join(ARTIFACTS_DIR, `${pb.id}.transcript.json`);
+  const exchange: ExchangeEntry[] = existsSync(transcriptPath)
+    ? (JSON.parse(readFileSync(transcriptPath, "utf8")) as ExchangeEntry[])
+    : [];
+
+  const content = (JSON.parse(readFileSync(artPath, "utf8")) as Artifact).content;
+  // Candidate-style nodes store only the chosen wording — surface it as the draft.
+  const field = pb.confirm?.choice_field;
+  const draft: Record<string, unknown> =
+    pb.confirm?.present === "candidates" && field && typeof content[field] === "string"
+      ? { ...content, candidates: [content[field]] }
+      : { ...content };
+
+  const authorized = await runConfirm(
+    pb, draft, io,
+    (feedback) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang),
+    { existingFirst: true },
+  );
+
+  saveArtifact(pb, authorized, exchange);
+  io.say(`Artifact authorized and saved to ${ARTIFACTS_DIR}/${pb.id}.json`);
+  if (pb.invalidates.length > 0) {
+    io.note(`(in the full app this would mark stale: ${pb.invalidates.join(", ")})`);
+  }
+  return "authorized";
+}
+
 /** Full node lifecycle: resume offer → elicit → induce → confirm → save. UI-agnostic. */
 export async function runPlaybookSession(
   pb: Playbook,
@@ -40,15 +106,7 @@ export async function runPlaybookSession(
     io.say(`What happens in this step (shown in full, always):\n${pb.purpose.trim()}`);
   }
 
-  const upstream: Record<string, unknown> = {};
-  for (const dep of pb.consumes) {
-    const depPath = join(ARTIFACTS_DIR, `${dep}.json`);
-    if (existsSync(depPath)) {
-      upstream[dep] = (JSON.parse(readFileSync(depPath, "utf8")) as Artifact).content;
-    } else {
-      io.note(`(note: upstream artifact "${dep}" not found — continuing without it)`);
-    }
-  }
+  const upstream = loadUpstream(pb, io);
 
   let exchange: ExchangeEntry[] = [];
 
@@ -106,10 +164,7 @@ export async function runPlaybookSession(
     runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang),
   );
 
-  writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.json`), JSON.stringify(toArtifact(pb, authorized), null, 2));
-  if (exchange.length > 0) {
-    writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.transcript.json`), JSON.stringify(exchange, null, 2));
-  }
+  saveArtifact(pb, authorized, exchange);
   if (existsSync(sessionPath)) unlinkSync(sessionPath);
 
   io.say(`Artifact authorized and saved to ${ARTIFACTS_DIR}/${pb.id}.json`);

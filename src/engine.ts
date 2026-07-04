@@ -12,11 +12,14 @@ export interface ReviewPayload {
   authorize_language: string;
   verified_quotes: string[];
   warnings: string[];
+  /** True when showing an already-authorized artifact (edit mode), until it is revised. */
+  existing?: boolean;
 }
 
 export type ReviewAction =
   | { action: "authorize"; value?: string }
-  | { action: "feedback"; text: string };
+  | { action: "feedback"; text: string }
+  | { action: "reprocess" };
 
 export interface SessionIO {
   say(text: string): void;
@@ -337,10 +340,12 @@ export async function runConfirm(
   pb: Playbook,
   draft: Record<string, unknown>,
   io: SessionIO,
-  reinduce: (feedback: string) => Promise<Record<string, unknown>>,
+  reinduce: (feedback?: string) => Promise<Record<string, unknown>>,
+  opts: { existingFirst?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   const confirm = pb.confirm!;
   let current = draft;
+  let existing = opts.existingFirst ?? false;
 
   if (io.review) {
     for (;;) {
@@ -351,11 +356,13 @@ export async function runConfirm(
         candidates,
         choice_field: confirm.choice_field,
         authorize_language: confirm.authorize_language.trim(),
+        existing,
         ...collectVerbatim(pb, current),
       });
-      if (act.action === "feedback") {
+      if (act.action === "feedback" || act.action === "reprocess") {
         io.note("(revising…)");
-        current = await reinduce(act.text);
+        current = await reinduce(act.action === "feedback" ? act.text : undefined);
+        existing = false;
         continue;
       }
       if (confirm.present === "candidates") {

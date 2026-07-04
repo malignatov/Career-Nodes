@@ -48,7 +48,7 @@ function depHint(n) {
 }
 
 function actionLabel(n) {
-  if (n.status === "authorized") return t("btn_redo");
+  if (n.status === "authorized") return t("btn_open");
   if (n.status === "in_progress") return t("btn_resume");
   return n.kind === "conversation" ? t("btn_start") : t("btn_draft");
 }
@@ -152,6 +152,12 @@ function setView(view) {
   setChip(view === "review" ? "drafted" : "in_progress");
 }
 
+function setStatusLine(text) {
+  const el = $("reviewStatus");
+  el.hidden = !text;
+  el.textContent = text ?? "";
+}
+
 function applyModalStrings() {
   $("exitBtn").childNodes[0].textContent = `${t("exit")} `;
   $("tToggle").childNodes[1].textContent = ` ${t("transparency")} `;
@@ -165,23 +171,36 @@ function applyModalStrings() {
 
 async function openModal(id) {
   const node = byId(id);
-  modal = { node, view: "chat", feedbackMode: false, review: null };
+  // Authorized nodes open straight into review of the saved artifact (no model
+  // call); derived nodes never show the chat — status + review only.
+  const reviewMode = node.status === "authorized";
+  const chatless = reviewMode || node.kind === "derived";
+  modal = { node, view: "chat", review: null, reviewMode, chatless };
 
   applyModalStrings();
   $("modalTitle").textContent = nodeTitle(node);
   $("modalPhase").textContent = phaseLabel(journey.sectors.find((s) => s.n === node.sector));
   $("messages").innerHTML = "";
+  $("reviewBody").hidden = true;
+  $("amendBox").hidden = true;
   $("tPanel").hidden = true;
   $("tArrow").textContent = "▸";
   $("scrim").hidden = false;
-  setView("chat");
+
+  if (chatless) {
+    setView("review");
+    setChip(reviewMode ? "authorized" : "in_progress");
+    setStatusLine(reviewMode ? null : t("status_preparing"));
+  } else {
+    setView("chat");
+  }
 
   const pb = await (await fetch(`/api/playbook/${id}?lang=${lang}`)).json();
   $("tWhat").textContent = (lang !== "en" ? `${t("playbook_lang_note")}\n\n` : "") + pb.purpose;
   $("tCompiled").innerHTML = compiledHtml(pb.compiled);
 
   let resuming = false;
-  if (node.status === "in_progress") {
+  if (node.status === "in_progress" && node.kind === "conversation") {
     const sessRes = await fetch(`/api/session/${id}`);
     if (sessRes.ok) {
       const saved = await sessRes.json();
@@ -191,7 +210,7 @@ async function openModal(id) {
     }
   }
 
-  connect(id, resuming);
+  connect(id, { resuming, review: reviewMode });
 }
 
 function closeModal() {
@@ -254,26 +273,35 @@ function disableComposer() {
   $("input").disabled = true;
 }
 
-function connect(id, resuming = false) {
+function connect(id, { resuming = false, review = false } = {}) {
   const langParam = lang === "en" ? "" : `&lang=${lang}`;
   const resumeParam = resuming ? "&resume=1" : "";
-  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}${resumeParam}`);
+  const modeParam = review ? "&mode=review" : "";
+  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}${resumeParam}${modeParam}`);
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === "say") {
+      if (modal?.chatless) return setStatusLine(msg.text);
       if (msg.anchor) addMsg("note anchor", t("anchor_label"));
       addMsg("say", msg.text);
     }
-    else if (msg.type === "note") addMsg("note", localizeNote(msg.text));
-    else if (msg.type === "error") addMsg("error", msg.text);
+    else if (msg.type === "note") {
+      const text = localizeNote(msg.text);
+      if (modal?.chatless || modal?.view === "review") setStatusLine(text);
+      else addMsg("note", text);
+    }
+    else if (msg.type === "error") {
+      if (modal?.chatless) setStatusLine(msg.text);
+      else addMsg("error", msg.text);
+    }
     else if (msg.type === "ask") enableComposer(msg.text);
     else if (msg.type === "review") showReview(msg.payload);
     else if (msg.type === "done") {
       if (msg.text === "authorized") {
         setChip("authorized");
         setTimeout(closeModal, 600);
-      } else {
+      } else if (!modal?.chatless) {
         addMsg("note", t("session_saved", msg.text));
       }
     }
@@ -282,7 +310,8 @@ function connect(id, resuming = false) {
   ws.onclose = () => {
     ws = null;
     disableComposer();
-    if (modal) addMsg("note", t("conn_closed"));
+    $("amendBox").classList.remove("busy");
+    if (modal && !modal.chatless) addMsg("note", t("conn_closed"));
   };
 }
 
@@ -291,12 +320,7 @@ $("composer").addEventListener("submit", (e) => {
   const text = $("input").value.trim();
   if (!text || !ws) return;
   addMsg("user", text);
-  if (modal.feedbackMode) {
-    modal.feedbackMode = false;
-    ws.send(JSON.stringify({ type: "review_action", action: "feedback", text }));
-  } else {
-    ws.send(JSON.stringify({ type: "answer", text }));
-  }
+  ws.send(JSON.stringify({ type: "answer", text }));
   $("input").value = "";
   disableComposer();
 });
@@ -397,14 +421,23 @@ function renderDraftBody() {
 function showReview(payload) {
   modal.review = { payload, currentText: payload.candidates[0] ?? "", edited: false };
   setView("review");
+  setStatusLine(null);
+  $("reviewBody").hidden = false;
+  $("amendBox").classList.remove("busy");
+  setChip(payload.existing ? "authorized" : "drafted");
 
   const short = shortEntry(modal.node);
   $("reviewExplainer").textContent = t("review_explainer", short.label);
-  $("draftKicker").textContent = t("kicker", short.label);
+  $("draftKicker").textContent = payload.existing ? t("kicker_existing", short.label) : t("kicker", short.label);
   $("authorizeBtn").textContent = short.auth;
   $("reviewFoot").textContent = payload.authorize_language;
   $("editBtn").hidden = payload.mode !== "candidates";
   $("editBtn").textContent = t("edit_wording");
+  $("changesBtn").textContent = t("ask_changes");
+  $("reprocessBtn").hidden = !modal.reviewMode && !payload.existing;
+  $("reprocessBtn").textContent = t("reprocess");
+  $("restartBtn").hidden = !(modal.reviewMode && modal.node.kind === "conversation");
+  $("restartBtn").textContent = t("restart_interview");
   $("editArea").hidden = true;
   $("draftBody").hidden = false;
   renderDraftBody();
@@ -431,10 +464,51 @@ $("saveEdit").addEventListener("click", () => {
 });
 
 $("changesBtn").addEventListener("click", () => {
+  const box = $("amendBox");
+  box.hidden = !box.hidden;
+  $("changesBtn").classList.toggle("active", !box.hidden);
+  if (!box.hidden) {
+    $("amendInput").placeholder = t("amend_placeholder");
+    $("amendInput").focus();
+  }
+});
+
+$("amendBox").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("amendInput").value.trim();
+  if (!text || !ws) return;
+  ws.send(JSON.stringify({ type: "review_action", action: "feedback", text }));
+  $("amendInput").value = "";
+  $("amendBox").classList.add("busy");
+  setStatusLine(t("status_revising"));
+});
+
+$("amendInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    $("amendBox").requestSubmit();
+  }
+});
+
+$("reprocessBtn").addEventListener("click", () => {
+  if (!ws) return;
+  ws.send(JSON.stringify({ type: "review_action", action: "reprocess" }));
+  setStatusLine(t("status_revising"));
+});
+
+$("restartBtn").addEventListener("click", () => {
+  if (ws) {
+    ws.onclose = null;
+    ws.close();
+    ws = null;
+  }
+  modal.reviewMode = false;
+  modal.chatless = modal.node.kind === "derived";
+  $("reviewBody").hidden = true;
+  $("amendBox").hidden = true;
+  $("messages").innerHTML = "";
   setView("chat");
-  modal.feedbackMode = true;
-  addMsg("say", t("changes_prompt"));
-  enableComposer(t("placeholder_changes"));
+  connect(modal.node.id, { resuming: false, review: false });
 });
 
 $("authorizeBtn").addEventListener("click", () => {
