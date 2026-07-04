@@ -175,7 +175,18 @@ async function openModal(id) {
   $("tWhat").textContent = (lang !== "en" ? `${t("playbook_lang_note")}\n\n` : "") + pb.purpose;
   $("tCompiled").innerHTML = compiledHtml(pb.compiled);
 
-  connect(id);
+  let resuming = false;
+  if (node.status === "in_progress") {
+    const sessRes = await fetch(`/api/session/${id}`);
+    if (sessRes.ok) {
+      const saved = await sessRes.json();
+      for (const e of saved.exchange) addMsg(e.speaker === "user" ? "user" : "say", e.text);
+      addMsg("note", t("resumed_note"));
+      resuming = true;
+    }
+  }
+
+  connect(id, resuming);
 }
 
 function closeModal() {
@@ -238,9 +249,10 @@ function disableComposer() {
   $("input").disabled = true;
 }
 
-function connect(id) {
+function connect(id, resuming = false) {
   const langParam = lang === "en" ? "" : `&lang=${lang}`;
-  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}`);
+  const resumeParam = resuming ? "&resume=1" : "";
+  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}${resumeParam}`);
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);

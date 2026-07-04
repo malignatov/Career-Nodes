@@ -143,6 +143,15 @@ const server = createServer((req, res) => {
     });
   }
 
+  if (path.startsWith("/api/session/")) {
+    const id = path.slice("/api/session/".length);
+    if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
+    const sessPath = join(ARTIFACTS_DIR, `${id}.session.json`);
+    if (!existsSync(sessPath)) return json(res, 404, { error: "no session" });
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end(readFileSync(sessPath));
+  }
+
   if (path.startsWith("/api/artifact/")) {
     const id = path.slice("/api/artifact/".length);
     if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
@@ -217,7 +226,8 @@ wss.on("connection", (ws, req) => {
 
   const pb = loadPlaybook(playbookPath(id));
   const language = LANG_NAMES[url.searchParams.get("lang") ?? ""];
-  runPlaybookSession(pb, llm, io, { header: false, language })
+  const autoResume = url.searchParams.get("resume") === "1";
+  runPlaybookSession(pb, llm, io, { header: false, language, autoResume })
     .then((outcome) => {
       send({ type: "done", text: outcome });
       if (open) ws.close();

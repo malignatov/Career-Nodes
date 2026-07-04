@@ -19,7 +19,7 @@ export async function runPlaybookSession(
   pb: Playbook,
   llm: LlmAdapter,
   baseIO: SessionIO,
-  opts: { header?: boolean; language?: string } = {},
+  opts: { header?: boolean; language?: string; autoResume?: boolean } = {},
 ): Promise<SessionOutcome> {
   mkdirSync(ARTIFACTS_DIR, { recursive: true });
   const sessionPath = join(ARTIFACTS_DIR, `${pb.id}.session.json`);
@@ -57,10 +57,14 @@ export async function runPlaybookSession(
     if (existsSync(sessionPath)) {
       const saved = JSON.parse(readFileSync(sessionPath, "utf8")) as SessionState;
       if (saved.exchange.length > 0) {
-        const answer = (
-          await io.ask(`a saved conversation (${saved.exchange.length} entries) exists — (r)esume it or (s)tart over`)
-        ).trim().toLowerCase();
-        if (answer.startsWith("r")) resume = saved;
+        if (opts.autoResume) {
+          resume = saved;
+        } else {
+          const answer = (
+            await io.ask(`a saved conversation (${saved.exchange.length} entries) exists — (r)esume it or (s)tart over`)
+          ).trim().toLowerCase();
+          if (answer.startsWith("r")) resume = saved;
+        }
       }
     }
 
