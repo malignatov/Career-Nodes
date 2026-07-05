@@ -142,7 +142,7 @@ body:has(#scrim:not([hidden])) {
 .chip.drafted { color: var(--violet); background: var(--violet-bg); }
 .chip.planned { color: var(--warmgray); background: var(--warmgray-bg); }
 .chip.skippable { color: var(--amber); background: var(--amber-bg); }
-.chip.stale { color: var(--mark-ink); background: var(--mark-bg); cursor: help; position: relative; }
+.chip.stale { color: var(--mark-ink); background: var(--mark-bg); cursor: default; position: relative; }
 .chip.stale::after {
   content: attr(data-tip);
   position: absolute;
