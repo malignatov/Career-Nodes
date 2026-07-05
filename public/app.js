@@ -48,13 +48,16 @@ function depHint(n) {
 }
 
 function actionLabel(n) {
+  if (n.status === "stale") return t("btn_refresh");
   if (n.status === "authorized") return t("btn_open");
   if (n.status === "in_progress") return t("btn_resume");
   return n.kind === "conversation" ? t("btn_start") : t("btn_draft");
 }
 
+const isSettled = (status) => status === "authorized" || status === "stale";
+
 function summaryLine(n) {
-  if (n.status === "authorized" && n.distilled?.length) {
+  if (isSettled(n.status) && n.distilled?.length) {
     const parts = n.distilled
       .map((p) => `${p.label ? `<div class="sum-label">${esc(p.label)}</div>` : ""}<p>${esc(p.text)}</p>`)
       .join("");
@@ -89,7 +92,7 @@ function renderJourney() {
 
     for (const n of nodes.filter((x) => x.status !== "planned")) {
       const btnClass = n.status === "authorized" ? "btn-outline" : "btn-fill";
-      const chips = (n.skippable && n.status !== "authorized" ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + chipHtml(n.status);
+      const chips = (n.skippable && !isSettled(n.status) ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + chipHtml(n.status);
       parts.push(`
         <div class="node-card">
           <div class="row1"><div class="title">${esc(nodeTitle(n))}</div><div class="chips">${chips}</div></div>
@@ -173,7 +176,7 @@ async function openModal(id) {
   const node = byId(id);
   // Authorized nodes open straight into review of the saved artifact (no model
   // call); derived nodes never show the chat — status + review only.
-  const reviewMode = node.status === "authorized";
+  const reviewMode = isSettled(node.status);
   const chatless = reviewMode || node.kind === "derived";
   modal = { node, view: "chat", review: null, reviewMode, chatless };
 
@@ -189,7 +192,7 @@ async function openModal(id) {
 
   if (chatless) {
     setView("review");
-    setChip(reviewMode ? "authorized" : "in_progress");
+    setChip(reviewMode ? node.status : "in_progress");
     setStatusLine(reviewMode ? null : t("status_preparing"));
   } else {
     setView("chat");
@@ -424,7 +427,10 @@ function showReview(payload) {
   setStatusLine(null);
   $("reviewBody").hidden = false;
   $("amendBox").classList.remove("busy");
-  setChip(payload.existing ? "authorized" : "drafted");
+  const stale = modal.node.status === "stale";
+  setChip(payload.existing ? (stale ? "stale" : "authorized") : "drafted");
+  $("staleNote").hidden = !(payload.existing && stale);
+  $("staleNote").textContent = t("stale_note");
 
   const short = shortEntry(modal.node);
   $("reviewExplainer").textContent = t("review_explainer", short.label);

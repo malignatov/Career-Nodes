@@ -42,6 +42,13 @@ function isAuthorized(id: string): boolean {
   return existsSync(join(ARTIFACTS_DIR, `${id}.json`));
 }
 
+function authorizedAt(id: string): number | null {
+  const p = join(ARTIFACTS_DIR, `${id}.json`);
+  if (!existsSync(p)) return null;
+  const ts = Date.parse((JSON.parse(readFileSync(p, "utf8")) as Artifact).authorized_at);
+  return Number.isNaN(ts) ? null : ts;
+}
+
 /**
  * Lifecycle status. "planned" covers both nodes without a playbook and nodes
  * whose dependencies aren't met yet: conversation nodes need every consumed
@@ -49,7 +56,17 @@ function isAuthorized(id: string): boolean {
  * upstream, e.g. character sketch from role models alone).
  */
 function nodeStatus(id: string): string {
-  if (isAuthorized(id)) return "authorized";
+  if (isAuthorized(id)) {
+    // Derived artifacts go stale when any source was authorized after them;
+    // conversation artifacts never do — the user's recorded words stay valid.
+    const pb = tryPlaybook(id);
+    if (pb?.kind === "derived") {
+      const own = authorizedAt(id) ?? 0;
+      const outdated = pb.consumes.some((dep) => (authorizedAt(dep) ?? 0) > own);
+      if (outdated) return "stale";
+    }
+    return "authorized";
+  }
   if (existsSync(join(ARTIFACTS_DIR, `${id}.session.json`))) return "in_progress";
   const pb = tryPlaybook(id);
   if (!pb) return "planned";
@@ -128,7 +145,7 @@ function buildJourney(): unknown {
     const status = nodeStatus(n.id);
     if (status === "authorized") authorized++;
     let distilled: DistilledPart[] = [];
-    if (status === "authorized") {
+    if (status === "authorized" || status === "stale") {
       const art = JSON.parse(readFileSync(join(ARTIFACTS_DIR, `${n.id}.json`), "utf8")) as Artifact;
       distilled = distill(n.id, art.content);
     }
