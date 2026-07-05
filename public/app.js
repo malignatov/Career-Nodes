@@ -35,6 +35,12 @@ function chipHtml(status) {
   return `<span class="chip ${status}">${t(`chip_${status}`)}</span>`;
 }
 
+/** Stale keeps its AUTHORIZED chip — staleness annotates, it doesn't revoke. */
+function statusChips(status) {
+  if (status !== "stale") return chipHtml(status);
+  return `<span class="chip stale" title="${esc(t("stale_tooltip"))}">${t("chip_stale")}</span>${chipHtml("authorized")}`;
+}
+
 function depHint(n) {
   if (n.id === "counseling_goal") return t("goal_hint");
   if (n.id === "closing_check") return t("closing_hint");
@@ -92,7 +98,7 @@ function renderJourney() {
 
     for (const n of nodes.filter((x) => x.status !== "planned")) {
       const btnClass = n.status === "authorized" ? "btn-outline" : "btn-fill";
-      const chips = (n.skippable && !isSettled(n.status) ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + chipHtml(n.status);
+      const chips = (n.skippable && !isSettled(n.status) ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + statusChips(n.status);
       parts.push(`
         <div class="node-card">
           <div class="row1"><div class="title">${esc(nodeTitle(n))}</div><div class="chips">${chips}</div></div>
@@ -147,12 +153,22 @@ function setChip(status) {
   chip.textContent = t(`chip_${status}`);
 }
 
+function setStaleChip(show) {
+  const el = $("modalStaleChip");
+  el.hidden = !show;
+  if (show) {
+    el.textContent = t("chip_stale");
+    el.title = t("stale_tooltip");
+  }
+}
+
 function setView(view) {
   modal.view = view;
   $("chatView").hidden = view !== "chat";
   $("reviewView").hidden = view !== "review";
   $("exitHint").textContent = view === "review" ? t("exit_draft") : t("exit_saved");
   setChip(view === "review" ? "drafted" : "in_progress");
+  if (view === "chat") setStaleChip(false);
 }
 
 function setStatusLine(text) {
@@ -192,10 +208,12 @@ async function openModal(id) {
 
   if (chatless) {
     setView("review");
-    setChip(reviewMode ? node.status : "in_progress");
+    setChip(reviewMode ? "authorized" : "in_progress");
+    setStaleChip(reviewMode && node.status === "stale");
     setStatusLine(reviewMode ? null : t("status_preparing"));
   } else {
     setView("chat");
+    setStaleChip(false);
   }
 
   const pb = await (await fetch(`/api/playbook/${id}?lang=${lang}`)).json();
@@ -428,7 +446,8 @@ function showReview(payload) {
   $("reviewBody").hidden = false;
   $("amendBox").classList.remove("busy");
   const stale = modal.node.status === "stale";
-  setChip(payload.existing ? (stale ? "stale" : "authorized") : "drafted");
+  setChip(payload.existing ? "authorized" : "drafted");
+  setStaleChip(payload.existing && stale);
   $("staleNote").hidden = !(payload.existing && stale);
   $("staleNote").textContent = t("stale_note");
 
