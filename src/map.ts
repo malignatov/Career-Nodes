@@ -33,11 +33,11 @@ export const MAP_NODES: MapNode[] = [
   },
   {
     id: "favorite_media", title: "Favorite media", sector: 2, kind: "conversation",
-    desc: "The shows, sites, or magazines you keep returning to — your preferred settings.",
+    desc: "Two or three shows, sites, or magazines you keep returning to — your preferred settings.",
   },
   {
     id: "favorite_story", title: "Favorite story", sector: 2, kind: "conversation",
-    desc: "Your current favorite story, retold in your words — the script for your next chapter.",
+    desc: "One story — your current favorite, retold in your words — the script for your next chapter.",
   },
   {
     id: "motto", title: "Motto", sector: 2, kind: "conversation",
