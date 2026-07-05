@@ -441,7 +441,7 @@ function showReview(payload) {
   $("editBtn").textContent = t("edit_wording");
   $("changesBtn").textContent = t("ask_changes");
   $("reprocessBtn").hidden = !modal.reviewMode && !payload.existing;
-  $("reprocessBtn").textContent = t("reprocess");
+  $("reprocessBtn").textContent = modal.node.kind === "derived" ? t("reprocess") : t("reprocess_conversation");
   $("restartBtn").hidden = !(modal.reviewMode && modal.node.kind === "conversation");
   $("restartBtn").textContent = t("restart_interview");
   $("editArea").hidden = true;
