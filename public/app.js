@@ -38,7 +38,7 @@ function chipHtml(status) {
 /** Stale keeps its AUTHORIZED chip — staleness annotates, it doesn't revoke. */
 function statusChips(status) {
   if (status !== "stale") return chipHtml(status);
-  return `<span class="chip stale" title="${esc(t("stale_tooltip"))}">${t("chip_stale")}</span>${chipHtml("authorized")}`;
+  return `<span class="chip stale" data-tip="${esc(t("stale_tooltip"))}">${t("chip_stale")}</span>${chipHtml("authorized")}`;
 }
 
 function depHint(n) {
@@ -158,7 +158,7 @@ function setStaleChip(show) {
   el.hidden = !show;
   if (show) {
     el.textContent = t("chip_stale");
-    el.title = t("stale_tooltip");
+    el.dataset.tip = t("stale_tooltip");
   }
 }
 

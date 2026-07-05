@@ -142,7 +142,30 @@ body:has(#scrim:not([hidden])) {
 .chip.drafted { color: var(--violet); background: var(--violet-bg); }
 .chip.planned { color: var(--warmgray); background: var(--warmgray-bg); }
 .chip.skippable { color: var(--amber); background: var(--amber-bg); }
-.chip.stale { color: var(--mark-ink); background: var(--mark-bg); cursor: help; }
+.chip.stale { color: var(--mark-ink); background: var(--mark-bg); cursor: help; position: relative; }
+.chip.stale::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 250px;
+  background: var(--ink);
+  color: var(--canvas);
+  font: 400 11.5px/1.5 Karla, sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease 0.2s;
+  pointer-events: none;
+  z-index: 30;
+}
+.chip.stale:hover::after { opacity: 1; visibility: visible; }
 
 #staleNote {
   margin: 14px 22px 0;
