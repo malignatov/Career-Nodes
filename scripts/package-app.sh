@@ -1,16 +1,20 @@
 #!/bin/bash
-# Builds a self-contained, shareable macOS app: server code, playbooks, UI,
+# Builds a self-contained, shareable app: server code, playbooks, UI,
 # production dependencies, and the project's .env (API key!) all inside the
-# bundle. Artifacts live in the recipient's ~/Library/Application Support.
-# Usage: scripts/package-app.sh [arm64|x64|universal]   (default: arm64)
+# bundle. Artifacts live in the recipient's per-user app-data directory.
+# Usage: scripts/package-app.sh [darwin|win32] [arm64|x64|universal]
+#   default: darwin arm64      Windows: scripts/package-app.sh win32 x64
 set -euo pipefail
 
-ARCH="${1:-arm64}"
+PLATFORM="${1:-darwin}"
+ARCH="${2:-arm64}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-STAGE="$ROOT/dist-app/staging"
+# Staging lives OUTSIDE the project tree: electron-packager's metadata
+# inference walks parent directories and would inherit version/author from the
+# root package.json — which drags in rcedit and a Wine dependency for win32.
+STAGE="$(mktemp -d)/app"
 OUT="$ROOT/dist-app/share"
 
-rm -rf "$STAGE"
 mkdir -p "$STAGE/server"
 
 cp "$ROOT/app/main.cjs" "$ROOT/app/package.json" "$STAGE/"
@@ -24,20 +28,34 @@ else
   echo "warning: no .env found — recipients will have no API key"
 fi
 
+# Production deps are pure JS (sdk, js-yaml, ws) — platform-independent.
 (cd "$STAGE/server" && npm ci --omit=dev --silent)
 
 EL_VER=$(node -p "require('$ROOT/node_modules/electron/package.json').version")
-npx electron-packager "$STAGE" "Career Counseling" \
-  --platform=darwin --arch="$ARCH" --out="$OUT" --overwrite \
-  --electron-version="$EL_VER"
-
-APP="$OUT/Career Counseling-darwin-$ARCH/Career Counseling.app"
-codesign --force --deep -s - "$APP" 2>/dev/null || true
-
-ZIP="$ROOT/dist-app/Career-Counseling-$ARCH.zip"
+BUILT="$OUT/Career Counseling-$PLATFORM-$ARCH"
+ZIP="$ROOT/dist-app/Career-Counseling-$PLATFORM-$ARCH.zip"
 rm -f "$ZIP"
-ditto -c -k --keepParent "$APP" "$ZIP"
+
+if [ "$PLATFORM" = "darwin" ]; then
+  npx electron-packager "$STAGE" "Career Counseling" \
+    --platform="$PLATFORM" --arch="$ARCH" --out="$OUT" --overwrite \
+    --electron-version="$EL_VER"
+  APP="$BUILT/Career Counseling.app"
+  codesign --force --deep -s - "$APP" 2>/dev/null || true
+  ditto -c -k --keepParent "$APP" "$ZIP"
+else
+  # Windows: assemble manually — official Electron zip + our app in
+  # resources/app + renamed exe. That is all electron-packager does here,
+  # minus exe metadata stamping (which would require Wine on macOS).
+  EZIP=$(node -e "require('@electron/get').downloadArtifact({version:'$EL_VER',platform:'win32',arch:'$ARCH',artifactName:'electron'}).then((p)=>console.log(p))")
+  rm -rf "$BUILT"
+  mkdir -p "$BUILT"
+  ditto -x -k "$EZIP" "$BUILT"
+  cp -R "$STAGE" "$BUILT/resources/app"
+  mv "$BUILT/electron.exe" "$BUILT/Career Counseling.exe"
+  ditto -c -k --keepParent "$BUILT" "$ZIP"
+fi
 
 echo ""
-echo "Built: $APP"
+echo "Built: $BUILT"
 echo "Send:  $ZIP  ($(du -h "$ZIP" | cut -f1 | tr -d ' '))"
