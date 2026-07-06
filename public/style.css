@@ -1,4 +1,6 @@
 :root {
+  color-scheme: light;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
   --canvas: #EFE9E0;
   --card: #FFFDF9;
   --surface: #FFFFFF;
@@ -32,6 +34,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --canvas: #1B1815;
   --card: #252119;
   --surface: #2A251D;

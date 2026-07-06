@@ -82,7 +82,7 @@ export const MAP_NODES: MapNode[] = [
     desc: "Concrete exploration steps that carry your intention into the world.",
   },
   {
-    id: "closing_check", title: "Closing check", sector: 5, kind: "derived",
+    id: "closing_check", title: "Closing check", sector: 5, kind: "conversation",
     desc: "Did we get there? Your goal is read back, and your motto is returned to you.",
     hint: "· reads your goal back, verbatim",
   },

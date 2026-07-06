@@ -143,6 +143,10 @@ function buildJourney(): unknown {
   let authorized = 0;
   const nodes = MAP_NODES.map((n) => {
     const status = nodeStatus(n.id);
+    // The playbook is the source of truth for the node kind — the map entry
+    // is only a fallback for planned nodes without a playbook yet.
+    const pb = tryPlaybook(n.id);
+    const kind = pb ? (pb.elicit ? "conversation" : "derived") : n.kind;
     if (status === "authorized") authorized++;
     let distilled: DistilledPart[] = [];
     if (status === "authorized" || status === "stale") {
@@ -151,6 +155,7 @@ function buildJourney(): unknown {
     }
     return {
       ...n,
+      kind,
       status,
       distilled,
       feeds: n.id === "counseling_goal" ? [] : MAP_EDGES.filter(([from]) => from === n.id).map(([, to]) => to),
