@@ -62,6 +62,15 @@ function actionLabel(n) {
 
 const isSettled = (status) => status === "authorized" || status === "stale";
 
+/** The step to draw attention to: resume first, then the next new step, then upkeep. */
+function currentNodeId() {
+  for (const status of ["in_progress", "available", "stale"]) {
+    const hit = journey.nodes.find((n) => n.status === status);
+    if (hit) return hit.id;
+  }
+  return null;
+}
+
 function summaryLine(n) {
   if (isSettled(n.status) && n.distilled?.length) {
     const parts = n.distilled
@@ -75,6 +84,7 @@ function summaryLine(n) {
 
 function renderJourney() {
   const pct = Math.round((journey.authorized / journey.total) * 100);
+  const current = currentNodeId();
   const parts = [];
   parts.push(`
     <div class="j-header">
@@ -99,8 +109,10 @@ function renderJourney() {
     for (const n of nodes.filter((x) => x.status !== "planned")) {
       const btnClass = n.status === "authorized" ? "btn-outline" : "btn-fill";
       const chips = (n.skippable && !isSettled(n.status) ? `<span class="chip skippable">${t("chip_skippable")}</span>` : "") + statusChips(n.status);
+      const isCurrent = n.id === current;
       parts.push(`
-        <div class="node-card">
+        <div class="node-card${isCurrent ? " current" : ""}">
+          ${isCurrent ? `<div class="current-tag">${t("current_tag")}</div>` : ""}
           <div class="row1"><div class="title">${esc(nodeTitle(n))}</div><div class="chips">${chips}</div></div>
           ${summaryLine(n)}
           <div class="row3">

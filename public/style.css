@@ -227,6 +227,34 @@ body:has(#scrim:not([hidden])) {
 }
 .btn-outline:hover { background: var(--panel); }
 
+.node-card.current {
+  position: relative;
+  border-color: var(--accent);
+  animation: breathe 2.8s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 10%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 18%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .node-card.current {
+    animation: none;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+}
+.current-tag {
+  position: absolute;
+  top: -9px;
+  left: 16px;
+  background: var(--accent);
+  color: #fff;
+  font: 600 10px Karla, sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 11px;
+  border-radius: 99px;
+}
+
 .node-row {
   border: 1px dashed var(--border-dashed);
   border-radius: 14px;
