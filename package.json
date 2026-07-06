@@ -12,7 +12,8 @@
     "app": "electron app",
     "app:build": "electron-packager app 'Career Counseling' --platform=darwin --arch=$(node -p process.arch) --out=dist-app --overwrite --electron-version=$(node -p \"require('electron/package.json').version\")",
     "app:dist": "bash scripts/package-app.sh",
-    "app:dist:win": "bash scripts/package-app.sh win32 x64"
+    "app:dist:win": "bash scripts/package-app.sh win32 x64",
+    "app:dist:linux": "bash scripts/package-app.sh linux x64"
   },
   "keywords": [],
   "author": "",

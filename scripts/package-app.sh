@@ -2,8 +2,10 @@
 # Builds a self-contained, shareable app: server code, playbooks, UI,
 # production dependencies, and the project's .env (API key!) all inside the
 # bundle. Artifacts live in the recipient's per-user app-data directory.
-# Usage: scripts/package-app.sh [darwin|win32] [arm64|x64|universal]
-#   default: darwin arm64      Windows: scripts/package-app.sh win32 x64
+# Usage: scripts/package-app.sh [darwin|win32|linux] [arm64|x64|universal]
+#   default: darwin arm64
+#   Windows: scripts/package-app.sh win32 x64
+#   Ubuntu:  scripts/package-app.sh linux x64
 set -euo pipefail
 
 PLATFORM="${1:-darwin}"
@@ -44,16 +46,25 @@ if [ "$PLATFORM" = "darwin" ]; then
   codesign --force --deep -s - "$APP" 2>/dev/null || true
   ditto -c -k --keepParent "$APP" "$ZIP"
 else
-  # Windows: assemble manually — official Electron zip + our app in
-  # resources/app + renamed exe. That is all electron-packager does here,
+  # Windows/Linux: assemble manually — official Electron zip + our app in
+  # resources/app + renamed binary. That is all electron-packager does here,
   # minus exe metadata stamping (which would require Wine on macOS).
-  EZIP=$(node -e "require('@electron/get').downloadArtifact({version:'$EL_VER',platform:'win32',arch:'$ARCH',artifactName:'electron'}).then((p)=>console.log(p))")
+  EZIP=$(node -e "require('@electron/get').downloadArtifact({version:'$EL_VER',platform:'$PLATFORM',arch:'$ARCH',artifactName:'electron'}).then((p)=>console.log(p))")
   rm -rf "$BUILT"
   mkdir -p "$BUILT"
   ditto -x -k "$EZIP" "$BUILT"
   cp -R "$STAGE" "$BUILT/resources/app"
-  mv "$BUILT/electron.exe" "$BUILT/Career Counseling.exe"
-  ditto -c -k --keepParent "$BUILT" "$ZIP"
+  if [ "$PLATFORM" = "win32" ]; then
+    mv "$BUILT/electron.exe" "$BUILT/Career Counseling.exe"
+    ditto -c -k --keepParent "$BUILT" "$ZIP"
+  else
+    mv "$BUILT/electron" "$BUILT/career-counseling"
+    chmod +x "$BUILT/career-counseling" "$BUILT/chrome-sandbox" 2>/dev/null || true
+    # tar.gz for Linux — reliably preserves the executable bit.
+    ZIP="$ROOT/dist-app/Career-Counseling-$PLATFORM-$ARCH.tar.gz"
+    rm -f "$ZIP"
+    tar -czf "$ZIP" -C "$OUT" "Career Counseling-$PLATFORM-$ARCH"
+  fi
 fi
 
 echo ""
