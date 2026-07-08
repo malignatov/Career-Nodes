@@ -1095,8 +1095,12 @@ const voiceEligible = (el) =>
 
 function placeMic(el) {
   const r = el.getBoundingClientRect();
-  micBtn.style.top = `${Math.max(4, r.top + 5)}px`;
-  micBtn.style.left = `${r.right - 33}px`;
+  // Single-line inputs get a vertically centered mic; textareas anchor it
+  // in the top-right corner so it doesn't drift away while they grow.
+  const single = el.tagName === "INPUT" || r.height <= 48;
+  const top = single ? r.top + (r.height - 28) / 2 : r.top + 5;
+  micBtn.style.top = `${Math.max(4, top)}px`;
+  micBtn.style.left = `${r.right - 36}px`;
   if (!voice) micBtn.title = t("voice_dictate");
   micBtn.hidden = false;
 }

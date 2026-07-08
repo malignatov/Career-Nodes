@@ -16,8 +16,8 @@
     "app:dist:linux": "bash scripts/package-app.sh linux x64"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Mikhail Ignatov",
+  "license": "MIT",
   "type": "module",
   "private": "true",
   "dependencies": {
