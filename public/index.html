@@ -76,6 +76,35 @@
           <div id="reviewFoot"></div>
         </div>
       </div>
+
+      <div id="practView" hidden>
+        <section id="scriptSection" hidden>
+          <div class="p-title" id="scriptTitle"></div>
+          <div class="p-hint" id="scriptHint"></div>
+          <div id="scriptNote" class="p-note" hidden></div>
+          <div id="stageList"></div>
+        </section>
+        <section id="sourcesSection" hidden>
+          <div class="p-title" id="sourcesTitle"></div>
+          <div id="sourcesList"></div>
+        </section>
+        <section id="formSection">
+          <div class="p-title" id="formTitle"></div>
+          <div id="formWarnings" hidden></div>
+          <div id="formBody"></div>
+          <div id="saveLine" hidden></div>
+        </section>
+        <div class="review-actions" id="practActions">
+          <button id="generateBtn" class="outline" hidden></button>
+          <button id="practAmendBtn" class="outline" hidden></button>
+          <button id="practAuthorizeBtn"></button>
+        </div>
+        <form id="practAmendBox" hidden>
+          <textarea id="practAmendInput" rows="2"></textarea>
+          <button type="submit" id="practAmendSend">Send</button>
+        </form>
+        <div id="practFoot"></div>
+      </div>
     </div>
   </div>
 

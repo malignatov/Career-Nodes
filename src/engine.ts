@@ -43,7 +43,7 @@ const GREETINGS: Record<string, string> = {
   ru: "Привет! Хорошо, что ты здесь.",
 };
 
-function stageOpening(stage: Stage, lang?: SessionLang): string {
+export function stageOpening(stage: Stage, lang?: SessionLang): string {
   const localized = lang ? stage.opening_i18n?.[lang.code] : undefined;
   return (localized ?? stage.opening).trim();
 }
@@ -251,7 +251,7 @@ export function compiledPrompts(pb: Playbook, lang?: SessionLang): unknown {
   };
 }
 
-function stringValuesDeep(v: unknown): string[] {
+export function stringValuesDeep(v: unknown): string[] {
   if (typeof v === "string") return [v];
   if (Array.isArray(v)) return v.flatMap(stringValuesDeep);
   if (typeof v === "object" && v !== null) return Object.values(v).flatMap(stringValuesDeep);
@@ -267,6 +267,7 @@ async function runInduceStep(
   verbatimSource: string,
   feedback: string | undefined,
   lang: SessionLang | undefined,
+  prior?: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const system = induceStepSystem(pb, step, lang);
 
@@ -276,6 +277,9 @@ async function runInduceStep(
   const upstreamBlock = Object.keys(upstream).length
     ? `\n\nAuthorized upstream artifacts:\n${JSON.stringify(upstream, null, 2)}`
     : "";
+  const priorBlock = prior
+    ? `\n\nThe current draft, possibly hand-edited by the user (keep their edits unless the feedback says otherwise):\n${JSON.stringify(prior, null, 2)}`
+    : "";
   const feedbackBlock = feedback ? `\n\nUser feedback on the previous draft (address it):\n${feedback}` : "";
 
   const attempt = async (extra: string): Promise<Record<string, unknown>> => {
@@ -283,7 +287,7 @@ async function runInduceStep(
       tier: step.model_tier,
       system,
       messages: [
-        { role: "user", content: `${sourceBlock}${upstreamBlock}${feedbackBlock}${extra}` },
+        { role: "user", content: `${sourceBlock}${upstreamBlock}${priorBlock}${feedbackBlock}${extra}` },
       ],
       jsonSchema: step.output_schema,
       maxTokens: 8192,
@@ -315,6 +319,7 @@ export async function runInduce(
   io: SessionIO,
   feedback?: string,
   lang?: SessionLang,
+  prior?: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const transcript = exchange.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
   const verbatimSource = [
@@ -324,7 +329,7 @@ export async function runInduce(
   const draft: Record<string, unknown> = {};
   for (const step of pb.induce!.steps) {
     io.note(`(inducing: ${step.id}…)`);
-    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback, lang));
+    Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback, lang, prior));
   }
   return draft;
 }
@@ -406,11 +411,16 @@ export async function runConfirm(
   }
 }
 
-export function toArtifact(pb: Playbook, content: Record<string, unknown>): Artifact {
+export function toArtifact(
+  pb: Playbook,
+  content: Record<string, unknown>,
+  origin: Artifact["origin"] = "generated",
+): Artifact {
   return {
     playbook_id: pb.id,
     playbook_version: pb.version,
     authorized_at: new Date().toISOString(),
+    origin,
     content,
   };
 }

@@ -6,6 +6,18 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["--env-file-if-exists=.env", "src/server.ts"],
       "port": 4780
+    },
+    {
+      "name": "ui-sandbox",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=4791",
+        "CC_ARTIFACTS_DIR=/private/tmp/claude-501/-Users-michael-Claude-Code-Career-Counseling/53e98b4c-7a1c-40ac-b26a-d597954cce76/scratchpad/artifacts-sandbox",
+        "node",
+        "--env-file-if-exists=.env",
+        "src/server.ts"
+      ],
+      "port": 4791
     }
   ]
 }

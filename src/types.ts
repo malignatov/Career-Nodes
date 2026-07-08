@@ -70,5 +70,7 @@ export interface Artifact {
   playbook_id: string;
   playbook_version: string;
   authorized_at: string;
+  /** How the content was produced. Absent on artifacts predating the field — treat as "generated". */
+  origin?: "manual" | "generated" | "mixed";
   content: Record<string, unknown>;
 }

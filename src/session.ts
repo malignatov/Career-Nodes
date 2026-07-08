@@ -6,6 +6,18 @@ import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO, type Sess
 
 export const ARTIFACTS_DIR = process.env.CC_ARTIFACTS_DIR ?? "artifacts";
 
+const PROFILE_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+
+/**
+ * Each client profile is its own artifacts directory. The default profile is
+ * the root dir itself, so journeys that predate profiles stay where they are.
+ */
+export function profileDir(profile?: string | null): string {
+  if (!profile || profile === "default") return ARTIFACTS_DIR;
+  if (!PROFILE_RE.test(profile)) throw new Error(`bad profile id: ${profile}`);
+  return join(ARTIFACTS_DIR, "profiles", profile);
+}
+
 interface SessionState {
   exchange: ExchangeEntry[];
   stage_index: number;
@@ -14,10 +26,10 @@ interface SessionState {
 
 export type SessionOutcome = "authorized" | "aborted" | "blocked";
 
-function loadUpstream(pb: Playbook, io: SessionIO): Record<string, unknown> {
+export function loadUpstream(pb: Playbook, io: SessionIO, dir: string = ARTIFACTS_DIR): Record<string, unknown> {
   const upstream: Record<string, unknown> = {};
   for (const dep of pb.consumes) {
-    const depPath = join(ARTIFACTS_DIR, `${dep}.json`);
+    const depPath = join(dir, `${dep}.json`);
     if (existsSync(depPath)) {
       upstream[dep] = (JSON.parse(readFileSync(depPath, "utf8")) as Artifact).content;
     } else {
@@ -27,10 +39,17 @@ function loadUpstream(pb: Playbook, io: SessionIO): Record<string, unknown> {
   return upstream;
 }
 
-function saveArtifact(pb: Playbook, content: Record<string, unknown>, exchange: ExchangeEntry[]): void {
-  writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.json`), JSON.stringify(toArtifact(pb, content), null, 2));
+export function saveArtifact(
+  pb: Playbook,
+  content: Record<string, unknown>,
+  exchange: ExchangeEntry[],
+  dir: string = ARTIFACTS_DIR,
+  origin: Artifact["origin"] = "generated",
+): void {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${pb.id}.json`), JSON.stringify(toArtifact(pb, content, origin), null, 2));
   if (exchange.length > 0) {
-    writeFileSync(join(ARTIFACTS_DIR, `${pb.id}.transcript.json`), JSON.stringify(exchange, null, 2));
+    writeFileSync(join(dir, `${pb.id}.transcript.json`), JSON.stringify(exchange, null, 2));
   }
 }
 
@@ -43,17 +62,18 @@ export async function runReviewSession(
   pb: Playbook,
   llm: LlmAdapter,
   io: SessionIO,
-  opts: { lang?: SessionLang } = {},
+  opts: { lang?: SessionLang; dir?: string } = {},
 ): Promise<SessionOutcome> {
-  mkdirSync(ARTIFACTS_DIR, { recursive: true });
-  const artPath = join(ARTIFACTS_DIR, `${pb.id}.json`);
+  const dir = opts.dir ?? ARTIFACTS_DIR;
+  mkdirSync(dir, { recursive: true });
+  const artPath = join(dir, `${pb.id}.json`);
   if (!existsSync(artPath)) {
     io.say("There is no authorized artifact for this step yet.");
     return "blocked";
   }
-  const upstream = loadUpstream(pb, io);
+  const upstream = loadUpstream(pb, io, dir);
 
-  const transcriptPath = join(ARTIFACTS_DIR, `${pb.id}.transcript.json`);
+  const transcriptPath = join(dir, `${pb.id}.transcript.json`);
   const exchange: ExchangeEntry[] = existsSync(transcriptPath)
     ? (JSON.parse(readFileSync(transcriptPath, "utf8")) as ExchangeEntry[])
     : [];
@@ -72,8 +92,8 @@ export async function runReviewSession(
     { existingFirst: true },
   );
 
-  saveArtifact(pb, authorized, exchange);
-  io.say(`Artifact authorized and saved to ${ARTIFACTS_DIR}/${pb.id}.json`);
+  saveArtifact(pb, authorized, exchange, dir);
+  io.say(`Artifact authorized and saved to ${dir}/${pb.id}.json`);
   if (pb.invalidates.length > 0) {
     io.note(`(in the full app this would mark stale: ${pb.invalidates.join(", ")})`);
   }
@@ -85,10 +105,11 @@ export async function runPlaybookSession(
   pb: Playbook,
   llm: LlmAdapter,
   baseIO: SessionIO,
-  opts: { header?: boolean; lang?: SessionLang; autoResume?: boolean } = {},
+  opts: { header?: boolean; lang?: SessionLang; autoResume?: boolean; dir?: string } = {},
 ): Promise<SessionOutcome> {
-  mkdirSync(ARTIFACTS_DIR, { recursive: true });
-  const sessionPath = join(ARTIFACTS_DIR, `${pb.id}.session.json`);
+  const dir = opts.dir ?? ARTIFACTS_DIR;
+  mkdirSync(dir, { recursive: true });
+  const sessionPath = join(dir, `${pb.id}.session.json`);
 
   const io: SessionIO = {
     ...baseIO,
@@ -106,7 +127,7 @@ export async function runPlaybookSession(
     io.say(`What happens in this step (shown in full, always):\n${pb.purpose.trim()}`);
   }
 
-  const upstream = loadUpstream(pb, io);
+  const upstream = loadUpstream(pb, io, dir);
 
   let exchange: ExchangeEntry[] = [];
 
@@ -164,10 +185,10 @@ export async function runPlaybookSession(
     runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang),
   );
 
-  saveArtifact(pb, authorized, exchange);
+  saveArtifact(pb, authorized, exchange, dir);
   if (existsSync(sessionPath)) unlinkSync(sessionPath);
 
-  io.say(`Artifact authorized and saved to ${ARTIFACTS_DIR}/${pb.id}.json`);
+  io.say(`Artifact authorized and saved to ${dir}/${pb.id}.json`);
   if (pb.invalidates.length > 0) {
     io.note(`(in the full app this would mark stale: ${pb.invalidates.join(", ")})`);
   }

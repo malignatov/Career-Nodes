@@ -1,12 +1,18 @@
-import { createServer, type ServerResponse } from "node:http";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { WebSocketServer } from "ws";
 import { loadPlaybook } from "./playbook.ts";
-import { createAdapter } from "./llm.ts";
-import { runPlaybookSession, runReviewSession, ARTIFACTS_DIR } from "./session.ts";
+import { createAdapter, type LlmAdapter } from "./llm.ts";
+import {
+  runPlaybookSession, runReviewSession, loadUpstream, saveArtifact, profileDir, ARTIFACTS_DIR,
+} from "./session.ts";
 import { MAP_NODES, MAP_EDGES, MAP_SECTORS } from "./map.ts";
-import { compiledPrompts, type ReviewAction, type SessionIO, type SessionLang } from "./engine.ts";
+import {
+  compiledPrompts, runInduce, stageOpening,
+  type ReviewAction, type SessionIO, type SessionLang,
+} from "./engine.ts";
+import { manualFormSchema, manualWarnings, verbatimSource, loadExchange, buildManualSession } from "./manual.ts";
 import type { Artifact, Playbook } from "./types.ts";
 
 const PORT = Number(process.env.PORT ?? 4780);
@@ -15,7 +21,17 @@ const ID_RE = /^[a-z_]+$/;
 const SESSION_LANGS: Record<string, SessionLang | undefined> = {
   ru: { code: "ru", instruction: "Russian, addressing the user with the informal, warm “ты” (never the formal “вы”)" },
 };
-const llm = createAdapter();
+
+// AI is a capability, not a requirement: with no key the app still runs — the
+// practitioner authors everything by hand and the generate buttons never show.
+const AI_AVAILABLE = process.env.LLM_PROVIDER === "ollama" || Boolean(process.env.ANTHROPIC_API_KEY);
+let llmInstance: LlmAdapter | null = null;
+function getLlm(): LlmAdapter {
+  llmInstance ??= createAdapter();
+  return llmInstance;
+}
+
+const silentIO: SessionIO = { say() {}, note() {}, ask: async () => "" };
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -30,6 +46,18 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    let raw = "";
+    req.on("data", (chunk) => { raw += chunk; });
+    req.on("end", () => {
+      try { resolve(raw ? (JSON.parse(raw) as Record<string, unknown>) : {}); }
+      catch { reject(new Error("bad json body")); }
+    });
+    req.on("error", reject);
+  });
+}
+
 function playbookPath(id: string): string {
   return join("playbooks", `${id}.yaml`);
 }
@@ -38,12 +66,12 @@ function tryPlaybook(id: string): Playbook | null {
   return existsSync(playbookPath(id)) ? loadPlaybook(playbookPath(id)) : null;
 }
 
-function isAuthorized(id: string): boolean {
-  return existsSync(join(ARTIFACTS_DIR, `${id}.json`));
+function isAuthorized(id: string, dir: string): boolean {
+  return existsSync(join(dir, `${id}.json`));
 }
 
-function authorizedAt(id: string): number | null {
-  const p = join(ARTIFACTS_DIR, `${id}.json`);
+function authorizedAt(id: string, dir: string): number | null {
+  const p = join(dir, `${id}.json`);
   if (!existsSync(p)) return null;
   const ts = Date.parse((JSON.parse(readFileSync(p, "utf8")) as Artifact).authorized_at);
   return Number.isNaN(ts) ? null : ts;
@@ -55,19 +83,20 @@ function authorizedAt(id: string): number | null {
  * artifact; derived nodes need at least one (the engine tolerates partial
  * upstream, e.g. character sketch from role models alone).
  */
-function nodeStatus(id: string): string {
-  if (isAuthorized(id)) {
+function nodeStatus(id: string, dir: string): string {
+  if (isAuthorized(id, dir)) {
     // Derived artifacts go stale when any source was authorized after them;
     // conversation artifacts never do — the user's recorded words stay valid.
     const pb = tryPlaybook(id);
     if (pb?.kind === "derived") {
-      const own = authorizedAt(id) ?? 0;
-      const outdated = pb.consumes.some((dep) => (authorizedAt(dep) ?? 0) > own);
+      const own = authorizedAt(id, dir) ?? 0;
+      const outdated = pb.consumes.some((dep) => (authorizedAt(dep, dir) ?? 0) > own);
       if (outdated) return "stale";
     }
     return "authorized";
   }
-  if (existsSync(join(ARTIFACTS_DIR, `${id}.session.json`))) return "in_progress";
+  if (existsSync(join(dir, `${id}.session.json`))) return "in_progress";
+  if (existsSync(join(dir, `${id}.draft.json`))) return "in_progress";
   const pb = tryPlaybook(id);
   if (!pb) return "planned";
   if (pb.consumes.length > 0) {
@@ -75,7 +104,7 @@ function nodeStatus(id: string): string {
     const sources = pb.kind === "conversation" ? pb.consumes : pb.consumes.filter((d) => d !== "counseling_goal");
     const gate = pb.gate ?? (pb.kind === "conversation" ? "all" : "any");
     if (sources.length > 0) {
-      const met = gate === "all" ? sources.every(isAuthorized) : sources.some(isAuthorized);
+      const met = gate === "all" ? sources.every((s) => isAuthorized(s, dir)) : sources.some((s) => isAuthorized(s, dir));
       if (!met) return "planned";
     }
   }
@@ -139,46 +168,95 @@ function distill(id: string, content: Record<string, unknown>): DistilledPart[] 
   }
 }
 
-function buildJourney(): unknown {
+function buildJourney(dir: string): unknown {
   let authorized = 0;
   const nodes = MAP_NODES.map((n) => {
-    const status = nodeStatus(n.id);
+    const status = nodeStatus(n.id, dir);
     // The playbook is the source of truth for the node kind — the map entry
     // is only a fallback for planned nodes without a playbook yet.
     const pb = tryPlaybook(n.id);
     const kind = pb ? (pb.elicit ? "conversation" : "derived") : n.kind;
     if (status === "authorized") authorized++;
     let distilled: DistilledPart[] = [];
+    let origin: string | null = null;
     if (status === "authorized" || status === "stale") {
-      const art = JSON.parse(readFileSync(join(ARTIFACTS_DIR, `${n.id}.json`), "utf8")) as Artifact;
+      const art = JSON.parse(readFileSync(join(dir, `${n.id}.json`), "utf8")) as Artifact;
       distilled = distill(n.id, art.content);
+      origin = art.origin ?? "generated";
     }
     return {
       ...n,
       kind,
       status,
       distilled,
+      origin,
       feeds: n.id === "counseling_goal" ? [] : MAP_EDGES.filter(([from]) => from === n.id).map(([, to]) => to),
       uses: n.id === "counseling_goal"
         ? []
         : MAP_EDGES.filter(([, to]) => to === n.id).map(([from]) => from).filter((f) => f !== "counseling_goal"),
     };
   });
-  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length };
+  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length, ai: AI_AVAILABLE };
 }
 
-const server = createServer((req, res) => {
+/* ── profiles: one artifacts directory per client ─────── */
+
+function listProfiles(): { id: string; name: string | null }[] {
+  const root = join(ARTIFACTS_DIR, "profiles");
+  const out: { id: string; name: string | null }[] = [{ id: "default", name: null }];
+  if (!existsSync(root)) return out;
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    let name: string | null = entry.name;
+    const meta = join(root, entry.name, "profile.json");
+    if (existsSync(meta)) {
+      try { name = (JSON.parse(readFileSync(meta, "utf8")) as { name?: string }).name ?? name; } catch { /* keep slug */ }
+    }
+    out.push({ id: entry.name, name });
+  }
+  return out;
+}
+
+function createProfile(name: string): { id: string; name: string } {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32)
+    || `client-${Date.now().toString(36)}`;
+  let id = base;
+  for (let n = 2; existsSync(join(ARTIFACTS_DIR, "profiles", id)); n++) id = `${base}-${n}`;
+  const dir = join(ARTIFACTS_DIR, "profiles", id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "profile.json"), JSON.stringify({ name, created_at: new Date().toISOString() }, null, 2));
+  return { id, name };
+}
+
+/* ── request handling ─────────────────────────────────── */
+
+async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   const path = url.pathname;
+  const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
+  const dir = profileDir(url.searchParams.get("profile"));
+  const idOf = (prefix: string): string => {
+    const id = path.slice(prefix.length);
+    if (!ID_RE.test(id)) throw new Error("bad id");
+    return id;
+  };
 
-  if (path === "/api/journey" || path === "/api/map") return json(res, 200, buildJourney());
+  if (path === "/api/journey" || path === "/api/map") return json(res, 200, buildJourney(dir));
+
+  if (path === "/api/profiles") {
+    if (req.method === "POST") {
+      const body = await readBody(req);
+      const name = String(body.name ?? "").trim();
+      if (!name) return json(res, 400, { error: "name required" });
+      return json(res, 200, createProfile(name));
+    }
+    return json(res, 200, { profiles: listProfiles() });
+  }
 
   if (path.startsWith("/api/playbook/")) {
-    const id = path.slice("/api/playbook/".length);
-    if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
+    const id = idOf("/api/playbook/");
     const pb = tryPlaybook(id);
     if (!pb) return json(res, 404, { planned: true });
-    const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
     return json(res, 200, {
       id: pb.id,
       title: pb.title,
@@ -186,37 +264,159 @@ const server = createServer((req, res) => {
       purpose: pb.purpose.trim(),
       consumes: pb.consumes,
       invalidates: pb.invalidates,
-      stages: pb.elicit?.stages.map((s) => s.id) ?? [],
+      stages: pb.elicit?.stages.map((s) => ({
+        id: s.id,
+        goal: s.goal,
+        opening: stageOpening(s, lang),
+        probes: s.probes ?? [],
+        done_when: s.done_when,
+      })) ?? [],
+      form: manualFormSchema(pb),
+      confirm_present: pb.confirm?.present ?? null,
+      choice_field: pb.confirm?.choice_field ?? null,
+      authorize_language: pb.confirm?.authorize_language.trim() ?? "",
       compiled: compiledPrompts(pb, lang),
     });
   }
 
   if (path.startsWith("/api/session/")) {
-    const id = path.slice("/api/session/".length);
-    if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
-    const sessPath = join(ARTIFACTS_DIR, `${id}.session.json`);
-    if (!existsSync(sessPath)) return json(res, 404, { error: "no session" });
+    const id = idOf("/api/session/");
+    const sessPath = join(dir, `${id}.session.json`);
+    if (!existsSync(sessPath)) {
+      // After authorization the live session is gone but the recorded
+      // interview remains — the practitioner view shows it read-only.
+      const tPath = join(dir, `${id}.transcript.json`);
+      if (existsSync(tPath)) {
+        return json(res, 200, { exchange: JSON.parse(readFileSync(tPath, "utf8")), settled: true });
+      }
+      return json(res, 404, { error: "no session" });
+    }
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(readFileSync(sessPath));
+    return void res.end(readFileSync(sessPath));
   }
 
   if (path.startsWith("/api/artifact/")) {
-    const id = path.slice("/api/artifact/".length);
-    if (!ID_RE.test(id)) return json(res, 400, { error: "bad id" });
-    const artPath = join(ARTIFACTS_DIR, `${id}.json`);
+    const id = idOf("/api/artifact/");
+    const artPath = join(dir, `${id}.json`);
     if (!existsSync(artPath)) return json(res, 404, { error: "no artifact" });
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(readFileSync(artPath));
+    return void res.end(readFileSync(artPath));
+  }
+
+  if (path.startsWith("/api/upstream/")) {
+    const id = idOf("/api/upstream/");
+    const pb = tryPlaybook(id);
+    if (!pb) return json(res, 404, { error: "no playbook" });
+    return json(res, 200, { upstream: loadUpstream(pb, silentIO, dir) });
+  }
+
+  if (path.startsWith("/api/draft/")) {
+    const id = idOf("/api/draft/");
+    const pb = tryPlaybook(id);
+    if (!pb) return json(res, 404, { error: "no playbook" });
+    const draftPath = join(dir, `${id}.draft.json`);
+    if (req.method === "PUT") {
+      const body = await readBody(req);
+      const content = (body.content ?? {}) as Record<string, unknown>;
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(draftPath, JSON.stringify(
+        { content, origin: body.origin ?? null, saved_at: new Date().toISOString() }, null, 2,
+      ));
+      const source = verbatimSource(pb, dir, loadUpstream(pb, silentIO, dir));
+      return json(res, 200, { ok: true, warnings: manualWarnings(pb, content, source) });
+    }
+    if (req.method === "DELETE") {
+      if (existsSync(draftPath)) unlinkSync(draftPath);
+      return json(res, 200, { ok: true });
+    }
+    if (!existsSync(draftPath)) return json(res, 404, { error: "no draft" });
+    res.writeHead(200, { "content-type": "application/json" });
+    return void res.end(readFileSync(draftPath));
+  }
+
+  // Manual authorization: the practitioner is the author; verbatim rules are
+  // still checked in code and returned as warnings, never as blockers.
+  if (path.startsWith("/api/authorize/") && req.method === "POST") {
+    const id = idOf("/api/authorize/");
+    const pb = tryPlaybook(id);
+    if (!pb) return json(res, 404, { error: "no playbook" });
+    const body = await readBody(req);
+    const content = body.content as Record<string, unknown> | undefined;
+    if (!content || typeof content !== "object") return json(res, 400, { error: "content required" });
+    const origin = ["manual", "generated", "mixed"].includes(String(body.origin))
+      ? (body.origin as Artifact["origin"]) : "manual";
+    const source = verbatimSource(pb, dir, loadUpstream(pb, silentIO, dir));
+    const warnings = manualWarnings(pb, content, source);
+    const exchange = loadExchange(id, dir);
+    saveArtifact(pb, content, exchange, dir, origin);
+    for (const suffix of [".draft.json", ".session.json"]) {
+      const p = join(dir, `${id}${suffix}`);
+      if (existsSync(p)) unlinkSync(p);
+    }
+    return json(res, 200, { ok: true, warnings });
+  }
+
+  // One-shot AI assist for the manual editor: generate a draft from the
+  // recorded interview / sources, or amend the practitioner's current draft.
+  if (path.startsWith("/api/compose/") && req.method === "POST") {
+    const id = idOf("/api/compose/");
+    const pb = tryPlaybook(id);
+    if (!pb) return json(res, 404, { error: "no playbook" });
+    if (!AI_AVAILABLE) return json(res, 503, { error: "no model configured" });
+    const body = await readBody(req);
+    const feedback = typeof body.feedback === "string" && body.feedback.trim() ? body.feedback.trim() : undefined;
+    const prior = body.prior && typeof body.prior === "object" ? (body.prior as Record<string, unknown>) : undefined;
+    const exchange = loadExchange(id, dir);
+    const upstream = loadUpstream(pb, silentIO, dir);
+    const draft = await runInduce(pb, getLlm(), exchange, upstream, silentIO, feedback, lang, prior);
+    const { candidates = [], _verbatim_warnings = [], ...rest } = draft as {
+      candidates?: string[]; _verbatim_warnings?: string[];
+    } & Record<string, unknown>;
+    const field = pb.confirm?.present === "candidates" ? pb.confirm.choice_field : undefined;
+    const content = field ? { ...rest, [field]: candidates[0] ?? "" } : rest;
+    return json(res, 200, { content, candidates: field ? candidates : [], warnings: _verbatim_warnings });
+  }
+
+  // Hand-recorded interview from the script view — same session format the AI
+  // interviewer writes, so everything downstream is indistinguishable.
+  if (path.startsWith("/api/manual-session/") && req.method === "PUT") {
+    const id = idOf("/api/manual-session/");
+    const pb = tryPlaybook(id);
+    if (!pb?.elicit) return json(res, 404, { error: "not a conversation playbook" });
+    const body = await readBody(req);
+    const answers = (body.answers ?? {}) as Record<string, string>;
+    const sessPath = join(dir, `${id}.session.json`);
+    if (existsSync(sessPath)) {
+      const saved = JSON.parse(readFileSync(sessPath, "utf8")) as { manual_answers?: unknown };
+      if (!saved.manual_answers) return json(res, 409, { error: "an interviewer-led session exists for this step" });
+    }
+    const built = buildManualSession(pb, answers, lang);
+    if (!built) {
+      if (existsSync(sessPath)) unlinkSync(sessPath);
+      return json(res, 200, { ok: true, cleared: true });
+    }
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(sessPath, JSON.stringify(built, null, 2));
+    return json(res, 200, { ok: true });
   }
 
   const filePath = normalize(join(PUBLIC_DIR, path === "/" ? "index.html" : path));
   if (!filePath.startsWith(PUBLIC_DIR) || !existsSync(filePath) || !statSync(filePath).isFile()) {
     res.writeHead(404);
-    return res.end("not found");
+    return void res.end("not found");
   }
   const ext = filePath.slice(filePath.lastIndexOf("."));
   res.writeHead(200, { "content-type": MIME[ext] ?? "application/octet-stream" });
   res.end(readFileSync(filePath));
+}
+
+const server = createServer((req, res) => {
+  handle(req, res).catch((err: Error) => {
+    const status = err.message === "bad id" || err.message.startsWith("bad profile") || err.message === "bad json body"
+      ? 400 : 500;
+    if (!res.headersSent) json(res, status, { error: err.message });
+    else res.end();
+  });
 });
 
 const wss = new WebSocketServer({ server, path: "/ws" });
@@ -226,6 +426,17 @@ wss.on("connection", (ws, req) => {
   const id = url.searchParams.get("playbook") ?? "";
   if (!ID_RE.test(id) || !existsSync(playbookPath(id))) {
     ws.send(JSON.stringify({ type: "error", text: "unknown playbook" }));
+    return ws.close();
+  }
+  if (!AI_AVAILABLE) {
+    ws.send(JSON.stringify({ type: "error", text: "no model configured — use practitioner mode" }));
+    return ws.close();
+  }
+  let dir: string;
+  try {
+    dir = profileDir(url.searchParams.get("profile"));
+  } catch {
+    ws.send(JSON.stringify({ type: "error", text: "bad profile" }));
     return ws.close();
   }
 
@@ -280,8 +491,8 @@ wss.on("connection", (ws, req) => {
   const autoResume = url.searchParams.get("resume") === "1";
   const reviewMode = url.searchParams.get("mode") === "review";
   (reviewMode
-    ? runReviewSession(pb, llm, io, { lang })
-    : runPlaybookSession(pb, llm, io, { header: false, lang, autoResume }))
+    ? runReviewSession(pb, getLlm(), io, { lang, dir })
+    : runPlaybookSession(pb, getLlm(), io, { header: false, lang, autoResume, dir }))
     .then((outcome) => {
       send({ type: "done", text: outcome });
       if (open) ws.close();
@@ -296,5 +507,6 @@ wss.on("connection", (ws, req) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Career Counseling: http://localhost:${PORT} (${llm.describe()})`);
+  const modelInfo = AI_AVAILABLE ? getLlm().describe() : "no model configured — manual authoring only";
+  console.log(`Career Counseling: http://localhost:${PORT} (${modelInfo})`);
 });

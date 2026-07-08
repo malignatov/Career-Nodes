@@ -5,9 +5,16 @@ const journeyEl = $("journey");
 
 let lang = localStorage.getItem("lang") ?? "en";
 let theme = localStorage.getItem("theme") ?? "light";
+let mode = localStorage.getItem("mode") ?? "client";
+let profile = localStorage.getItem("profile") ?? "default";
+let profiles = [{ id: "default", name: null }];
 let journey = null;
 let ws = null;
 let modal = null; // { node, view, feedbackMode, review: {payload, currentText, edited} }
+let pract = null; // practitioner modal state
+
+/** Every artifact-touching request carries the active client profile. */
+const api = (p) => p + (p.includes("?") ? "&" : "?") + `profile=${encodeURIComponent(profile)}`;
 
 const t = (key, ...args) => {
   const v = STR[lang][key] ?? STR.en[key];
@@ -27,9 +34,20 @@ applyTheme();
 /* ── journey home ────────────────────────────────────── */
 
 async function loadJourney() {
-  journey = await (await fetch("/api/journey")).json();
+  journey = await (await fetch(api("/api/journey"))).json();
   renderJourney();
 }
+
+async function loadProfiles() {
+  try {
+    profiles = (await (await fetch("/api/profiles")).json()).profiles;
+  } catch {
+    profiles = [{ id: "default", name: null }];
+  }
+  if (!profiles.some((p) => p.id === profile)) profile = "default";
+}
+
+const profileName = (p) => (p.id === "default" ? t("profile_default") : (p.name ?? p.id));
 
 function chipHtml(status) {
   return `<span class="chip ${status}">${t(`chip_${status}`)}</span>`;
@@ -57,6 +75,7 @@ function actionLabel(n) {
   if (n.status === "stale") return t("btn_refresh");
   if (n.status === "authorized") return t("btn_open");
   if (n.status === "in_progress") return t("btn_resume");
+  if (mode === "practitioner") return n.kind === "conversation" ? t("btn_record") : t("btn_fill");
   return n.kind === "conversation" ? t("btn_start") : t("btn_draft");
 }
 
@@ -86,14 +105,26 @@ function renderJourney() {
   const pct = Math.round((journey.authorized / journey.total) * 100);
   const current = currentNodeId();
   const parts = [];
+  const profileControl = mode === "practitioner"
+    ? `<select id="profileSel" class="tool-select">${profiles
+        .map((p) => `<option value="${esc(p.id)}"${p.id === profile ? " selected" : ""}>${esc(profileName(p))}</option>`)
+        .join("")}<option value="__new">${t("profile_new")}</option></select>`
+    : profile !== "default"
+      ? `<span class="tool-btn" style="cursor:default">${esc(profileName(profiles.find((p) => p.id === profile) ?? { id: profile }))}</span>`
+      : "";
+  const aiNote = journey.ai ? "" :
+    `<div class="ai-note">${mode === "practitioner" ? t("no_ai_note") : t("ai_missing_client")}</div>`;
   parts.push(`
     <div class="j-header">
       <div>
         <div class="j-title">${t("journey_title")}</div>
-        <div class="j-sub">${t("journey_sub")}</div>
+        <div class="j-sub">${mode === "practitioner" ? t("journey_sub_pract") : t("journey_sub")}</div>
+        ${aiNote}
       </div>
       <div class="j-progress">
         <div class="j-tools">
+          ${profileControl}
+          <button id="modeBtn" class="tool-btn">${mode === "client" ? t("mode_practitioner") : t("mode_client")}</button>
           <button id="themeBtn" class="tool-btn">${theme === "light" ? t("theme_dark") : t("theme_light")}</button>
           <button id="langBtn" class="tool-btn">${lang === "en" ? "RU" : "EN"}</button>
         </div>
@@ -155,6 +186,49 @@ function renderJourney() {
     applyTheme();
     renderJourney();
   });
+  $("modeBtn").addEventListener("click", () => {
+    mode = mode === "client" ? "practitioner" : "client";
+    localStorage.setItem("mode", mode);
+    renderJourney();
+  });
+  const sel = $("profileSel");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      if (sel.value === "__new") return newProfileInput(sel);
+      profile = sel.value;
+      localStorage.setItem("profile", profile);
+      loadJourney();
+    });
+  }
+}
+
+/** Inline replacement for window.prompt (unavailable in the Electron shell). */
+function newProfileInput(sel) {
+  const input = document.createElement("input");
+  input.id = "profileNew";
+  input.placeholder = t("profile_name_placeholder");
+  sel.replaceWith(input);
+  input.focus();
+  input.addEventListener("keydown", async (e) => {
+    if (e.key === "Escape") return renderJourney();
+    if (e.key !== "Enter") return;
+    const name = input.value.trim();
+    if (!name) return;
+    const res = await fetch("/api/profiles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) {
+      profile = (await res.json()).id;
+      localStorage.setItem("profile", profile);
+      await loadProfiles();
+    }
+    loadJourney();
+  });
+  input.addEventListener("blur", () => {
+    if (document.getElementById("profileNew")) renderJourney();
+  });
 }
 
 /* ── modal shell ─────────────────────────────────────── */
@@ -198,9 +272,11 @@ function applyModalStrings() {
   $("sendBtn").textContent = t("send");
   $("changesBtn").textContent = t("ask_changes");
   $("saveEdit").textContent = t("save_wording");
+  $("practAmendSend").textContent = t("send");
 }
 
 async function openModal(id) {
+  if (mode === "practitioner") return openPractitioner(id);
   const node = byId(id);
   // Authorized nodes open straight into review of the saved artifact (no model
   // call); derived nodes never show the chat — status + review only.
@@ -214,6 +290,7 @@ async function openModal(id) {
   $("messages").innerHTML = "";
   $("reviewBody").hidden = true;
   $("amendBox").hidden = true;
+  $("practView").hidden = true;
   $("tPanel").hidden = true;
   $("tArrow").textContent = "▸";
   $("scrim").hidden = false;
@@ -234,10 +311,10 @@ async function openModal(id) {
 
   let resuming = false;
   if (node.status === "in_progress" && node.kind === "conversation") {
-    const sessRes = await fetch(`/api/session/${id}`);
+    const sessRes = await fetch(api(`/api/session/${id}`));
     if (sessRes.ok) {
       const saved = await sessRes.json();
-      for (const e of saved.exchange) addMsg(e.speaker === "user" ? "user" : "say", e.text);
+      for (const e of saved.exchange ?? []) addMsg(e.speaker === "user" ? "user" : "say", e.text);
       addMsg("note", t("resumed_note"));
       resuming = true;
     }
@@ -251,6 +328,12 @@ function closeModal() {
     ws.onclose = null;
     ws.close();
     ws = null;
+  }
+  if (pract) {
+    // Fire pending debounced saves before the state goes away.
+    if (pract.draftTimer) saveDraft();
+    if (pract.sessionTimer) saveSession();
+    pract = null;
   }
   $("scrim").hidden = true;
   modal = null;
@@ -310,7 +393,8 @@ function connect(id, { resuming = false, review = false } = {}) {
   const langParam = lang === "en" ? "" : `&lang=${lang}`;
   const resumeParam = resuming ? "&resume=1" : "";
   const modeParam = review ? "&mode=review" : "";
-  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}${resumeParam}${modeParam}`);
+  const profileParam = profile === "default" ? "" : `&profile=${encodeURIComponent(profile)}`;
+  ws = new WebSocket(`ws://${location.host}/ws?playbook=${id}${langParam}${resumeParam}${modeParam}${profileParam}`);
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
@@ -556,6 +640,412 @@ $("authorizeBtn").addEventListener("click", () => {
   ws.send(JSON.stringify(msg));
 });
 
+/* ── practitioner mode ───────────────────────────────── */
+
+async function openPractitioner(id) {
+  const node = byId(id);
+  modal = { node, practitioner: true, chatless: true, view: "pract" };
+  pract = {
+    node, content: {}, origin: "manual", answers: {}, candidates: [],
+    pb: null, upstream: {}, session: null, readonlyScript: false,
+    draftTimer: null, sessionTimer: null, busy: false,
+  };
+
+  applyModalStrings();
+  $("modalTitle").textContent = nodeTitle(node);
+  $("modalPhase").textContent = phaseLabel(journey.sectors.find((s) => s.n === node.sector));
+  $("chatView").hidden = true;
+  $("reviewView").hidden = true;
+  $("practView").hidden = false;
+  $("tPanel").hidden = true;
+  $("tArrow").textContent = "▸";
+  $("exitHint").textContent = t("exit_saved");
+  setChip(isSettled(node.status) ? "authorized" : node.status === "in_progress" ? "in_progress" : "available");
+  setStaleChip(node.status === "stale");
+  $("scrim").hidden = false;
+  $("stageList").innerHTML = "";
+  $("formBody").innerHTML = "";
+
+  const [pbRes, artRes, draftRes, upRes, sessRes] = await Promise.all([
+    fetch(`/api/playbook/${id}?lang=${lang}`),
+    fetch(api(`/api/artifact/${id}`)),
+    fetch(api(`/api/draft/${id}`)),
+    fetch(api(`/api/upstream/${id}`)),
+    fetch(api(`/api/session/${id}`)),
+  ]);
+  if (!pract || pract.node.id !== id) return; // closed meanwhile
+
+  const pb = await pbRes.json();
+  pract.pb = pb;
+  $("tWhat").textContent = (lang !== "en" ? `${t("playbook_lang_note")}\n\n` : "") + pb.purpose;
+  $("tCompiled").innerHTML = compiledHtml(pb.compiled);
+
+  const artifact = artRes.ok ? await artRes.json() : null;
+  const draft = draftRes.ok ? await draftRes.json() : null;
+  pract.upstream = upRes.ok ? (await upRes.json()).upstream ?? {} : {};
+  pract.session = sessRes.ok ? await sessRes.json() : null;
+
+  // A pending draft outranks the authorized artifact; a blank slate is manual.
+  pract.content = structuredClone(draft?.content ?? artifact?.content ?? {});
+  pract.origin = draft?.origin ?? artifact?.origin ?? (artifact ? "generated" : "manual");
+  if (pract.session?.manual_answers) pract.answers = { ...pract.session.manual_answers };
+  pract.readonlyScript = Boolean(pract.session && !pract.session.manual_answers && pract.session.exchange?.length);
+
+  renderPractitioner();
+}
+
+function renderPractitioner() {
+  const { pb, node } = pract;
+
+  const isConv = pb.stages.length > 0;
+  $("scriptSection").hidden = !isConv;
+  if (isConv) {
+    $("scriptTitle").textContent = t("script_title");
+    $("scriptHint").textContent = t("script_hint");
+    $("scriptNote").hidden = !pract.readonlyScript;
+    $("scriptNote").textContent = t("script_readonly");
+    renderScript();
+  }
+
+  const deps = Object.keys(pract.upstream);
+  $("sourcesSection").hidden = deps.length === 0;
+  if (deps.length) {
+    $("sourcesTitle").textContent = t("sources_title");
+    $("sourcesList").innerHTML = deps.map((dep) => `
+      <details><summary>${esc(nodeTitle(byId(dep) ?? { id: dep, title: dep }))}</summary>
+        <div class="src-body">${renderFields(pract.upstream[dep], [])}</div>
+      </details>`).join("");
+  }
+
+  $("formTitle").textContent = t("artifact_section");
+  renderForm();
+
+  $("generateBtn").hidden = !journey.ai;
+  $("generateBtn").disabled = false;
+  $("generateBtn").textContent = pb.kind === "conversation" ? t("btn_generate_interview") : t("btn_generate_sources");
+  $("practAmendBtn").hidden = !journey.ai;
+  $("practAmendBtn").textContent = t("ask_changes");
+  $("practAmendBtn").classList.remove("active");
+  $("practAmendBox").hidden = true;
+  $("practAmendInput").placeholder = t("amend_placeholder");
+  $("practAuthorizeBtn").textContent = shortEntry(node).auth;
+  $("practFoot").textContent = pb.authorize_language ?? "";
+  $("saveLine").hidden = true;
+  $("formWarnings").hidden = true;
+}
+
+function renderScript() {
+  const stages = pract.pb.stages;
+  if (pract.readonlyScript) {
+    $("stageList").innerHTML = `<div class="pract-transcript">${(pract.session.exchange ?? [])
+      .map((e) => `<div class="msg ${e.speaker === "user" ? "user" : "say"}">${esc(e.text)}</div>`).join("")}</div>`;
+    return;
+  }
+  $("stageList").innerHTML = stages.map((s, i) => `
+    <div class="stage-card">
+      <div class="stage-num">${t("stage_label", i + 1, stages.length)} · ${esc(s.id)}</div>
+      <div class="stage-q">${esc(s.opening)}</div>
+      ${s.probes.length || s.done_when.length ? `
+      <details>
+        <summary>${t("stage_hints")}</summary>
+        <ul>
+          ${s.probes.map((p) => `<li>${esc(p.when)} → ${esc(p.then)}</li>`).join("")}
+          ${s.done_when.map((d) => `<li>✓ ${esc(d)}</li>`).join("")}
+        </ul>
+      </details>` : ""}
+      <textarea class="f-text" data-stage="${esc(s.id)}" rows="3"
+        placeholder="${esc(t("answer_placeholder"))}">${esc(pract.answers[s.id] ?? "")}</textarea>
+    </div>`).join("");
+  for (const ta of $("stageList").querySelectorAll("[data-stage]")) {
+    ta.addEventListener("input", () => {
+      pract.answers[ta.dataset.stage] = ta.value;
+      scheduleSessionSave();
+    });
+  }
+}
+
+/* ── schema-driven form editor ───────────────────────── */
+
+const schemaType = (s) => {
+  const ty = s?.type;
+  return Array.isArray(ty) ? (ty.find((x) => x !== "null") ?? "string") : ty;
+};
+
+function schemaAt(path) {
+  let s = { type: "object", properties: pract.pb.form?.properties ?? {} };
+  for (const seg of path.split(".")) {
+    s = /^\d+$/.test(seg) ? (s?.items ?? {}) : (s?.properties?.[seg] ?? {});
+  }
+  return s;
+}
+
+function emptyItem(itemSchema) {
+  if (schemaType(itemSchema) !== "object") return "";
+  const obj = {};
+  for (const [k, ps] of Object.entries(itemSchema.properties ?? {})) {
+    obj[k] = schemaType(ps) === "array" ? [] : "";
+  }
+  return obj;
+}
+
+function getPath(obj, path) {
+  return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+function setPath(obj, path, value) {
+  const keys = path.split(".");
+  let o = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (o[keys[i]] == null || typeof o[keys[i]] !== "object") {
+      o[keys[i]] = /^\d+$/.test(keys[i + 1]) ? [] : {};
+    }
+    o = o[keys[i]];
+  }
+  o[keys[keys.length - 1]] = value;
+}
+
+function fieldHtml(key, s, value, path) {
+  const ty = s.enum ? "enum" : (schemaType(s) ?? (Array.isArray(value) ? "array" : "string"));
+  const verbatim = s["x-verbatim"] === true || s.items?.["x-verbatim"] === true;
+  const label = `<div class="f-label">${esc(key.replaceAll("_", " "))}${
+    verbatim ? ` <span class="v-hint">❝ ${t("verbatim_hint")}</span>` : ""}</div>`;
+
+  if (ty === "enum") {
+    const opts = s.enum.map((o) =>
+      `<option value="${esc(o)}"${o === value ? " selected" : ""}>${esc(String(o).replaceAll("_", " "))}</option>`).join("");
+    return `${label}<select class="f-select" data-path="${esc(path)}"><option value=""></option>${opts}</select>`;
+  }
+  if (ty === "array") {
+    const items = s.items ?? {};
+    const arr = Array.isArray(value) ? value : [];
+    const rows = schemaType(items) === "object"
+      ? arr.map((v, i) =>
+          `<div class="f-card"><button type="button" class="f-remove" data-remove="${esc(path)}" data-i="${i}">✕</button>${
+            Object.entries(items.properties ?? {})
+              .filter(([k]) => !HIDDEN_KEYS.has(k))
+              .map(([k, ps]) => fieldHtml(k, ps, v?.[k], `${path}.${i}.${k}`)).join("")}</div>`).join("")
+      : arr.map((v, i) =>
+          `<div class="f-row"><textarea class="f-text${items["x-verbatim"] ? " verbatim" : ""}" data-path="${esc(path)}.${i}" rows="2">${esc(v ?? "")}</textarea><button type="button" class="f-remove" data-remove="${esc(path)}" data-i="${i}">✕</button></div>`).join("");
+    return `${label}${rows}<button type="button" class="f-add" data-add="${esc(path)}">${t("form_add")}</button>`;
+  }
+  if (ty === "object" && s.properties) {
+    return `${label}<div class="f-card">${Object.entries(s.properties)
+      .filter(([k]) => !HIDDEN_KEYS.has(k))
+      .map(([k, ps]) => fieldHtml(k, ps, value?.[k], `${path}.${k}`)).join("")}</div>`;
+  }
+  if (ty === "integer" || ty === "number") {
+    return `${label}<input type="number" class="f-select" data-path="${esc(path)}" value="${value ?? ""}" />`;
+  }
+  const text = typeof value === "string" ? value : "";
+  const rows = Math.min(10, Math.max(2, Math.ceil(text.length / 90)));
+  return `${label}<textarea class="f-text${s["x-verbatim"] ? " verbatim" : ""}" data-path="${esc(path)}" rows="${rows}" placeholder="${esc(String(s.description ?? "").trim())}">${esc(text)}</textarea>`;
+}
+
+function renderForm() {
+  const props = pract.pb.form?.properties ?? {};
+  const parts = [];
+  for (const [key, s] of Object.entries(props)) {
+    if (HIDDEN_KEYS.has(key)) continue;
+    parts.push(fieldHtml(key, s, pract.content[key], key));
+    if (key === pract.pb.choice_field && pract.candidates.length > 0) {
+      const others = pract.candidates.filter((c) => c !== pract.content[key]);
+      if (others.length) {
+        parts.push(`<div class="alt-label">${t("alt_label")}</div>` + others
+          .map((c) => `<button type="button" class="alt-option" data-cand="${esc(c)}">${esc(c)}</button>`).join(""));
+      }
+    }
+  }
+  const body = $("formBody");
+  body.innerHTML = parts.join("");
+
+  body.querySelectorAll("[data-path]").forEach((el) => {
+    el.addEventListener("input", () => {
+      const val = el.type === "number" ? (el.value === "" ? null : Number(el.value)) : el.value;
+      setPath(pract.content, el.dataset.path, val);
+      touchContent();
+    });
+  });
+  body.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => {
+    const path = b.dataset.add;
+    const arr = Array.isArray(getPath(pract.content, path)) ? getPath(pract.content, path) : [];
+    arr.push(emptyItem(schemaAt(path).items ?? {}));
+    setPath(pract.content, path, arr);
+    renderForm();
+    touchContent();
+  }));
+  body.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+    const arr = getPath(pract.content, b.dataset.remove);
+    if (Array.isArray(arr)) arr.splice(Number(b.dataset.i), 1);
+    renderForm();
+    touchContent();
+  }));
+  body.querySelectorAll("[data-cand]").forEach((b) => b.addEventListener("click", () => {
+    pract.content[pract.pb.choice_field] = b.dataset.cand;
+    renderForm();
+    touchContent();
+  }));
+  updateAuthorizeState();
+}
+
+function hasContent(v) {
+  if (typeof v === "string") return v.trim().length > 0;
+  if (Array.isArray(v)) return v.some(hasContent);
+  if (v && typeof v === "object") return Object.values(v).some(hasContent);
+  return v != null && v !== "";
+}
+
+function updateAuthorizeState() {
+  $("practAuthorizeBtn").disabled = pract.busy || !hasContent(pract.content);
+}
+
+/** Hand edits taint model output: generated → mixed. Manual stays manual. */
+function touchContent() {
+  if (pract.origin === "generated") pract.origin = "mixed";
+  scheduleDraftSave();
+  updateAuthorizeState();
+}
+
+/* ── persistence & AI assists ────────────────────────── */
+
+function scheduleDraftSave() {
+  clearTimeout(pract.draftTimer);
+  pract.draftTimer = setTimeout(saveDraft, 900);
+}
+
+async function saveDraft() {
+  clearTimeout(pract.draftTimer);
+  const { node, content, origin } = pract;
+  pract.draftTimer = null;
+  const res = await fetch(api(`/api/draft/${node.id}`), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content, origin }),
+  });
+  if (!res.ok || !pract || pract.node.id !== node.id) return;
+  showWarnings((await res.json()).warnings);
+  $("saveLine").hidden = false;
+  $("saveLine").textContent = `✓ ${t("draft_saved")}`;
+}
+
+function scheduleSessionSave() {
+  clearTimeout(pract.sessionTimer);
+  pract.sessionTimer = setTimeout(saveSession, 900);
+}
+
+async function saveSession() {
+  clearTimeout(pract.sessionTimer);
+  const { node, answers } = pract;
+  pract.sessionTimer = null;
+  await fetch(api(`/api/manual-session/${node.id}?lang=${lang}`), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ answers }),
+  });
+}
+
+function showWarnings(warnings) {
+  const box = $("formWarnings");
+  if (!warnings?.length) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = `${esc(t("warnings_title"))}<ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>`;
+}
+
+function showPractError(msg) {
+  const box = $("formWarnings");
+  box.hidden = false;
+  box.textContent = msg;
+}
+
+async function compose(feedback) {
+  if (!pract || pract.busy) return;
+  pract.busy = true;
+  const node = pract.node;
+  $("generateBtn").disabled = true;
+  $("generateBtn").textContent = t("btn_generating");
+  $("formBody").classList.add("busy");
+  $("practAmendBox").classList.add("busy");
+  updateAuthorizeState();
+  try {
+    // The model reads the recorded interview from disk — flush it first.
+    if (pract.sessionTimer) await saveSession();
+    const res = await fetch(api(`/api/compose/${node.id}?lang=${lang}`), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(feedback ? { feedback, prior: pract.content } : {}),
+    });
+    const data = await res.json();
+    if (!pract || pract.node.id !== node.id) return;
+    if (!res.ok) throw new Error(data.error ?? `${res.status}`);
+    pract.origin = feedback && pract.origin !== "generated" ? "mixed" : "generated";
+    pract.content = data.content ?? {};
+    pract.candidates = data.candidates ?? [];
+    renderForm();
+    showWarnings(data.warnings);
+    saveDraft();
+  } catch (err) {
+    if (pract) showPractError(t("compose_failed", err.message));
+  } finally {
+    if (pract && pract.node.id === node.id) {
+      pract.busy = false;
+      $("formBody").classList.remove("busy");
+      $("practAmendBox").classList.remove("busy");
+      $("generateBtn").disabled = false;
+      $("generateBtn").textContent =
+        pract.pb.kind === "conversation" ? t("btn_generate_interview") : t("btn_generate_sources");
+      updateAuthorizeState();
+    }
+  }
+}
+
+$("generateBtn").addEventListener("click", () => compose());
+
+$("practAmendBtn").addEventListener("click", () => {
+  if (!pract) return;
+  const box = $("practAmendBox");
+  box.hidden = !box.hidden;
+  $("practAmendBtn").classList.toggle("active", !box.hidden);
+  if (!box.hidden) $("practAmendInput").focus();
+});
+
+$("practAmendBox").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("practAmendInput").value.trim();
+  if (!text || !pract) return;
+  $("practAmendInput").value = "";
+  compose(text);
+});
+
+$("practAmendInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    $("practAmendBox").requestSubmit();
+  }
+});
+
+$("practAuthorizeBtn").addEventListener("click", async () => {
+  if (!pract || pract.busy) return;
+  clearTimeout(pract.draftTimer);
+  pract.draftTimer = null;
+  if (pract.sessionTimer) await saveSession();
+  const res = await fetch(api(`/api/authorize/${pract.node.id}`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content: pract.content, origin: pract.origin }),
+  });
+  if (!pract) return;
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    return showPractError(d.error ?? `${res.status}`);
+  }
+  showWarnings((await res.json()).warnings);
+  setChip("authorized");
+  setStaleChip(false);
+  setTimeout(closeModal, 600);
+});
+
 /* ── shell events ────────────────────────────────────── */
 
 $("exitBtn").addEventListener("click", closeModal);
@@ -581,4 +1071,4 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-loadJourney();
+loadProfiles().then(loadJourney);
