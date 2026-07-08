@@ -97,7 +97,9 @@ function summaryLine(n) {
       .join("");
     return `<div class="summary distilled">${parts}</div>`;
   }
-  if (n.status === "in_progress") return `<div class="summary">${t("in_progress_summary")}</div>`;
+  if (n.status === "in_progress") {
+    return `<div class="summary">${t(mode === "practitioner" ? "in_progress_summary_pract" : "in_progress_summary")}</div>`;
+  }
   return `<div class="summary">${esc(nodeDesc(n))}</div>`;
 }
 
@@ -736,7 +738,9 @@ function renderPractitioner() {
   $("practAmendBox").hidden = true;
   $("practAmendInput").placeholder = t("amend_placeholder");
   $("practAuthorizeBtn").textContent = shortEntry(node).auth;
-  $("practFoot").textContent = pb.authorize_language ?? "";
+  // The playbook's authorize_language speaks to the client ("your words…") —
+  // client mode shows it; here the practitioner gets their own contract.
+  $("practFoot").textContent = t("pract_foot");
   $("saveLine").hidden = true;
   $("formWarnings").hidden = true;
 }
