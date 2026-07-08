@@ -335,7 +335,7 @@ function closeModal() {
     if (pract.sessionTimer) saveSession();
     pract = null;
   }
-  stopVoice();
+  stopVoice(true);
   micBtn.hidden = true;
   $("scrim").hidden = true;
   modal = null;
@@ -1115,7 +1115,7 @@ function repositionMic() {
   if (!el || micBtn.hidden) return;
   if (!document.contains(el)) {
     micBtn.hidden = true;
-    stopVoice();
+    stopVoice(true);
     return;
   }
   placeMic(el);
@@ -1142,10 +1142,13 @@ async function startVoice(target) {
   const node = ctx.createScriptProcessor(2048, 1, 1);
   const mute = ctx.createGain();
   mute.gain.value = 0;
-  voice = { ws: sock, ctx, node, stream, target, base: "", turn: "", itemId: null, ready: false };
+  voice = {
+    ws: sock, ctx, node, stream, target,
+    base: "", turn: "", itemId: null, ready: false, finishing: false, finishTimer: null,
+  };
 
   node.onaudioprocess = (ev) => {
-    if (!voice || voice.ws.readyState !== WebSocket.OPEN || !voice.ready) return;
+    if (!voice || voice.finishing || voice.ws.readyState !== WebSocket.OPEN || !voice.ready) return;
     const f32 = ev.inputBuffer.getChannelData(0);
     const i16 = new Int16Array(f32.length);
     for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-1, Math.min(1, f32[i])) * 0x7fff;
@@ -1163,12 +1166,14 @@ async function startVoice(target) {
     const msg = JSON.parse(ev.data);
     if (msg.type === "ready") {
       voice.ready = true;
-      setMic("rec");
+      if (!voice.finishing) setMic("rec");
     } else if (msg.type === "delta") insertVoice(msg.item, msg.text, false);
-    else if (msg.type === "final") insertVoice(msg.item, msg.text, true);
-    else if (msg.type === "error") voiceError(msg.text);
+    else if (msg.type === "final") {
+      insertVoice(msg.item, msg.text, true);
+      if (voice?.finishing) stopVoice(true);
+    } else if (msg.type === "error") voiceError(msg.text);
   };
-  sock.onclose = () => stopVoice();
+  sock.onclose = () => stopVoice(true);
 }
 
 /** Deltas stream in live; the final transcript replaces the whole turn. */
@@ -1186,15 +1191,25 @@ function insertVoice(item, text, isFinal) {
   el.scrollTop = el.scrollHeight;
 }
 
-function stopVoice() {
+function stopVoice(force = false) {
   if (!voice) return;
   const v = voice;
-  voice = null;
   try {
     v.node.disconnect();
     v.ctx.close();
     v.stream.getTracks().forEach((tr) => tr.stop());
   } catch { /* already torn down */ }
+  // Graceful stop: our "stop" triggers the buffer commit that yields the
+  // final transcript — keep the socket open until it lands (max 4s).
+  if (!force && !v.finishing && v.ready && v.ws.readyState === WebSocket.OPEN) {
+    v.finishing = true;
+    v.ws.send(JSON.stringify({ type: "stop" }));
+    setMic("connecting");
+    v.finishTimer = setTimeout(() => stopVoice(true), 4000);
+    return;
+  }
+  clearTimeout(v.finishTimer);
+  voice = null;
   if (v.ws.readyState === WebSocket.OPEN || v.ws.readyState === WebSocket.CONNECTING) {
     v.ws.onclose = null;
     v.ws.close();

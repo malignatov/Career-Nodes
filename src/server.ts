@@ -461,6 +461,9 @@ wssVoice.on("connection", (ws, req) => {
 
   upstream.on("open", () => {
     // GA realtime API shape — the beta transcription_session.* form is retired.
+    // gpt-realtime-whisper streams deltas WHILE the user speaks (no VAD turns);
+    // the client's mic-stop click sends {type:"stop"}, which we turn into the
+    // buffer commit that produces the final transcript.
     upstream.send(JSON.stringify({
       type: "session.update",
       session: {
@@ -469,10 +472,10 @@ wssVoice.on("connection", (ws, req) => {
           input: {
             format: { type: "audio/pcm", rate: 24000 },
             transcription: {
-              model: "gpt-4o-mini-transcribe",
+              model: "gpt-realtime-whisper",
               ...(langCode ? { language: langCode } : {}),
             },
-            turn_detection: { type: "server_vad", silence_duration_ms: 400 },
+            turn_detection: null,
             noise_reduction: { type: "near_field" },
           },
         },
@@ -487,17 +490,31 @@ wssVoice.on("connection", (ws, req) => {
       relay({ type: "delta", item: msg.item_id, text: msg.delta ?? "" });
     } else if (msg.type === "conversation.item.input_audio_transcription.completed") {
       relay({ type: "final", item: msg.item_id, text: msg.transcript ?? "" });
+      if (ws.readyState === ws.OPEN) ws.close();
     } else if (msg.type === "error") relay({ type: "error", text: msg.error?.message ?? "transcription error" });
   });
   upstream.on("error", (err: Error) => relay({ type: "error", text: err.message }));
   upstream.on("close", () => { if (ws.readyState === ws.OPEN) ws.close(); });
 
+  let audioReceived = false;
   ws.on("message", (data, isBinary) => {
-    if (!isBinary || upstream.readyState !== WebSocket.OPEN) return;
-    upstream.send(JSON.stringify({
-      type: "input_audio_buffer.append",
-      audio: Buffer.from(data as Buffer).toString("base64"),
-    }));
+    if (upstream.readyState !== WebSocket.OPEN) return;
+    if (isBinary) {
+      audioReceived = true;
+      upstream.send(JSON.stringify({
+        type: "input_audio_buffer.append",
+        audio: Buffer.from(data as Buffer).toString("base64"),
+      }));
+      return;
+    }
+    try {
+      const msg = JSON.parse(String(data)) as { type?: string };
+      if (msg.type === "stop") {
+        // Committing an empty buffer errors — just end the session instead.
+        if (audioReceived) upstream.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+        else ws.close();
+      }
+    } catch { /* ignore malformed frames */ }
   });
   ws.on("close", () => {
     if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close();
