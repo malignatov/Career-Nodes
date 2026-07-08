@@ -107,6 +107,20 @@ induce:
             minItems: 1
           request_type:
             type: string
+            # Provenance — Savickas, Career Counseling (2nd ed.), "Review the
+            # Client's Goals" (pp. 77–78). The book names no closed taxonomy;
+            # this enum distills its three client examples plus the theory's
+            # framing of why clients come:
+            #   make_a_choice / understand_whats_blocking — the client who asked
+            #     for help making a choice but first "wanted to know what was
+            #     holding her back" (also the source of the choice-vs-blocked
+            #     probe in the elicit stage above);
+            #   reassurance — the client who "wanted reassurance that he had
+            #     selected the right graduate program";
+            #   transition_or_dislocation — the book's own language: "some
+            #     circumstance has dislocated their occupational plot from its
+            #     career theme";
+            #   meaning_or_direction, other — this app's additions.
             enum:
               - make_a_choice
               - understand_whats_blocking

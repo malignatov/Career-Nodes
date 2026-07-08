@@ -811,9 +811,10 @@ function fieldHtml(key, s, value, path) {
     verbatim ? ` <span class="v-hint">❝ ${t("verbatim_hint")}</span>` : ""}</div>`;
 
   if (ty === "enum") {
+    const current = s.enum.includes(value) ? value : s.enum[0];
     const opts = s.enum.map((o) =>
-      `<option value="${esc(o)}"${o === value ? " selected" : ""}>${esc(String(o).replaceAll("_", " "))}</option>`).join("");
-    return `${label}<select class="f-select" data-path="${esc(path)}"><option value=""></option>${opts}</select>`;
+      `<option value="${esc(o)}"${o === current ? " selected" : ""}>${esc(String(o).replaceAll("_", " "))}</option>`).join("");
+    return `${label}<select class="f-select" data-path="${esc(path)}">${opts}</select>`;
   }
   if (ty === "array") {
     const items = s.items ?? {};
@@ -857,6 +858,12 @@ function renderForm() {
   }
   const body = $("formBody");
   body.innerHTML = parts.join("");
+
+  // Enum selects have no empty option — make the displayed default real in
+  // the content, so authorizing an untouched select records what it shows.
+  body.querySelectorAll("select[data-path]").forEach((el) => {
+    if (getPath(pract.content, el.dataset.path) !== el.value) setPath(pract.content, el.dataset.path, el.value);
+  });
 
   body.querySelectorAll("[data-path]").forEach((el) => {
     el.addEventListener("input", () => {
