@@ -5,6 +5,23 @@ counseling (*Career Counseling*, 2nd ed., APA 2019) as a journey across a map of
 artifacts — with an AI interviewer working under narrow, fully visible
 instructions, or with no AI at all.
 
+## Attribution
+
+The ideas this app runs on are **Mark L. Savickas's**: career construction
+theory, the Career Construction Interview (the goal question and the five
+stimulus questions), the assessment protocol, and the arc from small stories to
+life portrait, identity statement, and action. This repository contributes only
+the software process around his method.
+
+> Savickas, M. L. (2019). *Career counseling* (2nd ed., Theories of
+> Psychotherapy Series). American Psychological Association.
+> https://doi.org/10.1037/0000105-000
+
+The RIASEC vocational personality types used in the preferred-settings step are
+John L. Holland's. This project is independent — not affiliated with or endorsed
+by Mark Savickas or the APA — and contains no text from the book. If you intend
+to use this seriously, with yourself or with clients, read the book first.
+
 ## The model
 
 The counseling process is a DAG of **artifact nodes**. Every node is a
@@ -123,6 +140,6 @@ induction cannot tell the difference.
 
 ## License
 
-[MIT](LICENSE) © 2026 Mikhail Ignatov. The career construction method belongs
-to its literature — this repository implements the process around it; the book
-itself is required reading for anyone using this seriously.
+[MIT](LICENSE) © 2026 Mikhail Ignatov — covering the code and playbook
+engineering only. The method itself is Savickas's; see
+[Attribution](#attribution).

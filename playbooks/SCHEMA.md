@@ -1,5 +1,10 @@
 # Playbook schema — v0.1
 
+The method these playbooks encode — the interview questions, the assessment
+protocol, the artifact sequence — is Mark L. Savickas's career construction
+counseling (see the Attribution section of the repository README). The
+playbooks contribute the machine-runnable form, not the ideas.
+
 A playbook fully defines one node on the map. It is the single source of truth,
 consumed in two directions:
 
