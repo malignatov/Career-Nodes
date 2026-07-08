@@ -65,6 +65,38 @@ export function manualWarnings(pb: Playbook, content: Record<string, unknown>, s
   return [...new Set(all)];
 }
 
+/**
+ * Recovers per-stage answers from a settled transcript, so a hand-recorded
+ * interview stays editable after authorization. Only strict manual transcripts
+ * qualify: every interviewer turn must equal a stage anchor verbatim (in any
+ * language) — AI-led transcripts never match, and stay read-only.
+ */
+export function reconstructManualAnswers(
+  pb: Playbook | null,
+  exchange: ExchangeEntry[],
+): Record<string, string> | null {
+  const stages = pb?.elicit?.stages ?? [];
+  if (stages.length === 0 || exchange.length === 0) return null;
+  const anchors = new Map<string, string>();
+  for (const s of stages) {
+    anchors.set(s.opening.trim(), s.id);
+    for (const o of Object.values(s.opening_i18n ?? {})) anchors.set(o.trim(), s.id);
+  }
+  const answers: Record<string, string> = {};
+  let current: string | null = null;
+  for (const e of exchange) {
+    if (e.speaker === "interviewer") {
+      const sid = anchors.get(e.text.trim());
+      if (!sid) return null;
+      current = sid;
+    } else {
+      if (!current) return null;
+      answers[current] = answers[current] ? `${answers[current]}\n${e.text}` : e.text;
+    }
+  }
+  return answers;
+}
+
 export interface ManualSession {
   exchange: ExchangeEntry[];
   stage_index: number;

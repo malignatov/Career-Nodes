@@ -335,6 +335,8 @@ function closeModal() {
     if (pract.sessionTimer) saveSession();
     pract = null;
   }
+  stopVoice();
+  micBtn.hidden = true;
   $("scrim").hidden = true;
   modal = null;
   loadJourney();
@@ -703,7 +705,7 @@ function renderPractitioner() {
     $("scriptTitle").textContent = t("script_title");
     $("scriptHint").textContent = t("script_hint");
     $("scriptNote").hidden = !pract.readonlyScript;
-    $("scriptNote").textContent = t("script_readonly");
+    $("scriptNote").textContent = pract.session?.settled ? t("script_record") : t("script_readonly");
     renderScript();
   }
 
@@ -1052,6 +1054,155 @@ $("practAuthorizeBtn").addEventListener("click", async () => {
   setStaleChip(false);
   setTimeout(closeModal, 600);
 });
+
+/* ── voice dictation (OpenAI live transcription) ─────── */
+
+let voice = null; // { ws, ctx, node, stream, target, base, turn, itemId, ready }
+let micTarget = null;
+
+const micBtn = document.createElement("button");
+micBtn.id = "micBtn";
+micBtn.type = "button";
+micBtn.textContent = "🎤";
+micBtn.hidden = true;
+document.body.appendChild(micBtn);
+
+const voiceEligible = (el) =>
+  journey?.voice === true && el && !el.disabled && !el.readOnly &&
+  (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text"));
+
+function placeMic(el) {
+  const r = el.getBoundingClientRect();
+  micBtn.style.top = `${Math.max(4, r.top + 5)}px`;
+  micBtn.style.left = `${r.right - 33}px`;
+  if (!voice) micBtn.title = t("voice_dictate");
+  micBtn.hidden = false;
+}
+
+document.addEventListener("focusin", (e) => {
+  if (voice) return; // recording: the mic stays with its target
+  if (voiceEligible(e.target)) {
+    micTarget = e.target;
+    placeMic(e.target);
+  }
+});
+
+document.addEventListener("focusout", () => {
+  if (voice) return;
+  setTimeout(() => {
+    if (!voice && (!document.activeElement || !voiceEligible(document.activeElement))) {
+      micBtn.hidden = true;
+      micTarget = null;
+    }
+  }, 120);
+});
+
+function repositionMic() {
+  const el = voice?.target ?? micTarget;
+  if (!el || micBtn.hidden) return;
+  if (!document.contains(el)) {
+    micBtn.hidden = true;
+    stopVoice();
+    return;
+  }
+  placeMic(el);
+}
+document.addEventListener("scroll", repositionMic, true);
+window.addEventListener("resize", repositionMic);
+
+micBtn.addEventListener("mousedown", (e) => e.preventDefault()); // keep field focus
+micBtn.addEventListener("click", () => (voice ? stopVoice() : startVoice(micTarget)));
+
+async function startVoice(target) {
+  if (!target) return;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+    });
+  } catch {
+    return voiceError(t("voice_mic_denied"));
+  }
+  const sock = new WebSocket(`ws://${location.host}/ws/voice?lang=${lang}`);
+  const ctx = new AudioContext({ sampleRate: 24000 });
+  const source = ctx.createMediaStreamSource(stream);
+  const node = ctx.createScriptProcessor(2048, 1, 1);
+  const mute = ctx.createGain();
+  mute.gain.value = 0;
+  voice = { ws: sock, ctx, node, stream, target, base: "", turn: "", itemId: null, ready: false };
+
+  node.onaudioprocess = (ev) => {
+    if (!voice || voice.ws.readyState !== WebSocket.OPEN || !voice.ready) return;
+    const f32 = ev.inputBuffer.getChannelData(0);
+    const i16 = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-1, Math.min(1, f32[i])) * 0x7fff;
+    voice.ws.send(i16.buffer);
+  };
+  source.connect(node);
+  node.connect(mute);
+  mute.connect(ctx.destination); // silent sink — ScriptProcessor needs one to run
+
+  micBtn.classList.add("rec");
+  micBtn.textContent = "…";
+  micBtn.title = "";
+
+  sock.onmessage = (ev) => {
+    if (!voice) return;
+    const msg = JSON.parse(ev.data);
+    if (msg.type === "ready") {
+      voice.ready = true;
+      micBtn.textContent = "■";
+    } else if (msg.type === "delta") insertVoice(msg.item, msg.text, false);
+    else if (msg.type === "final") insertVoice(msg.item, msg.text, true);
+    else if (msg.type === "error") voiceError(msg.text);
+  };
+  sock.onclose = () => stopVoice();
+}
+
+/** Deltas stream in live; the final transcript replaces the whole turn. */
+function insertVoice(item, text, isFinal) {
+  const el = voice.target;
+  if (voice.itemId !== item) {
+    voice.itemId = item;
+    voice.turn = "";
+    voice.base = el.value && !/\s$/.test(el.value) ? `${el.value} ` : el.value;
+  }
+  voice.turn = isFinal ? text : voice.turn + text;
+  el.value = voice.base + voice.turn;
+  if (isFinal) voice.itemId = null;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.scrollTop = el.scrollHeight;
+}
+
+function stopVoice() {
+  if (!voice) return;
+  const v = voice;
+  voice = null;
+  try {
+    v.node.disconnect();
+    v.ctx.close();
+    v.stream.getTracks().forEach((tr) => tr.stop());
+  } catch { /* already torn down */ }
+  if (v.ws.readyState === WebSocket.OPEN || v.ws.readyState === WebSocket.CONNECTING) {
+    v.ws.onclose = null;
+    v.ws.close();
+  }
+  micBtn.classList.remove("rec");
+  micBtn.textContent = "🎤";
+  micBtn.title = t("voice_dictate");
+}
+
+function voiceError(text) {
+  stopVoice();
+  micBtn.textContent = "⚠";
+  micBtn.title = text ?? "";
+  setTimeout(() => {
+    if (!voice) {
+      micBtn.textContent = "🎤";
+      micBtn.title = t("voice_dictate");
+    }
+  }, 2500);
+}
 
 /* ── shell events ────────────────────────────────────── */
 

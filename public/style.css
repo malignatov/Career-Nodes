@@ -792,6 +792,37 @@ body:has(#scrim:not([hidden])) {
 #practFoot { padding: 0 22px 18px; font: 400 11.5px/1.5 Karla, sans-serif; color: var(--faint); }
 .pract-transcript { display: flex; flex-direction: column; gap: 9px; margin-bottom: 8px; }
 
+/* ── voice dictation ─────────────────────────────────── */
+
+#micBtn {
+  position: fixed;
+  z-index: 60;
+  width: 28px;
+  height: 28px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(61, 54, 45, 0.18);
+}
+#micBtn:hover { background: var(--panel); }
+#micBtn.rec {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #micBtn.rec { animation: none; }
+}
+
 /* ── header tools: mode & profile ────────────────────── */
 
 .tool-select {

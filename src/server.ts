@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, normalize } from "node:path";
-import { WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import { loadPlaybook } from "./playbook.ts";
 import { createAdapter, type LlmAdapter } from "./llm.ts";
 import {
@@ -12,8 +12,10 @@ import {
   compiledPrompts, runInduce, stageOpening,
   type ReviewAction, type SessionIO, type SessionLang,
 } from "./engine.ts";
-import { manualFormSchema, manualWarnings, verbatimSource, loadExchange, buildManualSession } from "./manual.ts";
-import type { Artifact, Playbook } from "./types.ts";
+import {
+  manualFormSchema, manualWarnings, verbatimSource, loadExchange, buildManualSession, reconstructManualAnswers,
+} from "./manual.ts";
+import type { Artifact, ExchangeEntry, Playbook } from "./types.ts";
 
 const PORT = Number(process.env.PORT ?? 4780);
 const PUBLIC_DIR = "public";
@@ -25,6 +27,8 @@ const SESSION_LANGS: Record<string, SessionLang | undefined> = {
 // AI is a capability, not a requirement: with no key the app still runs — the
 // practitioner authors everything by hand and the generate buttons never show.
 const AI_AVAILABLE = process.env.LLM_PROVIDER === "ollama" || Boolean(process.env.ANTHROPIC_API_KEY);
+// Voice dictation is a separate capability: OpenAI live transcription.
+const VOICE_AVAILABLE = Boolean(process.env.OPENAI_API_KEY);
 let llmInstance: LlmAdapter | null = null;
 function getLlm(): LlmAdapter {
   llmInstance ??= createAdapter();
@@ -196,7 +200,7 @@ function buildJourney(dir: string): unknown {
         : MAP_EDGES.filter(([, to]) => to === n.id).map(([from]) => from).filter((f) => f !== "counseling_goal"),
     };
   });
-  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length, ai: AI_AVAILABLE };
+  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length, ai: AI_AVAILABLE, voice: VOICE_AVAILABLE };
 }
 
 /* ── profiles: one artifacts directory per client ─────── */
@@ -284,10 +288,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const sessPath = join(dir, `${id}.session.json`);
     if (!existsSync(sessPath)) {
       // After authorization the live session is gone but the recorded
-      // interview remains — the practitioner view shows it read-only.
+      // interview remains. Hand-recorded transcripts reconstruct their
+      // per-stage answers, so the practitioner can keep editing them;
+      // AI-led transcripts show read-only.
       const tPath = join(dir, `${id}.transcript.json`);
       if (existsSync(tPath)) {
-        return json(res, 200, { exchange: JSON.parse(readFileSync(tPath, "utf8")), settled: true });
+        const exchange = JSON.parse(readFileSync(tPath, "utf8")) as ExchangeEntry[];
+        const answers = reconstructManualAnswers(tryPlaybook(id), exchange);
+        return json(res, 200, { exchange, settled: true, ...(answers ? { manual_answers: answers } : {}) });
       }
       return json(res, 404, { error: "no session" });
     }
@@ -419,7 +427,79 @@ const server = createServer((req, res) => {
   });
 });
 
-const wss = new WebSocketServer({ server, path: "/ws" });
+// Two WS endpoints share the HTTP server: /ws (sessions) and /ws/voice
+// (dictation proxy). Routed manually — two path-bound servers would race on
+// the same upgrade event.
+const wss = new WebSocketServer({ noServer: true });
+const wssVoice = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (req, socket, head) => {
+  const { pathname } = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+  const target = pathname === "/ws" ? wss : pathname === "/ws/voice" ? wssVoice : null;
+  if (!target) return socket.destroy();
+  target.handleUpgrade(req, socket, head, (ws) => target.emit("connection", ws, req));
+});
+
+/**
+ * Voice dictation proxy: browser streams raw PCM16 (24kHz mono) frames here;
+ * we forward them to OpenAI's realtime transcription session and relay the
+ * live transcript deltas back. The API key never reaches the page.
+ */
+wssVoice.on("connection", (ws, req) => {
+  if (!VOICE_AVAILABLE) {
+    ws.send(JSON.stringify({ type: "error", text: "no OPENAI_API_KEY configured" }));
+    return ws.close();
+  }
+  const url = new URL(req.url ?? "", `http://localhost:${PORT}`);
+  const langCode = url.searchParams.get("lang") ?? "";
+  const upstream = new WebSocket("wss://api.openai.com/v1/realtime?intent=transcription", {
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "OpenAI-Beta": "realtime=v1",
+    },
+  });
+  const relay = (payload: Record<string, unknown>) => {
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
+  };
+
+  upstream.on("open", () => {
+    upstream.send(JSON.stringify({
+      type: "transcription_session.update",
+      session: {
+        input_audio_format: "pcm16",
+        input_audio_transcription: {
+          model: "gpt-4o-mini-transcribe",
+          ...(langCode ? { language: langCode } : {}),
+        },
+        turn_detection: { type: "server_vad", silence_duration_ms: 400 },
+        input_audio_noise_reduction: { type: "near_field" },
+      },
+    }));
+  });
+  upstream.on("message", (data) => {
+    let msg: { type?: string; delta?: string; transcript?: string; item_id?: string; error?: { message?: string } };
+    try { msg = JSON.parse(String(data)) as typeof msg; } catch { return; }
+    if (msg.type === "transcription_session.created") relay({ type: "ready" });
+    else if (msg.type === "conversation.item.input_audio_transcription.delta") {
+      relay({ type: "delta", item: msg.item_id, text: msg.delta ?? "" });
+    } else if (msg.type === "conversation.item.input_audio_transcription.completed") {
+      relay({ type: "final", item: msg.item_id, text: msg.transcript ?? "" });
+    } else if (msg.type === "error") relay({ type: "error", text: msg.error?.message ?? "transcription error" });
+  });
+  upstream.on("error", (err: Error) => relay({ type: "error", text: err.message }));
+  upstream.on("close", () => { if (ws.readyState === ws.OPEN) ws.close(); });
+
+  ws.on("message", (data, isBinary) => {
+    if (!isBinary || upstream.readyState !== WebSocket.OPEN) return;
+    upstream.send(JSON.stringify({
+      type: "input_audio_buffer.append",
+      audio: Buffer.from(data as Buffer).toString("base64"),
+    }));
+  });
+  ws.on("close", () => {
+    if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close();
+  });
+});
 
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url ?? "", `http://localhost:${PORT}`);
