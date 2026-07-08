@@ -78,32 +78,45 @@
       </div>
 
       <div id="practView" hidden>
-        <section id="scriptSection" hidden>
-          <div class="p-title" id="scriptTitle"></div>
-          <div class="p-hint" id="scriptHint"></div>
-          <div id="scriptNote" class="p-note" hidden></div>
-          <div id="stageList"></div>
-        </section>
-        <section id="sourcesSection" hidden>
-          <div class="p-title" id="sourcesTitle"></div>
-          <div id="sourcesList"></div>
-        </section>
-        <section id="formSection">
-          <div class="p-title" id="formTitle"></div>
-          <div id="formWarnings" hidden></div>
-          <div id="formBody"></div>
-          <div id="saveLine" hidden></div>
-        </section>
-        <div class="review-actions" id="practActions">
-          <button id="generateBtn" class="outline" hidden></button>
-          <button id="practAmendBtn" class="outline" hidden></button>
-          <button id="practAuthorizeBtn"></button>
+        <div id="practPrimary" class="pane">
+          <div class="pane-head">
+            <div class="pane-kicker" id="primaryKicker"></div>
+            <div class="pane-sub" id="primarySub"></div>
+          </div>
+          <section id="scriptSection" hidden>
+            <div id="scriptNote" class="p-note" hidden></div>
+            <div id="stageList"></div>
+          </section>
+          <section id="sourcesSection" hidden>
+            <div id="sourcesList"></div>
+          </section>
         </div>
-        <form id="practAmendBox" hidden>
-          <textarea id="practAmendInput" rows="2"></textarea>
-          <button type="submit" id="practAmendSend">Send</button>
-        </form>
-        <div id="practFoot"></div>
+        <div id="flowBadge" aria-hidden="true">→</div>
+        <div id="practSecondary" class="pane">
+          <div class="pane-head">
+            <div class="pane-row">
+              <div>
+                <div class="pane-kicker" id="secondaryKicker"></div>
+                <div class="pane-sub" id="secondarySub"></div>
+              </div>
+              <button id="generateBtn" hidden></button>
+            </div>
+          </div>
+          <section id="formSection">
+            <div id="formWarnings" hidden></div>
+            <div id="formBody"></div>
+            <div id="saveLine" hidden></div>
+          </section>
+          <div class="review-actions" id="practActions">
+            <button id="practAmendBtn" class="outline" hidden></button>
+            <button id="practAuthorizeBtn"></button>
+          </div>
+          <form id="practAmendBox" hidden>
+            <textarea id="practAmendInput" rows="2"></textarea>
+            <button type="submit" id="practAmendSend">Send</button>
+          </form>
+          <div id="practFoot"></div>
+        </div>
       </div>
     </div>
   </div>

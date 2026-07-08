@@ -291,6 +291,7 @@ async function openModal(id) {
   $("reviewBody").hidden = true;
   $("amendBox").hidden = true;
   $("practView").hidden = true;
+  $("modal").classList.remove("wide");
   $("tPanel").hidden = true;
   $("tArrow").textContent = "▸";
   $("scrim").hidden = false;
@@ -656,6 +657,7 @@ async function openPractitioner(id) {
   applyModalStrings();
   $("modalTitle").textContent = nodeTitle(node);
   $("modalPhase").textContent = phaseLabel(journey.sectors.find((s) => s.n === node.sector));
+  $("modal").classList.add("wide");
   $("chatView").hidden = true;
   $("reviewView").hidden = true;
   $("practView").hidden = false;
@@ -700,10 +702,13 @@ function renderPractitioner() {
   const { pb, node } = pract;
 
   const isConv = pb.stages.length > 0;
+  $("primaryKicker").textContent = t("pane_primary");
+  $("primarySub").textContent = isConv ? t("pane_primary_sub_conv") : t("pane_primary_sub_derived");
+  $("secondaryKicker").textContent = t("pane_secondary");
+  $("secondarySub").textContent = t("pane_secondary_sub");
+
   $("scriptSection").hidden = !isConv;
   if (isConv) {
-    $("scriptTitle").textContent = t("script_title");
-    $("scriptHint").textContent = t("script_hint");
     $("scriptNote").hidden = !pract.readonlyScript;
     $("scriptNote").textContent = pract.session?.settled ? t("script_record") : t("script_readonly");
     renderScript();
@@ -712,14 +717,14 @@ function renderPractitioner() {
   const deps = Object.keys(pract.upstream);
   $("sourcesSection").hidden = deps.length === 0;
   if (deps.length) {
-    $("sourcesTitle").textContent = t("sources_title");
+    // For derived nodes the sources ARE the primary material — open them up;
+    // in an interview they are reference context, folded away.
     $("sourcesList").innerHTML = deps.map((dep) => `
-      <details><summary>${esc(nodeTitle(byId(dep) ?? { id: dep, title: dep }))}</summary>
+      <details${isConv ? "" : " open"}><summary>${esc(nodeTitle(byId(dep) ?? { id: dep, title: dep }))}</summary>
         <div class="src-body">${renderFields(pract.upstream[dep], [])}</div>
       </details>`).join("");
   }
 
-  $("formTitle").textContent = t("artifact_section");
   renderForm();
 
   $("generateBtn").hidden = !journey.ai;
@@ -746,7 +751,7 @@ function renderScript() {
   $("stageList").innerHTML = stages.map((s, i) => `
     <div class="stage-card">
       <div class="stage-num">${t("stage_label", i + 1, stages.length)} · ${esc(s.id)}</div>
-      <div class="stage-q">${esc(s.opening)}</div>
+      <div class="stage-q">${esc(s.opening.replace(/\{\{\s*(\w+)\s*\}\}/g, "⟨$1⟩"))}</div>
       ${s.probes.length || s.done_when.length ? `
       <details>
         <summary>${t("stage_hints")}</summary>
