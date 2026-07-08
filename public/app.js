@@ -1060,12 +1060,25 @@ $("practAuthorizeBtn").addEventListener("click", async () => {
 let voice = null; // { ws, ctx, node, stream, target, base, turn, itemId, ready }
 let micTarget = null;
 
+const MIC_ICONS = {
+  mic: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" width="11" height="11"><rect x="4" y="4" width="16" height="16" rx="4" fill="currentColor"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+};
+
 const micBtn = document.createElement("button");
 micBtn.id = "micBtn";
 micBtn.type = "button";
-micBtn.textContent = "🎤";
 micBtn.hidden = true;
 document.body.appendChild(micBtn);
+
+/** idle → mic outline · connecting → pulsing mic · rec → stop square · error → warning */
+function setMic(state) {
+  micBtn.innerHTML = state === "rec" ? MIC_ICONS.stop : state === "error" ? MIC_ICONS.warn : MIC_ICONS.mic;
+  micBtn.classList.toggle("rec", state === "connecting" || state === "rec");
+  micBtn.classList.toggle("err", state === "error");
+}
+setMic("idle");
 
 const voiceEligible = (el) =>
   journey?.voice === true && el && !el.disabled && !el.readOnly &&
@@ -1142,8 +1155,7 @@ async function startVoice(target) {
   node.connect(mute);
   mute.connect(ctx.destination); // silent sink — ScriptProcessor needs one to run
 
-  micBtn.classList.add("rec");
-  micBtn.textContent = "…";
+  setMic("connecting");
   micBtn.title = "";
 
   sock.onmessage = (ev) => {
@@ -1151,7 +1163,7 @@ async function startVoice(target) {
     const msg = JSON.parse(ev.data);
     if (msg.type === "ready") {
       voice.ready = true;
-      micBtn.textContent = "■";
+      setMic("rec");
     } else if (msg.type === "delta") insertVoice(msg.item, msg.text, false);
     else if (msg.type === "final") insertVoice(msg.item, msg.text, true);
     else if (msg.type === "error") voiceError(msg.text);
@@ -1187,18 +1199,18 @@ function stopVoice() {
     v.ws.onclose = null;
     v.ws.close();
   }
-  micBtn.classList.remove("rec");
-  micBtn.textContent = "🎤";
+  setMic("idle");
   micBtn.title = t("voice_dictate");
 }
 
 function voiceError(text) {
+  console.error("voice:", text);
   stopVoice();
-  micBtn.textContent = "⚠";
+  setMic("error");
   micBtn.title = text ?? "";
   setTimeout(() => {
     if (!voice) {
-      micBtn.textContent = "🎤";
+      setMic("idle");
       micBtn.title = t("voice_dictate");
     }
   }, 2500);

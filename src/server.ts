@@ -453,33 +453,36 @@ wssVoice.on("connection", (ws, req) => {
   const url = new URL(req.url ?? "", `http://localhost:${PORT}`);
   const langCode = url.searchParams.get("lang") ?? "";
   const upstream = new WebSocket("wss://api.openai.com/v1/realtime?intent=transcription", {
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "OpenAI-Beta": "realtime=v1",
-    },
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
   });
   const relay = (payload: Record<string, unknown>) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
   };
 
   upstream.on("open", () => {
+    // GA realtime API shape — the beta transcription_session.* form is retired.
     upstream.send(JSON.stringify({
-      type: "transcription_session.update",
+      type: "session.update",
       session: {
-        input_audio_format: "pcm16",
-        input_audio_transcription: {
-          model: "gpt-4o-mini-transcribe",
-          ...(langCode ? { language: langCode } : {}),
+        type: "transcription",
+        audio: {
+          input: {
+            format: { type: "audio/pcm", rate: 24000 },
+            transcription: {
+              model: "gpt-4o-mini-transcribe",
+              ...(langCode ? { language: langCode } : {}),
+            },
+            turn_detection: { type: "server_vad", silence_duration_ms: 400 },
+            noise_reduction: { type: "near_field" },
+          },
         },
-        turn_detection: { type: "server_vad", silence_duration_ms: 400 },
-        input_audio_noise_reduction: { type: "near_field" },
       },
     }));
   });
   upstream.on("message", (data) => {
     let msg: { type?: string; delta?: string; transcript?: string; item_id?: string; error?: { message?: string } };
     try { msg = JSON.parse(String(data)) as typeof msg; } catch { return; }
-    if (msg.type === "transcription_session.created") relay({ type: "ready" });
+    if (msg.type === "session.created") relay({ type: "ready" });
     else if (msg.type === "conversation.item.input_audio_transcription.delta") {
       relay({ type: "delta", item: msg.item_id, text: msg.delta ?? "" });
     } else if (msg.type === "conversation.item.input_audio_transcription.completed") {
