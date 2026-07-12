@@ -925,6 +925,52 @@ body:has(#scrim:not([hidden])) {
 }
 .ai-note { font: 500 11.5px Karla, sans-serif; color: var(--mark-ink); margin-top: 4px; }
 
+/* ── PDF export (print) ──────────────────────────────── */
+
+#printDoc { display: none; }
+
+@page { margin: 20mm 18mm; }
+
+@media print {
+  body > *:not(#printDoc) { display: none !important; }
+  html, body { background: #fff; }
+  /* Fixed colors: a dark-theme user still gets a printable document. */
+  #printDoc { display: block; color: #201b14; font: 400 12pt/1.6 Lora, Georgia, serif; }
+  .pd-head h1 { font: 600 23pt Lora, Georgia, serif; margin: 0 0 4pt; }
+  .pd-meta { font: 500 10pt Karla, sans-serif; color: #8a7f6e; }
+  .pd-phase {
+    font: 600 9.5pt Karla, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a7f6e;
+    border-bottom: 0.5pt solid #d8d0c2;
+    padding-bottom: 3pt;
+    margin: 18pt 0 6pt;
+  }
+  .pd-node { margin: 10pt 0 14pt; break-inside: avoid; }
+  .pd-node h2 { font: 600 15pt Lora, Georgia, serif; margin: 0 0 1pt; }
+  .pd-date { font: 500 9pt Karla, sans-serif; color: #a89c88; margin-bottom: 4pt; }
+  #printDoc .field-label {
+    font: 600 8.5pt Karla, sans-serif;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #8a7f6e;
+    margin: 7pt 0 1pt;
+  }
+  #printDoc .field-value { font: 400 11.5pt/1.55 Lora, Georgia, serif; }
+  #printDoc ul { margin: 2pt 0 0; padding-left: 16pt; }
+  #printDoc li { font: 400 11pt/1.55 Lora, Georgia, serif; }
+  #printDoc .sub-card {
+    border: 0.5pt solid #d8d0c2;
+    border-radius: 6pt;
+    padding: 6pt 9pt;
+    margin: 4pt 0 6pt;
+    break-inside: avoid;
+  }
+  #printDoc .sub-card .field-label { font-size: 8pt; margin: 4pt 0 0; }
+  #printDoc .sub-card .field-value { font-size: 10.5pt; }
+}
+
 /* ── mobile: full-screen sheet ───────────────────────── */
 
 @media (max-width: 700px) {

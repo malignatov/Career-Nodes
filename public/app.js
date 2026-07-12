@@ -90,6 +90,14 @@ function currentNodeId() {
   return null;
 }
 
+/** Will authorizing this node leave the user with a natural next step? */
+function hasNextAfter(node) {
+  if (node.id === "closing_check") return false; // the journey's end
+  const actionable = (s) => s === "available" || s === "in_progress" || s === "stale";
+  return journey.nodes.some((n) => n.id !== node.id && actionable(n.status))
+    || node.feeds.some((id) => byId(id)?.status === "planned");
+}
+
 function summaryLine(n) {
   if (isSettled(n.status) && n.distilled?.length) {
     const parts = n.distilled
@@ -125,6 +133,7 @@ function renderJourney() {
       </div>
       <div class="j-progress">
         <div class="j-tools">
+          ${journey.authorized > 0 ? `<button id="exportBtn" class="tool-btn" title="${esc(t("btn_export_title"))}">${t("btn_export")}</button>` : ""}
           ${profileControl}
           <button id="modeBtn" class="tool-btn">${mode === "client" ? t("mode_practitioner") : t("mode_client")}</button>
           <button id="themeBtn" class="tool-btn">${theme === "light" ? t("theme_dark") : t("theme_light")}</button>
@@ -193,6 +202,8 @@ function renderJourney() {
     localStorage.setItem("mode", mode);
     renderJourney();
   });
+  const exportBtn = $("exportBtn");
+  if (exportBtn) exportBtn.addEventListener("click", exportPdf);
   const sel = $("profileSel");
   if (sel) {
     sel.addEventListener("change", () => {
@@ -326,7 +337,7 @@ async function openModal(id) {
   connect(id, { resuming, review: reviewMode });
 }
 
-function closeModal() {
+function closeModal(thenContinue = false) {
   if (ws) {
     ws.onclose = null;
     ws.close();
@@ -342,7 +353,12 @@ function closeModal() {
   micBtn.hidden = true;
   $("scrim").hidden = true;
   modal = null;
-  loadJourney();
+  loadJourney().then(() => {
+    // "Authorize and continue": flow straight into the next actionable step.
+    if (thenContinue !== true) return;
+    const next = currentNodeId();
+    if (next) openModal(next);
+  });
 }
 
 function compiledHtml(compiled) {
@@ -422,7 +438,8 @@ function connect(id, { resuming = false, review = false } = {}) {
     else if (msg.type === "done") {
       if (msg.text === "authorized") {
         setChip("authorized");
-        setTimeout(closeModal, 600);
+        const cont = modal?.continueAfter === true;
+        setTimeout(() => closeModal(cont), 600);
       } else if (!modal?.chatless) {
         addMsg("note", t("session_saved", msg.text));
       }
@@ -555,7 +572,7 @@ function showReview(payload) {
   const short = shortEntry(modal.node);
   $("reviewExplainer").textContent = t("review_explainer", short.label);
   $("draftKicker").textContent = payload.existing ? t("kicker_existing", short.label) : t("kicker", short.label);
-  $("authorizeBtn").textContent = short.auth;
+  $("authorizeBtn").textContent = hasNextAfter(modal.node) ? t("btn_auth_continue") : short.auth;
   $("reviewFoot").textContent = payload.authorize_language;
   $("editBtn").hidden = payload.mode !== "candidates";
   $("editBtn").textContent = t("edit_wording");
@@ -639,6 +656,7 @@ $("restartBtn").addEventListener("click", () => {
 
 $("authorizeBtn").addEventListener("click", () => {
   if (!ws || !modal.review) return;
+  modal.continueAfter = hasNextAfter(modal.node);
   const { payload, currentText } = modal.review;
   const msg = { type: "review_action", action: "authorize" };
   if (payload.mode === "candidates") msg.value = currentText;
@@ -737,7 +755,7 @@ function renderPractitioner() {
   $("practAmendBtn").classList.remove("active");
   $("practAmendBox").hidden = true;
   $("practAmendInput").placeholder = t("amend_placeholder");
-  $("practAuthorizeBtn").textContent = shortEntry(node).auth;
+  $("practAuthorizeBtn").textContent = hasNextAfter(node) ? t("btn_auth_continue") : shortEntry(node).auth;
   // The playbook's authorize_language speaks to the client ("your words…") —
   // client mode shows it; here the practitioner gets their own contract.
   $("practFoot").textContent = t("pract_foot");
@@ -1061,8 +1079,50 @@ $("practAuthorizeBtn").addEventListener("click", async () => {
   showWarnings((await res.json()).warnings);
   setChip("authorized");
   setStaleChip(false);
-  setTimeout(closeModal, 600);
+  const cont = hasNextAfter(pract.node);
+  setTimeout(() => closeModal(cont), 600);
 });
+
+/* ── PDF export: the active profile's journey, print-ready ── */
+
+const fmtDate = (d) =>
+  new Date(d).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { year: "numeric", month: "long", day: "numeric" });
+
+async function exportPdf() {
+  const settled = journey.nodes.filter((n) => isSettled(n.status));
+  if (!settled.length) return;
+  const arts = await Promise.all(settled.map(async (n) => ({
+    n,
+    art: await (await fetch(api(`/api/artifact/${n.id}`))).json(),
+  })));
+  const who = profileName(profiles.find((p) => p.id === profile) ?? { id: profile });
+
+  const parts = [`
+    <div class="pd-head">
+      <h1>${esc(t("journey_title"))}</h1>
+      <div class="pd-meta">${esc(who)} · ${esc(fmtDate(Date.now()))} · ${t("authorized_of", journey.authorized, journey.total)}</div>
+    </div>`];
+  for (const sector of journey.sectors) {
+    const inPhase = arts.filter(({ n }) => n.sector === sector.n);
+    if (!inPhase.length) continue;
+    parts.push(`<div class="pd-phase">${esc(phaseLabel(sector))}</div>`);
+    for (const { n, art } of inPhase) {
+      parts.push(`
+        <section class="pd-node">
+          <h2>${esc(nodeTitle(n))}</h2>
+          <div class="pd-date">${esc(t("pdf_authorized", fmtDate(art.authorized_at)))}</div>
+          ${renderFields(art.content, [])}
+        </section>`);
+    }
+  }
+  $("printDoc").innerHTML = parts.join("");
+
+  // The print dialog's suggested file name comes from the page title.
+  const prev = document.title;
+  document.title = `Career Counseling — ${who} — ${new Date().toISOString().slice(0, 10)}`;
+  window.print();
+  document.title = prev;
+}
 
 /* ── voice dictation (OpenAI live transcription) ─────── */
 
