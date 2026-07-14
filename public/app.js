@@ -181,10 +181,17 @@ function renderJourney() {
     }
   }
 
+  const hasProgress = journey.nodes.some((n) => isSettled(n.status) || n.status === "in_progress");
+  if (hasProgress) {
+    parts.push(`<div class="j-footer"><button id="resetBtn" class="reset-link">${t("btn_reset")}</button></div>`);
+  }
+
   journeyEl.innerHTML = parts.join("");
   for (const btn of journeyEl.querySelectorAll("[data-open]")) {
     btn.addEventListener("click", () => openModal(btn.dataset.open));
   }
+  const resetBtn = $("resetBtn");
+  if (resetBtn) resetBtn.addEventListener("click", () => resetProgress(resetBtn));
   $("themeBtn").addEventListener("click", () => {
     theme = theme === "light" ? "dark" : "light";
     localStorage.setItem("theme", theme);
@@ -1082,6 +1089,25 @@ $("practAuthorizeBtn").addEventListener("click", async () => {
   const cont = hasNextAfter(pract.node);
   setTimeout(() => closeModal(cont), 600);
 });
+
+/** Two-step destructive reset of the ACTIVE profile only: arm, then confirm within 5s. */
+async function resetProgress(btn) {
+  if (!btn.classList.contains("armed")) {
+    const who = profileName(profiles.find((p) => p.id === profile) ?? { id: profile });
+    btn.classList.add("armed");
+    btn.textContent = t("reset_confirm", who);
+    setTimeout(() => {
+      if (btn.isConnected && btn.classList.contains("armed")) {
+        btn.classList.remove("armed");
+        btn.textContent = t("btn_reset");
+      }
+    }, 5000);
+    return;
+  }
+  btn.disabled = true;
+  await fetch(api("/api/reset"), { method: "POST" });
+  loadJourney();
+}
 
 /* ── PDF export: the active profile's journey, print-ready ── */
 

@@ -247,6 +247,23 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   if (path === "/api/journey" || path === "/api/map") return json(res, 200, buildJourney(dir));
 
+  // Reset the active profile's journey: every node file goes (artifact,
+  // session, draft, transcript); the profile entry itself stays. Surgical by
+  // construction — only known node ids and suffixes, never profile.json.
+  if (path === "/api/reset" && req.method === "POST") {
+    let removed = 0;
+    for (const n of MAP_NODES) {
+      for (const suffix of [".json", ".session.json", ".draft.json", ".transcript.json"]) {
+        const p = join(dir, `${n.id}${suffix}`);
+        if (existsSync(p)) {
+          unlinkSync(p);
+          removed++;
+        }
+      }
+    }
+    return json(res, 200, { ok: true, removed });
+  }
+
   if (path === "/api/profiles") {
     if (req.method === "POST") {
       const body = await readBody(req);

@@ -925,6 +925,25 @@ body:has(#scrim:not([hidden])) {
 }
 .ai-note { font: 500 11.5px Karla, sans-serif; color: var(--mark-ink); margin-top: 4px; }
 
+/* ── reset footer ────────────────────────────────────── */
+
+.j-footer { margin-top: 34px; text-align: center; }
+.reset-link {
+  background: none;
+  border: none;
+  font: 500 11.5px Karla, sans-serif;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 99px;
+}
+.reset-link:hover { color: var(--mark-ink); }
+.reset-link.armed {
+  background: var(--mark-bg);
+  color: var(--mark-ink);
+  font-weight: 600;
+}
+
 /* ── PDF export (print) ──────────────────────────────── */
 
 #printDoc { display: none; }
