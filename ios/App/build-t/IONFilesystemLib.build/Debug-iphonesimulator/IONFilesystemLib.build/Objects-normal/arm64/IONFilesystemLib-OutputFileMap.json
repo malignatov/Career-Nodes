@@ -1,0 +1,79 @@
+{
+  "" : {
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFilesystemLib-primary.dia",
+    "emit-module-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFilesystemLib-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFilesystemLib-primary-emit-module.dia",
+    "pch" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFilesystemLib-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFilesystemLib-primary.swiftdeps"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/IONFILEChunkPublisher.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEChunkPublisher~partial.swiftmodule"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/IONFILEItemAttributeModel.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEItemAttributeModel~partial.swiftmodule"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/IONFILEManager+Enums.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Enums~partial.swiftmodule"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/IONFILEManager+Errors.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Errors~partial.swiftmodule"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/IONFILEManager+Protocols.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager+Protocols~partial.swiftmodule"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/IONFILEManager.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/IONFILEManager~partial.swiftmodule"
+  },
+  "/Users/michael/Library/Developer/Xcode/DerivedData/App-ddojkuivmngxmnhajkzvkaxdlbkj/SourcePackages/checkouts/ion-ios-filesystem/IONFilesystemLib/URL+Extension.swift" : {
+    "const-values" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.swiftconstvalues",
+    "dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.d",
+    "diagnostics" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.dia",
+    "index-unit-output-path" : "/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.o",
+    "llvm-bc" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.bc",
+    "object" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.o",
+    "swift-dependencies" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension.swiftdeps",
+    "swiftmodule" : "/Users/michael/Claude Code/Career Counseling/ios/App/build-t/IONFilesystemLib.build/Debug-iphonesimulator/IONFilesystemLib.build/Objects-normal/arm64/URL+Extension~partial.swiftmodule"
+  }
+}

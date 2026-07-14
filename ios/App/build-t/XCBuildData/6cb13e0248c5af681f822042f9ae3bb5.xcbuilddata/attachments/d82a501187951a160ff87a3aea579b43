@@ -1,0 +1,4 @@
+module FilesystemPlugin {
+header "FilesystemPlugin-Swift.h"
+export *
+}

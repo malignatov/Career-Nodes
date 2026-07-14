@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Career Counseling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600&family=Lora:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main id="journey"></main>
+
+  <div id="scrim" hidden>
+    <div id="modal" role="dialog" aria-modal="true">
+      <header id="modalHead">
+        <div class="head-row">
+          <button id="exitBtn">← Journey <span id="exitHint">· saved automatically</span></button>
+          <div class="head-meta">
+            <span id="modalPhase"></span>
+            <span id="modalStaleChip" class="chip stale" hidden></span>
+            <span id="modalChip" class="chip"></span>
+          </div>
+        </div>
+        <div class="head-row">
+          <h2 id="modalTitle"></h2>
+          <button id="tToggle"><span class="t-glyph">◎</span> Transparency <span id="tArrow">▸</span></button>
+        </div>
+        <div id="tPanel" hidden>
+          <div>
+            <div class="t-label" id="tLabelWhat">What’s happening</div>
+            <div id="tWhat" class="t-text"></div>
+          </div>
+          <div>
+            <div class="t-label" id="tLabelCompiled">Model instructions (compiled)</div>
+            <div id="tCompiled" class="t-mono"></div>
+          </div>
+        </div>
+      </header>
+
+      <div id="chatView">
+        <div id="messages"></div>
+        <form id="composer" class="disabled">
+          <input id="input" placeholder="Write in your own words…" autocomplete="off" disabled />
+          <button type="submit" id="sendBtn">Send</button>
+        </form>
+      </div>
+
+      <div id="reviewView" hidden>
+        <div id="reviewStatus" hidden></div>
+        <div id="reviewBody" hidden>
+          <div id="staleNote" hidden></div>
+          <div id="reviewExplainer"></div>
+          <div class="draft-panel">
+            <div id="draftKicker"></div>
+            <div id="draftBody"></div>
+            <div id="editArea" hidden>
+              <textarea id="draftTextarea" rows="4"></textarea>
+              <button id="saveEdit">Save wording</button>
+            </div>
+            <div id="verifyLine"></div>
+            <div id="altList" hidden></div>
+          </div>
+          <div class="review-actions">
+            <button id="editBtn" class="outline">Edit wording</button>
+            <button id="changesBtn" class="outline">Amend</button>
+            <button id="reprocessBtn" class="outline" hidden>Reprocess</button>
+            <button id="restartBtn" class="outline" hidden>Redo the interview</button>
+            <button id="authorizeBtn"></button>
+          </div>
+          <form id="amendBox" hidden>
+            <textarea id="amendInput" rows="2"></textarea>
+            <button type="submit" id="amendSend">Send</button>
+          </form>
+          <div id="reviewFoot"></div>
+        </div>
+      </div>
+
+      <div id="practView" hidden>
+        <div id="practPrimary" class="pane">
+          <div class="pane-head">
+            <div class="pane-kicker" id="primaryKicker"></div>
+            <div class="pane-sub" id="primarySub"></div>
+          </div>
+          <section id="scriptSection" hidden>
+            <div id="scriptNote" class="p-note" hidden></div>
+            <div id="stageList"></div>
+          </section>
+          <section id="sourcesSection" hidden>
+            <div id="sourcesList"></div>
+          </section>
+        </div>
+        <div id="flowBadge" aria-hidden="true">→</div>
+        <div id="practSecondary" class="pane">
+          <div class="pane-head">
+            <div class="pane-row">
+              <div>
+                <div class="pane-kicker" id="secondaryKicker"></div>
+                <div class="pane-sub" id="secondarySub"></div>
+              </div>
+              <button id="generateBtn" hidden></button>
+            </div>
+          </div>
+          <section id="formSection">
+            <div id="formWarnings" hidden></div>
+            <div id="formBody"></div>
+            <div id="saveLine" hidden></div>
+          </section>
+          <div class="review-actions" id="practActions">
+            <button id="practAmendBtn" class="outline" hidden></button>
+            <button id="practAuthorizeBtn"></button>
+          </div>
+          <form id="practAmendBox" hidden>
+            <textarea id="practAmendInput" rows="2"></textarea>
+            <button type="submit" id="practAmendSend">Send</button>
+          </form>
+          <div id="practFoot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="printDoc"></div>
+
+  <script src="/cc-mobile.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+	"appId": "app.careercounseling.local",
+	"appName": "Career Counseling",
+	"webDir": "mobile/www",
+	"packageClassList": [
+		"FilesystemPlugin",
+		"PreferencesPlugin"
+	]
+}

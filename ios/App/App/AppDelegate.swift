@@ -7,7 +7,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Storyboard-free bootstrap: the app is a single Capacitor WebView, so
+        // the window is built in code (also sidesteps ibtool on beta toolchains).
+        window = UIWindow(frame: UIScreen.main.bounds)
+        window?.rootViewController = CAPBridgeViewController()
+        window?.makeKeyAndVisible()
         return true
     }
 
