@@ -17,7 +17,9 @@ const MODELS: Record<string, string> = {
   large: process.env.LLM_LARGE_MODEL ?? "deepseek/deepseek-v4-pro",
 };
 
-const ignoreList = (): { ignore?: string[] } => {
+const ignoreList = (): { only?: string[]; ignore?: string[] } => {
+  const allow = (process.env.LLM_ALLOW_PROVIDERS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (allow.length > 0) return { only: allow };
   const list = (process.env.LLM_IGNORE_PROVIDERS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   return list.length > 0 ? { ignore: list } : {};
 };

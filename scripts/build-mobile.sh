@@ -11,9 +11,11 @@ rm -rf mobile/www
 mkdir -p mobile/www
 cp -R public/. mobile/www/
 
+# VENDOR_URL bakes the key-vendor endpoint into the build (empty = disabled).
 npx esbuild src/mobile-main.ts \
   --bundle --format=iife --platform=browser \
   --outfile=mobile/www/cc-mobile.js \
+  --define:__CC_VENDOR_URL__="\"${VENDOR_URL:-}\"" \
   --log-level=warning
 
 # The shim script must run before the UI module fetches anything.

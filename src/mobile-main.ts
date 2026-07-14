@@ -76,10 +76,14 @@ const SETTING_KEYS = [
   "LLM_API_KEY", "OPENAI_API_KEY", "LLM_SMALL_MODEL", "LLM_LARGE_MODEL", "VENDOR_URL",
 ] as const;
 
+declare const __CC_VENDOR_URL__: string;
+
 async function loadConfig(): Promise<void> {
   const config: Record<string, string | undefined> = {
     LLM_PROVIDER: "openrouter",
-    LLM_IGNORE_PROVIDERS: "DeepSeek,StreamLake,Baidu,Alibaba,SiliconFlow",
+    // Fail-closed jurisdiction allowlist — new pool entrants get no traffic.
+    LLM_ALLOW_PROVIDERS: "DeepInfra,BaseTen,AtlasCloud,DigitalOcean,Morph",
+    VENDOR_URL: __CC_VENDOR_URL__ || undefined,
   };
   for (const key of SETTING_KEYS) {
     const { value } = await Preferences.get({ key });

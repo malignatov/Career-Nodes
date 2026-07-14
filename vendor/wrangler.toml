@@ -1,0 +1,13 @@
+# Key-vendor Worker config — see the deploy steps in worker.js.
+name = "cc-key-vendor"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+[vars]
+CAP_USD = "2"
+# Comma-separated invite codes. Each redeems exactly once (ledger in KV).
+INVITES = "CC-EMBER-RIVER-71,CC-WILLOW-HARBOR-82,CC-JUNIPER-RIVER-56,CC-MEADOW-ORCHARD-23,CC-BEACON-MAPLE-82,CC-MEADOW-MEADOW-75,CC-RIVER-EMBER-23,CC-EMBER-SUMMIT-11,CC-BEACON-SUMMIT-17,CC-EMBER-AURORA-36"
+
+[[kv_namespaces]]
+binding = "LEDGER"
+id = "REPLACE_ME — run: npx wrangler kv namespace create LEDGER"

@@ -147,9 +147,18 @@ export class OpenAICompatAdapter implements LlmAdapter {
       if (opts.jsonSchema) provider.require_parameters = true;
       // ZDR says "won't store"; jurisdiction is a separate axis — hosts the
       // user won't send client words to, regardless of retention contracts.
-      const ignore = (cfg("LLM_IGNORE_PROVIDERS") ?? "")
+      // The allowlist fails CLOSED: providers added to the pool later get no
+      // traffic until explicitly vetted. The ignore-list remains as a
+      // secondary tool when no allowlist is set.
+      const allow = (cfg("LLM_ALLOW_PROVIDERS") ?? "")
         .split(",").map((s) => s.trim()).filter(Boolean);
-      if (ignore.length > 0) provider.ignore = ignore;
+      if (allow.length > 0) {
+        provider.only = allow;
+      } else {
+        const ignore = (cfg("LLM_IGNORE_PROVIDERS") ?? "")
+          .split(",").map((s) => s.trim()).filter(Boolean);
+        if (ignore.length > 0) provider.ignore = ignore;
+      }
       body.provider = provider;
     }
     const res = await fetch(`${ep.baseUrl}/chat/completions`, {
