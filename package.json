@@ -14,7 +14,10 @@
     "app:dist": "bash scripts/package-app.sh",
     "app:dist:win": "bash scripts/package-app.sh win32 x64",
     "app:dist:linux": "bash scripts/package-app.sh linux x64",
-    "probe": "node --env-file-if-exists=.env scripts/probe.ts"
+    "probe": "node --env-file-if-exists=.env scripts/probe.ts",
+    "vendor": "node --env-file-if-exists=.env src/vendor.ts",
+    "mobile:build": "bash scripts/build-mobile.sh",
+    "mobile:ios": "npx cap run ios"
   },
   "keywords": [],
   "author": "Mikhail Ignatov",
@@ -23,15 +26,21 @@
   "private": "true",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^8.4.2",
+    "@capacitor/preferences": "^8.0.1",
     "js-yaml": "^5.2.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.1.0",
     "@types/ws": "^8.18.1",
     "electron": "^43.0.0",
     "electron-packager": "^17.1.2",
+    "esbuild": "^0.28.1",
     "tsx": "^4.22.5",
     "typescript": "^6.0.3"
   }

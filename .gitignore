@@ -4,3 +4,5 @@ dist/
 artifacts/
 .DS_Store
 dist-app/
+mobile/www/
+ios/App/App/public/
