@@ -17,6 +17,11 @@ const MODELS: Record<string, string> = {
   large: process.env.LLM_LARGE_MODEL ?? "deepseek/deepseek-v4-pro",
 };
 
+const ignoreList = (): { ignore?: string[] } => {
+  const list = (process.env.LLM_IGNORE_PROVIDERS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length > 0 ? { ignore: list } : {};
+};
+
 const perM = (v: unknown): string => {
   const n = Number(v);
   return Number.isFinite(n) ? `$${(n * 1e6).toFixed(2)}/M` : "?";
@@ -57,7 +62,7 @@ async function liveZdrCall(tier: string, model: string): Promise<void> {
     body: JSON.stringify({
       model,
       zdr: true,
-      provider: { data_collection: "deny" },
+      provider: { data_collection: "deny", sort: "price", ...ignoreList() },
       max_tokens: 200,
       messages: [{ role: "user", content: "Reply with the single word: ready" }],
     }),
@@ -81,7 +86,7 @@ async function schemaCall(model: string): Promise<void> {
     body: JSON.stringify({
       model,
       zdr: true,
-      provider: { data_collection: "deny", require_parameters: true },
+      provider: { data_collection: "deny", require_parameters: true, sort: "price", ...ignoreList() },
       max_tokens: 300,
       response_format: {
         type: "json_schema",

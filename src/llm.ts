@@ -173,11 +173,17 @@ export class OpenAICompatAdapter implements LlmAdapter {
     }
     if (cfg.baseUrl.startsWith(OPENROUTER_BASE)) {
       if (this.zdr) body.zdr = true;
-      const provider: Record<string, unknown> = {};
+      // Cheapest endpoint that satisfies the constraints wins.
+      const provider: Record<string, unknown> = { sort: "price" };
       if (this.zdr) provider.data_collection = "deny";
       // Only route to endpoints that actually honor response_format.
       if (opts.jsonSchema) provider.require_parameters = true;
-      if (Object.keys(provider).length > 0) body.provider = provider;
+      // ZDR says "won't store"; jurisdiction is a separate axis — hosts the
+      // user won't send client words to, regardless of retention contracts.
+      const ignore = (process.env.LLM_IGNORE_PROVIDERS ?? "")
+        .split(",").map((s) => s.trim()).filter(Boolean);
+      if (ignore.length > 0) provider.ignore = ignore;
+      body.provider = provider;
     }
     const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: "POST",
