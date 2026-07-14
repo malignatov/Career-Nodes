@@ -4,9 +4,8 @@
  * verbatim rules are checked in code, and a hand-recorded interview lands in
  * the same session format the AI interviewer produces.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { ExchangeEntry, Playbook } from "./types.ts";
+import type { Storage } from "./storage.ts";
 import { stageOpening, stringValuesDeep, type SessionLang } from "./engine.ts";
 import { verbatimViolations } from "./verbatim.ts";
 
@@ -35,22 +34,22 @@ export function manualFormSchema(pb: Playbook): { properties: Record<string, unk
 }
 
 /** Recorded interview for a node, whether in progress (.session) or settled (.transcript). */
-export function loadExchange(id: string, dir: string): ExchangeEntry[] {
-  const sessionPath = join(dir, `${id}.session.json`);
-  if (existsSync(sessionPath)) {
-    return (JSON.parse(readFileSync(sessionPath, "utf8")) as { exchange: ExchangeEntry[] }).exchange ?? [];
+export async function loadExchange(id: string, store: Storage): Promise<ExchangeEntry[]> {
+  const session = await store.read(`${id}.session.json`);
+  if (session !== null) {
+    return (JSON.parse(session) as { exchange: ExchangeEntry[] }).exchange ?? [];
   }
-  const transcriptPath = join(dir, `${id}.transcript.json`);
-  if (existsSync(transcriptPath)) {
-    return JSON.parse(readFileSync(transcriptPath, "utf8")) as ExchangeEntry[];
+  const transcript = await store.read(`${id}.transcript.json`);
+  if (transcript !== null) {
+    return JSON.parse(transcript) as ExchangeEntry[];
   }
   return [];
 }
 
 /** Everything a verbatim string may legitimately quote: the user's recorded words + upstream artifact text. */
-export function verbatimSource(pb: Playbook, dir: string, upstream: Record<string, unknown>): string {
+export async function verbatimSource(pb: Playbook, store: Storage, upstream: Record<string, unknown>): Promise<string> {
   return [
-    ...loadExchange(pb.id, dir).filter((e) => e.speaker === "user").map((e) => e.text),
+    ...(await loadExchange(pb.id, store)).filter((e) => e.speaker === "user").map((e) => e.text),
     ...stringValuesDeep(upstream),
   ].join("\n");
 }

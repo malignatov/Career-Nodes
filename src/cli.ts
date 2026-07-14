@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { loadPlaybook } from "./playbook.ts";
-import { createAdapter } from "./llm.ts";
+import { createAdapter } from "./llm-node.ts";
+import { defaultStorage } from "./node-storage.ts";
 import { runPlaybookSession } from "./session.ts";
 import type { SessionIO } from "./engine.ts";
 
@@ -17,7 +18,7 @@ async function main(): Promise<void> {
   };
 
   io.note(`(model: ${llm.describe()} — /skip advances a topic, /quit exits)`);
-  await runPlaybookSession(pb, llm, io);
+  await runPlaybookSession(pb, llm, io, { store: defaultStorage() });
   rl.close();
 }
 

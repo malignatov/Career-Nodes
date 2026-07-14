@@ -1,13 +1,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import { loadPlaybook } from "./playbook.ts";
-import { aiAvailable, createAdapter, type LlmAdapter } from "./llm.ts";
-import {
-  runPlaybookSession, runReviewSession, loadUpstream, saveArtifact, profileDir, ARTIFACTS_DIR,
-} from "./session.ts";
-import { MAP_NODES, MAP_EDGES, MAP_SECTORS } from "./map.ts";
+import { aiAvailable, type LlmAdapter } from "./llm.ts";
+import { createAdapter } from "./llm-node.ts";
+import { runPlaybookSession, runReviewSession, loadUpstream, saveArtifact } from "./session.ts";
+import { buildJourney, profilePrefix, type PlaybookSource } from "./journey.ts";
+import { MAP_NODES } from "./map.ts";
 import {
   compiledPrompts, runInduce, stageOpening,
   type ReviewAction, type SessionIO, type SessionLang,
@@ -15,6 +15,8 @@ import {
 import {
   manualFormSchema, manualWarnings, verbatimSource, loadExchange, buildManualSession, reconstructManualAnswers,
 } from "./manual.ts";
+import { defaultStorage } from "./node-storage.ts";
+import { scoped, type Storage } from "./storage.ts";
 import type { Artifact, ExchangeEntry, Playbook } from "./types.ts";
 
 const PORT = Number(process.env.PORT ?? 4780);
@@ -34,6 +36,8 @@ function getLlm(): LlmAdapter {
   llmInstance ??= createAdapter();
   return llmInstance;
 }
+
+const rootStore = defaultStorage();
 
 const silentIO: SessionIO = { say() {}, note() {}, ask: async () => "" };
 
@@ -66,169 +70,29 @@ function playbookPath(id: string): string {
   return join("playbooks", `${id}.yaml`);
 }
 
-function tryPlaybook(id: string): Playbook | null {
-  return existsSync(playbookPath(id)) ? loadPlaybook(playbookPath(id)) : null;
-}
-
-function isAuthorized(id: string, dir: string): boolean {
-  return existsSync(join(dir, `${id}.json`));
-}
-
-function authorizedAt(id: string, dir: string): number | null {
-  const p = join(dir, `${id}.json`);
-  if (!existsSync(p)) return null;
-  const ts = Date.parse((JSON.parse(readFileSync(p, "utf8")) as Artifact).authorized_at);
-  return Number.isNaN(ts) ? null : ts;
-}
-
-/**
- * Lifecycle status. "planned" covers both nodes without a playbook and nodes
- * whose dependencies aren't met yet: conversation nodes need every consumed
- * artifact; derived nodes need at least one (the engine tolerates partial
- * upstream, e.g. character sketch from role models alone).
- */
-function nodeStatus(id: string, dir: string): string {
-  if (isAuthorized(id, dir)) {
-    // Derived artifacts go stale when any source was authorized after them;
-    // conversation artifacts never do — the user's recorded words stay valid.
-    const pb = tryPlaybook(id);
-    if (pb?.kind === "derived") {
-      const own = authorizedAt(id, dir) ?? 0;
-      const outdated = pb.consumes.some((dep) => (authorizedAt(dep, dir) ?? 0) > own);
-      if (outdated) return "stale";
-    }
-    return "authorized";
-  }
-  if (existsSync(join(dir, `${id}.session.json`))) return "in_progress";
-  if (existsSync(join(dir, `${id}.draft.json`))) return "in_progress";
-  const pb = tryPlaybook(id);
-  if (!pb) return "planned";
-  if (pb.consumes.length > 0) {
-    // The goal is context, not source material — it never gates derived nodes.
-    const sources = pb.kind === "conversation" ? pb.consumes : pb.consumes.filter((d) => d !== "counseling_goal");
-    const gate = pb.gate ?? (pb.kind === "conversation" ? "all" : "any");
-    if (sources.length > 0) {
-      const met = gate === "all" ? sources.every((s) => isAuthorized(s, dir)) : sources.some((s) => isAuthorized(s, dir));
-      if (!met) return "planned";
-    }
-  }
-  return "available";
-}
-
-function firstString(v: unknown): string | null {
-  if (typeof v === "string" && v.trim()) return v;
-  if (Array.isArray(v)) for (const item of v) { const s = firstString(item); if (s) return s; }
-  if (typeof v === "object" && v !== null) {
-    for (const val of Object.values(v)) { const s = firstString(val); if (s) return s; }
-  }
-  return null;
-}
-
-interface DistilledPart {
-  label: string | null;
-  text: string;
-}
-
-/** Structured summary of an authorized artifact for its journey card — full text, no truncation. */
-function distill(id: string, content: Record<string, unknown>): DistilledPart[] {
-  const one = (text: unknown, label: string | null = null): DistilledPart[] =>
-    typeof text === "string" && text.trim() ? [{ label, text }] : [];
-
-  switch (id) {
-    case "counseling_goal": return one(content.restated_goal);
-    case "motto": return one(content.motto ? `“${content.motto as string}”` : null);
-    case "role_models": {
-      const models = (content.models ?? []) as { name?: string }[];
-      return one(models.map((m) => m.name).filter(Boolean).join(" · "));
-    }
-    case "favorite_story": return one(content.title);
-    case "favorite_media": {
-      const media = (content.media ?? []) as { title?: string }[];
-      return one(media.map((m) => m.title).filter(Boolean).join(" · "));
-    }
-    case "early_recollections": {
-      const recs = (content.recollections ?? []) as { headline?: string }[];
-      return one(recs.map((r) => r.headline).filter(Boolean).map((h) => `“${h}”`).join(" · "));
-    }
-    case "character_sketch": return one(content.sketch);
-    case "perspective": return one(content.perspective_statement);
-    case "preferred_settings": return one(content.niche_statement);
-    case "script": return one(content.script_statement);
-    case "advice_to_self": return one(content.call_to_action);
-    case "life_portrait": {
-      const movements = (content.movements ?? []) as { title?: string; text?: string }[];
-      const parts = movements
-        .filter((m) => typeof m.text === "string" && m.text.trim())
-        .map((m) => ({ label: m.title ?? null, text: m.text as string }));
-      return parts.length > 0 ? parts : one(content.full_portrait);
-    }
-    case "identity_statement": return one(content.statement);
-    case "action_recipe": {
-      const week = (content.week_one ?? []) as string[];
-      return one(week.map((w) => `• ${w}`).join("\n"));
-    }
-    case "closing_check": return one(((content.whats_different ?? []) as string[]).join(" · "));
-    default: return one(firstString(content));
-  }
-}
-
-function buildJourney(dir: string): unknown {
-  let authorized = 0;
-  const nodes = MAP_NODES.map((n) => {
-    const status = nodeStatus(n.id, dir);
-    // The playbook is the source of truth for the node kind — the map entry
-    // is only a fallback for planned nodes without a playbook yet.
-    const pb = tryPlaybook(n.id);
-    const kind = pb ? (pb.elicit ? "conversation" : "derived") : n.kind;
-    if (status === "authorized") authorized++;
-    let distilled: DistilledPart[] = [];
-    let origin: string | null = null;
-    if (status === "authorized" || status === "stale") {
-      const art = JSON.parse(readFileSync(join(dir, `${n.id}.json`), "utf8")) as Artifact;
-      distilled = distill(n.id, art.content);
-      origin = art.origin ?? "generated";
-    }
-    return {
-      ...n,
-      kind,
-      status,
-      distilled,
-      origin,
-      feeds: n.id === "counseling_goal" ? [] : MAP_EDGES.filter(([from]) => from === n.id).map(([, to]) => to),
-      uses: n.id === "counseling_goal"
-        ? []
-        : MAP_EDGES.filter(([, to]) => to === n.id).map(([from]) => from).filter((f) => f !== "counseling_goal"),
-    };
-  });
-  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length, ai: AI_AVAILABLE, voice: VOICE_AVAILABLE };
-}
+const tryPlaybook: PlaybookSource = (id) =>
+  existsSync(playbookPath(id)) ? loadPlaybook(playbookPath(id)) : null;
 
 /* ── profiles: one artifacts directory per client ─────── */
 
-function listProfiles(): { id: string; name: string | null }[] {
-  const root = join(ARTIFACTS_DIR, "profiles");
+async function listProfiles(): Promise<{ id: string; name: string | null }[]> {
   const out: { id: string; name: string | null }[] = [{ id: "default", name: null }];
-  if (!existsSync(root)) return out;
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    let name: string | null = entry.name;
-    const meta = join(root, entry.name, "profile.json");
-    if (existsSync(meta)) {
-      try { name = (JSON.parse(readFileSync(meta, "utf8")) as { name?: string }).name ?? name; } catch { /* keep slug */ }
-    }
-    out.push({ id: entry.name, name });
+  for (const entry of await rootStore.list("profiles")) {
+    const meta = await rootStore.read(`profiles/${entry}/profile.json`);
+    if (meta === null) continue;
+    let name: string | null = entry;
+    try { name = (JSON.parse(meta) as { name?: string }).name ?? entry; } catch { /* keep slug */ }
+    out.push({ id: entry, name });
   }
   return out;
 }
 
-function createProfile(name: string): { id: string; name: string } {
+async function createProfile(name: string): Promise<{ id: string; name: string }> {
   const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32)
     || `client-${Date.now().toString(36)}`;
   let id = base;
-  for (let n = 2; existsSync(join(ARTIFACTS_DIR, "profiles", id)); n++) id = `${base}-${n}`;
-  const dir = join(ARTIFACTS_DIR, "profiles", id);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "profile.json"), JSON.stringify({ name, created_at: new Date().toISOString() }, null, 2));
+  for (let n = 2; await rootStore.exists(`profiles/${id}/profile.json`); n++) id = `${base}-${n}`;
+  await rootStore.write(`profiles/${id}/profile.json`, JSON.stringify({ name, created_at: new Date().toISOString() }, null, 2));
   return { id, name };
 }
 
@@ -238,25 +102,29 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   const path = url.pathname;
   const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
-  const dir = profileDir(url.searchParams.get("profile"));
+  const store = scoped(rootStore, profilePrefix(url.searchParams.get("profile")));
   const idOf = (prefix: string): string => {
     const id = path.slice(prefix.length);
     if (!ID_RE.test(id)) throw new Error("bad id");
     return id;
   };
 
-  if (path === "/api/journey" || path === "/api/map") return json(res, 200, buildJourney(dir));
+  if (path === "/api/journey" || path === "/api/map") {
+    return json(res, 200, await buildJourney(store, tryPlaybook, { ai: AI_AVAILABLE, voice: VOICE_AVAILABLE }));
+  }
 
-  // Reset the active profile's journey: every node file goes (artifact,
-  // session, draft, transcript); the profile entry itself stays. Surgical by
-  // construction — only known node ids and suffixes, never profile.json.
+  // Reset the whole journey, or a single node with ?node=<id>: the node's
+  // files go (artifact, session, draft, transcript); the profile entry stays.
+  // Surgical by construction — only known node ids and suffixes.
   if (path === "/api/reset" && req.method === "POST") {
+    const nodeParam = url.searchParams.get("node");
+    const targets = nodeParam ? MAP_NODES.filter((n) => n.id === nodeParam) : MAP_NODES;
+    if (nodeParam && targets.length === 0) return json(res, 400, { error: "unknown node" });
     let removed = 0;
-    for (const n of MAP_NODES) {
+    for (const n of targets) {
       for (const suffix of [".json", ".session.json", ".draft.json", ".transcript.json"]) {
-        const p = join(dir, `${n.id}${suffix}`);
-        if (existsSync(p)) {
-          unlinkSync(p);
+        if (await store.exists(`${n.id}${suffix}`)) {
+          await store.remove(`${n.id}${suffix}`);
           removed++;
         }
       }
@@ -269,9 +137,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       const body = await readBody(req);
       const name = String(body.name ?? "").trim();
       if (!name) return json(res, 400, { error: "name required" });
-      return json(res, 200, createProfile(name));
+      return json(res, 200, await createProfile(name));
     }
-    return json(res, 200, { profiles: listProfiles() });
+    return json(res, 200, { profiles: await listProfiles() });
   }
 
   if (path.startsWith("/api/playbook/")) {
@@ -302,61 +170,61 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   if (path.startsWith("/api/session/")) {
     const id = idOf("/api/session/");
-    const sessPath = join(dir, `${id}.session.json`);
-    if (!existsSync(sessPath)) {
+    const session = await store.read(`${id}.session.json`);
+    if (session === null) {
       // After authorization the live session is gone but the recorded
       // interview remains. Hand-recorded transcripts reconstruct their
       // per-stage answers, so the practitioner can keep editing them;
       // AI-led transcripts show read-only.
-      const tPath = join(dir, `${id}.transcript.json`);
-      if (existsSync(tPath)) {
-        const exchange = JSON.parse(readFileSync(tPath, "utf8")) as ExchangeEntry[];
+      const transcript = await store.read(`${id}.transcript.json`);
+      if (transcript !== null) {
+        const exchange = JSON.parse(transcript) as ExchangeEntry[];
         const answers = reconstructManualAnswers(tryPlaybook(id), exchange);
         return json(res, 200, { exchange, settled: true, ...(answers ? { manual_answers: answers } : {}) });
       }
       return json(res, 404, { error: "no session" });
     }
     res.writeHead(200, { "content-type": "application/json" });
-    return void res.end(readFileSync(sessPath));
+    return void res.end(session);
   }
 
   if (path.startsWith("/api/artifact/")) {
     const id = idOf("/api/artifact/");
-    const artPath = join(dir, `${id}.json`);
-    if (!existsSync(artPath)) return json(res, 404, { error: "no artifact" });
+    const art = await store.read(`${id}.json`);
+    if (art === null) return json(res, 404, { error: "no artifact" });
     res.writeHead(200, { "content-type": "application/json" });
-    return void res.end(readFileSync(artPath));
+    return void res.end(art);
   }
 
   if (path.startsWith("/api/upstream/")) {
     const id = idOf("/api/upstream/");
     const pb = tryPlaybook(id);
     if (!pb) return json(res, 404, { error: "no playbook" });
-    return json(res, 200, { upstream: loadUpstream(pb, silentIO, dir) });
+    return json(res, 200, { upstream: await loadUpstream(pb, silentIO, store) });
   }
 
   if (path.startsWith("/api/draft/")) {
     const id = idOf("/api/draft/");
     const pb = tryPlaybook(id);
     if (!pb) return json(res, 404, { error: "no playbook" });
-    const draftPath = join(dir, `${id}.draft.json`);
+    const draftPath = `${id}.draft.json`;
     if (req.method === "PUT") {
       const body = await readBody(req);
       const content = (body.content ?? {}) as Record<string, unknown>;
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(draftPath, JSON.stringify(
+      await store.write(draftPath, JSON.stringify(
         { content, origin: body.origin ?? null, saved_at: new Date().toISOString() }, null, 2,
       ));
-      const source = verbatimSource(pb, dir, loadUpstream(pb, silentIO, dir));
+      const source = await verbatimSource(pb, store, await loadUpstream(pb, silentIO, store));
       return json(res, 200, { ok: true, warnings: manualWarnings(pb, content, source) });
     }
     if (req.method === "DELETE") {
-      if (existsSync(draftPath)) unlinkSync(draftPath);
+      await store.remove(draftPath);
       return json(res, 200, { ok: true });
     }
-    if (!existsSync(draftPath)) return json(res, 404, { error: "no draft" });
+    const draft = await store.read(draftPath);
+    if (draft === null) return json(res, 404, { error: "no draft" });
     res.writeHead(200, { "content-type": "application/json" });
-    return void res.end(readFileSync(draftPath));
+    return void res.end(draft);
   }
 
   // Manual authorization: the practitioner is the author; verbatim rules are
@@ -370,14 +238,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (!content || typeof content !== "object") return json(res, 400, { error: "content required" });
     const origin = ["manual", "generated", "mixed"].includes(String(body.origin))
       ? (body.origin as Artifact["origin"]) : "manual";
-    const source = verbatimSource(pb, dir, loadUpstream(pb, silentIO, dir));
-    const warnings = manualWarnings(pb, content, source);
-    const exchange = loadExchange(id, dir);
-    saveArtifact(pb, content, exchange, dir, origin);
-    for (const suffix of [".draft.json", ".session.json"]) {
-      const p = join(dir, `${id}${suffix}`);
-      if (existsSync(p)) unlinkSync(p);
-    }
+    const upstream = await loadUpstream(pb, silentIO, store);
+    const warnings = manualWarnings(pb, content, await verbatimSource(pb, store, upstream));
+    const exchange = await loadExchange(id, store);
+    await saveArtifact(pb, content, exchange, store, origin);
+    await store.remove(`${id}.draft.json`);
+    await store.remove(`${id}.session.json`);
     return json(res, 200, { ok: true, warnings });
   }
 
@@ -391,8 +257,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const body = await readBody(req);
     const feedback = typeof body.feedback === "string" && body.feedback.trim() ? body.feedback.trim() : undefined;
     const prior = body.prior && typeof body.prior === "object" ? (body.prior as Record<string, unknown>) : undefined;
-    const exchange = loadExchange(id, dir);
-    const upstream = loadUpstream(pb, silentIO, dir);
+    const exchange = await loadExchange(id, store);
+    const upstream = await loadUpstream(pb, silentIO, store);
     const draft = await runInduce(pb, getLlm(), exchange, upstream, silentIO, feedback, lang, prior);
     const { candidates = [], _verbatim_warnings = [], ...rest } = draft as {
       candidates?: string[]; _verbatim_warnings?: string[];
@@ -410,18 +276,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (!pb?.elicit) return json(res, 404, { error: "not a conversation playbook" });
     const body = await readBody(req);
     const answers = (body.answers ?? {}) as Record<string, string>;
-    const sessPath = join(dir, `${id}.session.json`);
-    if (existsSync(sessPath)) {
-      const saved = JSON.parse(readFileSync(sessPath, "utf8")) as { manual_answers?: unknown };
+    const sessPath = `${id}.session.json`;
+    const existing = await store.read(sessPath);
+    if (existing !== null) {
+      const saved = JSON.parse(existing) as { manual_answers?: unknown };
       if (!saved.manual_answers) return json(res, 409, { error: "an interviewer-led session exists for this step" });
     }
     const built = buildManualSession(pb, answers, lang);
     if (!built) {
-      if (existsSync(sessPath)) unlinkSync(sessPath);
+      await store.remove(sessPath);
       return json(res, 200, { ok: true, cleared: true });
     }
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(sessPath, JSON.stringify(built, null, 2));
+    await store.write(sessPath, JSON.stringify(built, null, 2));
     return json(res, 200, { ok: true });
   }
 
@@ -541,7 +407,8 @@ wssVoice.on("connection", (ws, req) => {
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url ?? "", `http://localhost:${PORT}`);
   const id = url.searchParams.get("playbook") ?? "";
-  if (!ID_RE.test(id) || !existsSync(playbookPath(id))) {
+  const pb = ID_RE.test(id) ? tryPlaybook(id) : null;
+  if (!pb) {
     ws.send(JSON.stringify({ type: "error", text: "unknown playbook" }));
     return ws.close();
   }
@@ -549,9 +416,9 @@ wss.on("connection", (ws, req) => {
     ws.send(JSON.stringify({ type: "error", text: "no model configured — use practitioner mode" }));
     return ws.close();
   }
-  let dir: string;
+  let store: Storage;
   try {
-    dir = profileDir(url.searchParams.get("profile"));
+    store = scoped(rootStore, profilePrefix(url.searchParams.get("profile")));
   } catch {
     ws.send(JSON.stringify({ type: "error", text: "bad profile" }));
     return ws.close();
@@ -603,13 +470,12 @@ wss.on("connection", (ws, req) => {
       }),
   };
 
-  const pb = loadPlaybook(playbookPath(id));
   const lang = SESSION_LANGS[url.searchParams.get("lang") ?? ""];
   const autoResume = url.searchParams.get("resume") === "1";
   const reviewMode = url.searchParams.get("mode") === "review";
   (reviewMode
-    ? runReviewSession(pb, getLlm(), io, { lang, dir })
-    : runPlaybookSession(pb, getLlm(), io, { header: false, lang, autoResume, dir }))
+    ? runReviewSession(pb, getLlm(), io, { lang, store })
+    : runPlaybookSession(pb, getLlm(), io, { header: false, lang, autoResume, store }))
     .then((outcome) => {
       send({ type: "done", text: outcome });
       if (open) ws.close();

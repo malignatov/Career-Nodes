@@ -4,7 +4,7 @@
  * Usage: npm run smoke
  */
 import { loadPlaybook } from "../src/playbook.ts";
-import { createAdapter } from "../src/llm.ts";
+import { createAdapter } from "../src/llm-node.ts";
 import { runElicit, runInduce, type SessionIO } from "../src/engine.ts";
 
 const cannedAnswers = [

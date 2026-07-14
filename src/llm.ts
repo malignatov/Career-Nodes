@@ -1,5 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { ChatTurn, Tier } from "./types.ts";
+import { cfg } from "./config.ts";
 
 export interface CompleteOptions {
   system: string;
@@ -47,44 +47,11 @@ export function sanitizeSchema(schema: Record<string, unknown>): Record<string, 
   return walk(schema) as Record<string, unknown>;
 }
 
-export class AnthropicAdapter implements LlmAdapter {
-  private client = new Anthropic();
-  private models: Record<Tier, string> = {
-    small: process.env.LLM_SMALL_MODEL ?? "claude-haiku-4-5",
-    large: process.env.LLM_LARGE_MODEL ?? "claude-opus-4-8",
-  };
-
-  describe(): string {
-    return `anthropic (small=${this.models.small}, large=${this.models.large})`;
-  }
-
-  async complete(opts: CompleteOptions): Promise<string> {
-    const response = await this.client.messages.create({
-      model: this.models[opts.tier],
-      max_tokens: opts.maxTokens ?? (opts.jsonSchema ? 4096 : 1024),
-      system: opts.system,
-      messages: opts.messages,
-      ...(opts.jsonSchema
-        ? {
-            output_config: {
-              format: {
-                type: "json_schema" as const,
-                schema: sanitizeSchema(opts.jsonSchema),
-              },
-            },
-          }
-        : {}),
-    });
-    const text = response.content.find((b) => b.type === "text");
-    return text?.text ?? "";
-  }
-}
-
 export class OllamaAdapter implements LlmAdapter {
-  private baseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
+  private baseUrl = cfg("OLLAMA_BASE_URL") ?? "http://localhost:11434";
   private models: Record<Tier, string> = {
-    small: process.env.LLM_SMALL_MODEL ?? "llama3.1:8b",
-    large: process.env.LLM_LARGE_MODEL ?? "llama3.1:8b",
+    small: cfg("LLM_SMALL_MODEL") ?? "llama3.1:8b",
+    large: cfg("LLM_LARGE_MODEL") ?? "llama3.1:8b",
   };
 
   describe(): string {
@@ -133,7 +100,7 @@ export class OpenAICompatAdapter implements LlmAdapter {
   }
 
   private get zdr(): boolean {
-    return this.provider === "openrouter" && process.env.LLM_ZDR !== "0";
+    return this.provider === "openrouter" && cfg("LLM_ZDR") !== "0";
   }
 
   private tier(t: Tier): TierEndpoint {
@@ -143,10 +110,10 @@ export class OpenAICompatAdapter implements LlmAdapter {
       large: this.provider === "openrouter" ? "deepseek/deepseek-v4-pro" : "",
     };
     const baseUrl =
-      process.env[`LLM_${U}_BASE_URL`] ?? process.env.LLM_BASE_URL ??
+      cfg(`LLM_${U}_BASE_URL`) ?? cfg("LLM_BASE_URL") ??
       (this.provider === "openrouter" ? OPENROUTER_BASE : "");
-    const apiKey = process.env[`LLM_${U}_API_KEY`] ?? process.env.LLM_API_KEY ?? "";
-    const model = process.env[`LLM_${U}_MODEL`] ?? defaults[t];
+    const apiKey = cfg(`LLM_${U}_API_KEY`) ?? cfg("LLM_API_KEY") ?? "";
+    const model = cfg(`LLM_${U}_MODEL`) ?? defaults[t];
     if (!baseUrl || !model) throw new Error(`LLM ${t} tier is not configured (base url / model)`);
     return { baseUrl, apiKey, model };
   }
@@ -159,9 +126,9 @@ export class OpenAICompatAdapter implements LlmAdapter {
   }
 
   async complete(opts: CompleteOptions): Promise<string> {
-    const cfg = this.tier(opts.tier);
+    const ep = this.tier(opts.tier);
     const body: Record<string, unknown> = {
-      model: cfg.model,
+      model: ep.model,
       max_tokens: opts.maxTokens ?? (opts.jsonSchema ? 4096 : 1024),
       messages: [{ role: "system", content: opts.system }, ...opts.messages],
     };
@@ -171,7 +138,7 @@ export class OpenAICompatAdapter implements LlmAdapter {
         json_schema: { name: "artifact", strict: true, schema: sanitizeSchema(opts.jsonSchema) },
       };
     }
-    if (cfg.baseUrl.startsWith(OPENROUTER_BASE)) {
+    if (ep.baseUrl.startsWith(OPENROUTER_BASE)) {
       if (this.zdr) body.zdr = true;
       // Cheapest endpoint that satisfies the constraints wins.
       const provider: Record<string, unknown> = { sort: "price" };
@@ -180,16 +147,16 @@ export class OpenAICompatAdapter implements LlmAdapter {
       if (opts.jsonSchema) provider.require_parameters = true;
       // ZDR says "won't store"; jurisdiction is a separate axis — hosts the
       // user won't send client words to, regardless of retention contracts.
-      const ignore = (process.env.LLM_IGNORE_PROVIDERS ?? "")
+      const ignore = (cfg("LLM_IGNORE_PROVIDERS") ?? "")
         .split(",").map((s) => s.trim()).filter(Boolean);
       if (ignore.length > 0) provider.ignore = ignore;
       body.provider = provider;
     }
-    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    const res = await fetch(`${ep.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${cfg.apiKey}`,
+        authorization: `Bearer ${ep.apiKey}`,
         "x-title": "Career Counseling",
       },
       body: JSON.stringify(body),
@@ -200,19 +167,13 @@ export class OpenAICompatAdapter implements LlmAdapter {
   }
 }
 
-export function createAdapter(): LlmAdapter {
-  const p = process.env.LLM_PROVIDER ?? "anthropic";
-  if (p === "ollama") return new OllamaAdapter();
-  if (p === "openrouter" || p === "openai") return new OpenAICompatAdapter(p);
-  return new AnthropicAdapter();
-}
 
 /** Whether the configured provider has what it needs to serve calls. */
 export function aiAvailable(): boolean {
-  const p = process.env.LLM_PROVIDER ?? "anthropic";
+  const p = cfg("LLM_PROVIDER") ?? "anthropic";
   if (p === "ollama") return true;
   if (p === "openrouter" || p === "openai") {
-    return Boolean(process.env.LLM_API_KEY || process.env.LLM_SMALL_API_KEY || process.env.LLM_LARGE_API_KEY);
+    return Boolean(cfg("LLM_API_KEY") || cfg("LLM_SMALL_API_KEY") || cfg("LLM_LARGE_API_KEY"));
   }
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return Boolean(cfg("ANTHROPIC_API_KEY"));
 }
