@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync,
 import { join, normalize } from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import { loadPlaybook } from "./playbook.ts";
-import { createAdapter, type LlmAdapter } from "./llm.ts";
+import { aiAvailable, createAdapter, type LlmAdapter } from "./llm.ts";
 import {
   runPlaybookSession, runReviewSession, loadUpstream, saveArtifact, profileDir, ARTIFACTS_DIR,
 } from "./session.ts";
@@ -26,7 +26,7 @@ const SESSION_LANGS: Record<string, SessionLang | undefined> = {
 
 // AI is a capability, not a requirement: with no key the app still runs — the
 // practitioner authors everything by hand and the generate buttons never show.
-const AI_AVAILABLE = process.env.LLM_PROVIDER === "ollama" || Boolean(process.env.ANTHROPIC_API_KEY);
+const AI_AVAILABLE = aiAvailable();
 // Voice dictation is a separate capability: OpenAI live transcription.
 const VOICE_AVAILABLE = Boolean(process.env.OPENAI_API_KEY);
 let llmInstance: LlmAdapter | null = null;

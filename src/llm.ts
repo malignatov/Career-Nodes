@@ -108,6 +108,105 @@ export class OllamaAdapter implements LlmAdapter {
   }
 }
 
+const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
+
+interface TierEndpoint {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+/**
+ * Any OpenAI-compatible Chat Completions endpoint. Each tier can point at its
+ * own base URL / key / model (e.g. fast tier direct at DeepInfra, smart tier
+ * via OpenRouter), falling back to the shared LLM_BASE_URL / LLM_API_KEY.
+ *
+ * With LLM_PROVIDER=openrouter, requests are pinned to zero-data-retention
+ * endpoints (`zdr: true` + data_collection "deny") unless LLM_ZDR=0 — the
+ * privacy stance is on by default, opting out is the explicit act.
+ */
+export class OpenAICompatAdapter implements LlmAdapter {
+  private provider: "openrouter" | "openai";
+
+  constructor(provider: "openrouter" | "openai") {
+    this.provider = provider;
+  }
+
+  private get zdr(): boolean {
+    return this.provider === "openrouter" && process.env.LLM_ZDR !== "0";
+  }
+
+  private tier(t: Tier): TierEndpoint {
+    const U = t === "small" ? "SMALL" : "LARGE";
+    const defaults: Record<Tier, string> = {
+      small: this.provider === "openrouter" ? "deepseek/deepseek-v4-flash" : "",
+      large: this.provider === "openrouter" ? "deepseek/deepseek-v4-pro" : "",
+    };
+    const baseUrl =
+      process.env[`LLM_${U}_BASE_URL`] ?? process.env.LLM_BASE_URL ??
+      (this.provider === "openrouter" ? OPENROUTER_BASE : "");
+    const apiKey = process.env[`LLM_${U}_API_KEY`] ?? process.env.LLM_API_KEY ?? "";
+    const model = process.env[`LLM_${U}_MODEL`] ?? defaults[t];
+    if (!baseUrl || !model) throw new Error(`LLM ${t} tier is not configured (base url / model)`);
+    return { baseUrl, apiKey, model };
+  }
+
+  describe(): string {
+    const s = this.tier("small");
+    const l = this.tier("large");
+    const zdr = this.zdr ? ", zdr=on" : "";
+    return `${this.provider} (small=${s.model}, large=${l.model}${zdr})`;
+  }
+
+  async complete(opts: CompleteOptions): Promise<string> {
+    const cfg = this.tier(opts.tier);
+    const body: Record<string, unknown> = {
+      model: cfg.model,
+      max_tokens: opts.maxTokens ?? (opts.jsonSchema ? 4096 : 1024),
+      messages: [{ role: "system", content: opts.system }, ...opts.messages],
+    };
+    if (opts.jsonSchema) {
+      body.response_format = {
+        type: "json_schema",
+        json_schema: { name: "artifact", strict: true, schema: sanitizeSchema(opts.jsonSchema) },
+      };
+    }
+    if (cfg.baseUrl.startsWith(OPENROUTER_BASE)) {
+      if (this.zdr) body.zdr = true;
+      const provider: Record<string, unknown> = {};
+      if (this.zdr) provider.data_collection = "deny";
+      // Only route to endpoints that actually honor response_format.
+      if (opts.jsonSchema) provider.require_parameters = true;
+      if (Object.keys(provider).length > 0) body.provider = provider;
+    }
+    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${cfg.apiKey}`,
+        "x-title": "Career Counseling",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`LLM request failed: ${res.status} ${await res.text()}`);
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    return data.choices?.[0]?.message?.content ?? "";
+  }
+}
+
 export function createAdapter(): LlmAdapter {
-  return process.env.LLM_PROVIDER === "ollama" ? new OllamaAdapter() : new AnthropicAdapter();
+  const p = process.env.LLM_PROVIDER ?? "anthropic";
+  if (p === "ollama") return new OllamaAdapter();
+  if (p === "openrouter" || p === "openai") return new OpenAICompatAdapter(p);
+  return new AnthropicAdapter();
+}
+
+/** Whether the configured provider has what it needs to serve calls. */
+export function aiAvailable(): boolean {
+  const p = process.env.LLM_PROVIDER ?? "anthropic";
+  if (p === "ollama") return true;
+  if (p === "openrouter" || p === "openai") {
+    return Boolean(process.env.LLM_API_KEY || process.env.LLM_SMALL_API_KEY || process.env.LLM_LARGE_API_KEY);
+  }
+  return Boolean(process.env.ANTHROPIC_API_KEY);
 }
