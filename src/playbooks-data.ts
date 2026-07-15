@@ -1680,7 +1680,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "analyze",
-            "task": "From the favorite_media artifact, describe the user's preferred occupational settings along the book's four dimensions — the places they want to be in, the people they want around them, the problems they prefer to address, and the procedures they like to use. Ground every dimension in the user's stated attractions and quote their words where they carry the meaning. Confirm or refine the RIASEC codes from the media artifact, basing each code on the stated attraction rather than the title. Close with a short second-person niche statement — the kind of stage on which this user can perform themselves.\n",
+            "task": "From the favorite_media artifact, describe the user's preferred occupational settings along the book's four dimensions — the places they want to be in, the people they want around them, the problems they prefer to address, and the procedures they like to use. Ground every dimension in the user's stated attractions and quote their words where they carry the meaning. Confirm or refine the RIASEC codes from the media artifact, basing each code on the stated attraction rather than the title. Assign only the one or two dominant codes the attractions clearly express: never infer an additional code from intellectual tone, from analysis-flavored language in your own descriptions, or from the user's current studies, abilities, or achievements — attraction is the only evidence that counts. Close with a short second-person niche statement — the kind of stage on which this user can perform themselves.\n",
             "model_tier": "small",
             "output_schema": {
               "type": "object",
@@ -1715,7 +1715,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                     "codes": {
                       "type": "array",
                       "minItems": 1,
-                      "maxItems": 3,
+                      "maxItems": 2,
                       "items": {
                         "type": "string",
                         "enum": [
@@ -1743,7 +1743,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                     "type": "string",
                     "x-verbatim": true
                   },
-                  "description": "The user's own attraction phrases that carry this reading."
+                  "description": "The user's own attraction phrases that carry this reading — each entry must be the bare quote exactly as the user said it, with no framing text of yours around it."
                 }
               }
             }
