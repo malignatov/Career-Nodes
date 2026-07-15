@@ -507,13 +507,13 @@ function injectSettings(): void {
   gear.id = "ccGear";
   gear.textContent = "⚙";
   gear.style.cssText =
-    "position:fixed;bottom:14px;right:14px;z-index:70;width:40px;height:40px;border-radius:99px;" +
-    "border:1px solid rgba(128,116,98,.4);background:rgba(255,255,255,.85);font-size:18px;cursor:pointer;";
+    "position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));right:14px;z-index:70;width:40px;height:40px;" +
+    "border-radius:99px;border:1px solid rgba(128,116,98,.4);background:rgba(255,255,255,.85);font-size:18px;cursor:pointer;";
   const panel = document.createElement("div");
   panel.id = "ccSettingsPanel";
   panel.hidden = true;
   panel.style.cssText =
-    "position:fixed;bottom:62px;right:14px;z-index:70;width:min(320px,88vw);padding:14px;border-radius:14px;" +
+    "position:fixed;bottom:calc(62px + env(safe-area-inset-bottom));right:14px;z-index:70;width:min(320px,88vw);padding:14px;border-radius:14px;" +
     "border:1px solid rgba(128,116,98,.4);background:#fffdf9;box-shadow:0 8px 30px rgba(61,54,45,.25);" +
     "font:13px Karla,sans-serif;color:#3c352b;display:flex;flex-direction:column;gap:8px;";
   const field = (id: string, label: string, type = "password"): string =>

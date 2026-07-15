@@ -4339,7 +4339,7 @@ ${e.text}` : e.text;
     tier(t) {
       const U = t === "small" ? "SMALL" : "LARGE";
       const defaults = {
-        small: this.provider === "openrouter" ? "deepseek/deepseek-v4-flash" : "",
+        small: this.provider === "openrouter" ? "deepseek/deepseek-v4-pro" : "",
         large: this.provider === "openrouter" ? "deepseek/deepseek-v4-pro" : ""
       };
       const baseUrl = cfg(`LLM_${U}_BASE_URL`) ?? cfg("LLM_BASE_URL") ?? (this.provider === "openrouter" ? OPENROUTER_BASE : "");
@@ -4372,8 +4372,13 @@ ${e.text}` : e.text;
         const provider = { sort: "price" };
         if (this.zdr) provider.data_collection = "deny";
         if (opts.jsonSchema) provider.require_parameters = true;
-        const ignore = (cfg("LLM_IGNORE_PROVIDERS") ?? "").split(",").map((s2) => s2.trim()).filter(Boolean);
-        if (ignore.length > 0) provider.ignore = ignore;
+        const allow = (cfg("LLM_ALLOW_PROVIDERS") ?? "").split(",").map((s2) => s2.trim()).filter(Boolean);
+        if (allow.length > 0) {
+          provider.only = allow;
+        } else {
+          const ignore = (cfg("LLM_IGNORE_PROVIDERS") ?? "").split(",").map((s2) => s2.trim()).filter(Boolean);
+          if (ignore.length > 0) provider.ignore = ignore;
+        }
         body.provider = provider;
       }
       const res = await fetch(`${ep.baseUrl}/chat/completions`, {
@@ -4459,7 +4464,9 @@ ${e.text}` : e.text;
   async function loadConfig() {
     const config = {
       LLM_PROVIDER: "openrouter",
-      LLM_IGNORE_PROVIDERS: "DeepSeek,StreamLake,Baidu,Alibaba,SiliconFlow"
+      // Fail-closed jurisdiction allowlist — new pool entrants get no traffic.
+      LLM_ALLOW_PROVIDERS: "DeepInfra,BaseTen,AtlasCloud,DigitalOcean,Morph",
+      VENDOR_URL: void 0
     };
     for (const key of SETTING_KEYS) {
       const { value } = await Preferences.get({ key });
@@ -4851,11 +4858,11 @@ ${e.text}` : e.text;
     const gear = document.createElement("button");
     gear.id = "ccGear";
     gear.textContent = "\u2699";
-    gear.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:70;width:40px;height:40px;border-radius:99px;border:1px solid rgba(128,116,98,.4);background:rgba(255,255,255,.85);font-size:18px;cursor:pointer;";
+    gear.style.cssText = "position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));right:14px;z-index:70;width:40px;height:40px;border-radius:99px;border:1px solid rgba(128,116,98,.4);background:rgba(255,255,255,.85);font-size:18px;cursor:pointer;";
     const panel = document.createElement("div");
     panel.id = "ccSettingsPanel";
     panel.hidden = true;
-    panel.style.cssText = "position:fixed;bottom:62px;right:14px;z-index:70;width:min(320px,88vw);padding:14px;border-radius:14px;border:1px solid rgba(128,116,98,.4);background:#fffdf9;box-shadow:0 8px 30px rgba(61,54,45,.25);font:13px Karla,sans-serif;color:#3c352b;display:flex;flex-direction:column;gap:8px;";
+    panel.style.cssText = "position:fixed;bottom:calc(62px + env(safe-area-inset-bottom));right:14px;z-index:70;width:min(320px,88vw);padding:14px;border-radius:14px;border:1px solid rgba(128,116,98,.4);background:#fffdf9;box-shadow:0 8px 30px rgba(61,54,45,.25);font:13px Karla,sans-serif;color:#3c352b;display:flex;flex-direction:column;gap:8px;";
     const field = (id, label, type = "password") => `<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#8a7f6e">${label}<input id="${id}" type="${type}" autocomplete="off" style="padding:8px;border:1px solid #d8d0c2;border-radius:8px;font-size:13px"/></label>`;
     panel.innerHTML = `<div style="font-weight:600">Keys stay on this device</div>` + field("ccKeyLlm", "OpenRouter API key (AI interviewer)") + field("ccKeyVoice", "OpenAI API key (voice dictation, optional)") + field("ccInvite", "Invite code (get a free key)", "text") + `<button id="ccRedeem" style="padding:8px;border-radius:8px;border:1px solid #d8d0c2;background:none;cursor:pointer">Redeem invite</button><button id="ccSave" style="padding:9px;border-radius:8px;border:none;background:#6f8265;color:#fff;font-weight:600;cursor:pointer">Save & reload</button><div id="ccSettingsNote" style="font-size:11px;color:#8a7f6e"></div>`;
     document.body.append(gear, panel);
