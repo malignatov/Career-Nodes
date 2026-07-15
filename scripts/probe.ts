@@ -13,7 +13,7 @@ if (!KEY) {
 }
 
 const MODELS: Record<string, string> = {
-  small: process.env.LLM_SMALL_MODEL ?? "deepseek/deepseek-v4-flash",
+  small: process.env.LLM_SMALL_MODEL ?? "deepseek/deepseek-v4-pro",
   large: process.env.LLM_LARGE_MODEL ?? "deepseek/deepseek-v4-pro",
 };
 

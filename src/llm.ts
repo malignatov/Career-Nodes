@@ -106,7 +106,7 @@ export class OpenAICompatAdapter implements LlmAdapter {
   private tier(t: Tier): TierEndpoint {
     const U = t === "small" ? "SMALL" : "LARGE";
     const defaults: Record<Tier, string> = {
-      small: this.provider === "openrouter" ? "deepseek/deepseek-v4-flash" : "",
+      small: this.provider === "openrouter" ? "deepseek/deepseek-v4-pro" : "",
       large: this.provider === "openrouter" ? "deepseek/deepseek-v4-pro" : "",
     };
     const baseUrl =
