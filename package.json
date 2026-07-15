@@ -26,10 +26,6 @@
   "private": "true",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
-    "@capacitor/core": "^8.4.2",
-    "@capacitor/filesystem": "^8.1.2",
-    "@capacitor/ios": "^8.4.2",
-    "@capacitor/preferences": "^8.0.1",
     "js-yaml": "^5.2.1",
     "ws": "^8.21.0"
   },
@@ -42,6 +38,10 @@
     "electron-packager": "^17.1.2",
     "esbuild": "^0.28.1",
     "tsx": "^4.22.5",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^8.4.2",
+    "@capacitor/preferences": "^8.0.1"
   }
 }
