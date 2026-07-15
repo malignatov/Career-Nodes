@@ -27,7 +27,6 @@ interface Verdict {
 }
 interface Judgement {
   verdicts: Verdict[];
-  score: number;
   summary: string;
 }
 
@@ -49,7 +48,7 @@ const SYSTEM =
 
 const SCHEMA = {
   type: "object",
-  required: ["verdicts", "score", "summary"],
+  required: ["verdicts", "summary"],
   properties: {
     verdicts: {
       type: "array",
@@ -63,7 +62,6 @@ const SCHEMA = {
         },
       },
     },
-    score: { type: "integer", description: "1-10 overall fidelity to the gold assessment" },
     summary: { type: "string" },
   },
 };
@@ -100,14 +98,16 @@ for (const [id, spec] of Object.entries(CASE.gold)) {
   const j = JSON.parse(response.replace(/^```(json)?\n?|\n?```$/g, "")) as Judgement;
   const counts = { pass: 0, partial: 0, fail: 0 };
   for (const v of j.verdicts) counts[v.verdict]++;
-  table.push(`| ${id} | ${j.score}/10 | ${counts.pass}✓ ${counts.partial}± ${counts.fail}✗ |`);
-  lines.push(`## ${id} — ${j.score}/10`, "", j.summary, "");
+  // Deterministic score: models are unreliable graders of their own rubric math.
+  const score = j.verdicts.length ? Math.round(((counts.pass + counts.partial * 0.5) / j.verdicts.length) * 10) : 0;
+  table.push(`| ${id} | ${score}/10 | ${counts.pass}✓ ${counts.partial}± ${counts.fail}✗ |`);
+  lines.push(`## ${id} — ${score}/10`, "", j.summary, "");
   for (const v of j.verdicts) {
     const mark = v.verdict === "pass" ? "✓" : v.verdict === "partial" ? "±" : "✗";
     lines.push(`- ${mark} ${v.criterion}`, `  - ${v.evidence}`);
   }
   lines.push("");
-  console.log(`${id.padEnd(20)} ${String(j.score).padStart(2)}/10  ${counts.pass}✓ ${counts.partial}± ${counts.fail}✗`);
+  console.log(`${id.padEnd(20)} ${String(score).padStart(2)}/10  ${counts.pass}✓ ${counts.partial}± ${counts.fail}✗`);
 }
 
 lines.splice(5, 0, "| node | score | criteria |", "|---|---|---|", ...table, "");
