@@ -996,7 +996,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
           },
           {
             "id": "riasec",
-            "task": "Classify each favorite into the RIASEC taxonomy using only the book's definitions: R Realistic (mechanical, outdoor, making and repairing), I Investigative (scientific, analytic, solving mysteries), A Artistic (creative, aesthetic, performing), S Social (caring, conversational, educational), E Enterprising (managerial, political, persuasive), C Conventional (office, organizing, systematized). Reference examples: This Old House is R, CSI is I, America's Got Talent is A, Friends is S, Shark Tank is E, Martha Stewart is C. Base each code on the user's stated attraction, not on the title alone.\n",
+            "task": "Classify each favorite's STATED ATTRACTION into the RIASEC taxonomy using only the book's definitions: R Realistic (mechanical, outdoor, making and repairing), I Investigative (scientific, analytic, solving mysteries), A Artistic (creative, aesthetic, performing), S Social (caring, conversational, educational), E Enterprising (managerial, political, persuasive), C Conventional (office, organizing, systematized). Reference examples: This Old House is R, CSI is I, America's Got Talent is A, Friends is S, Shark Tank is E, Martha Stewart is C. The code follows the user's stated attraction, never the title's genre or your own reading of the medium: a science-fiction series loved because \"the shows are imaginative\" is A, even though science fiction sounds Investigative; a magazine read for its politics sections is E, because the pull is the political world, not the act of reading or analysis. When attraction and genre disagree, the attraction wins. overall_codes are the one or two codes that dominate the stated attractions.\n",
             "model_tier": "small",
             "output_schema": {
               "type": "object",
@@ -1038,7 +1038,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                 "overall_codes": {
                   "type": "array",
                   "minItems": 1,
-                  "maxItems": 3,
+                  "maxItems": 2,
                   "items": {
                     "type": "string",
                     "enum": [
