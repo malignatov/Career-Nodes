@@ -341,6 +341,24 @@ async function openModal(id) {
     }
   }
 
+  // Settled conversation nodes: the recorded interview stays reachable from
+  // the review screen, folded above the draft.
+  $("chatHistory").hidden = true;
+  if (reviewMode && node.kind === "conversation") {
+    const recRes = await fetch(api(`/api/session/${id}`));
+    if (recRes.ok) {
+      const rec = await recRes.json();
+      if (rec.exchange?.length) {
+        $("chatHistoryLabel").textContent = t("chat_history");
+        $("chatHistoryBody").innerHTML = rec.exchange
+          .map((e) => `<div class="msg ${e.speaker === "user" ? "user" : "say"}">${esc(e.text)}</div>`)
+          .join("");
+        $("chatHistory").hidden = false;
+        $("chatHistory").open = false;
+      }
+    }
+  }
+
   connect(id, { resuming, review: reviewMode });
 }
 

@@ -138,6 +138,7 @@ async function judgeOne(spec: GoldSpec, id: string, content: Record<string, unkn
   const response = await llm.complete({
     tier: "large",
     system: SYSTEM,
+    temperature: 0,
     maxTokens: 2000,
     jsonSchema: SCHEMA,
     messages: [{

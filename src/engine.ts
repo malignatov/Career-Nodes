@@ -96,6 +96,7 @@ async function checkStageDone(
   const raw = await llm.complete({
     tier: "small",
     system: CHECKER_SYSTEM,
+    temperature: 0,
     messages: [
       {
         role: "user",
