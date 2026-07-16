@@ -30,7 +30,10 @@ induce:
         themselves). Build each from the portrait's own phrases: the strongest
         candidates borrow the user's verbs. Each candidate should carry the
         career theme and point the plot forward; together they should offer a
-        real choice of emphasis, not three wordings of one sentence.
+        real choice of emphasis, not three wordings of one sentence. At least
+        one candidate should braid the portrait's strongest threads together
+        (the craft AND what it wins the user) rather than expressing only one
+        thread.
       model_tier: small
       output_schema:
         type: object

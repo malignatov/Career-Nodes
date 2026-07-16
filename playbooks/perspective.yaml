@@ -31,10 +31,13 @@ induce:
         Compose the user's perspective on their current transition from the
         early_recollections artifact. Treat the first recollection as a
         possible précis of the present problem stated in the counseling goal;
-        weigh the first verb heavily; read the three stories as a sequence
-        (often problem, intensification, resolution — note if the order
-        differs); use the user's own headlines as leitmotifs and quote them
-        exactly. Address the user in the second person. If early_recollections
+        weigh the first verb heavily; when the user gave several
+        recollections, read them as a sequence (often problem,
+        intensification, resolution — note if the order differs); when the
+        user gave a single memory with several headlines, the headlines are
+        alternative titles for that one memory — never narrate them as
+        separate memories. Use the user's own headlines as leitmotifs and
+        quote them exactly. Address the user in the second person. If early_recollections
         is absent, infer the preoccupation from the role models instead: the
         admired characteristics are solutions, so name the problem they solve
         (bravery implies fear, independence implies dependence). Never
