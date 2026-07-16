@@ -58,6 +58,7 @@ induce:
     - id: extract
       task: Record the motto exactly as stated, with its origin if given.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [motto, origin, when_it_surfaces]

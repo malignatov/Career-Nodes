@@ -242,7 +242,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "sketch",
-            "task": "Compose a second-person character sketch of four to eight sentences, addressed to the user (\"You are…\"), from the role_models artifact. Anchor it on the primacy trait (weight it most) and the repeated traits. Quote the user's descriptor words rather than substituting synonyms. Show with concrete phrasing instead of abstract labels. If a perspective artifact is present, frame the traits as the solution the user constructed to the preoccupation it names — the way bravery solves fear. If two traits sit in tension, keep the tension visible rather than smoothing it over. Never add a trait the user did not state.\n",
+            "task": "Compose a second-person character sketch of four to eight sentences, addressed to the user (\"You are…\"), from the role_models artifact. Anchor it on the primacy trait (weight it most) and the repeated traits. Quote the user's descriptor words rather than substituting synonyms. Show with concrete phrasing instead of abstract labels. If a perspective artifact is present, frame the traits as the solution the user constructed to the preoccupation it names — the way bravery solves fear. If two traits sit in tension, keep the tension visible rather than smoothing it over. Name explicitly how the anchor trait may also work against the user in their present situation — the admired strength read honestly as the very thing that can keep them stuck. Never add a trait the user did not state.\n",
             "model_tier": "large",
             "output_schema": {
               "type": "object",
@@ -556,8 +556,9 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Extract the goal fields from the transcript.",
+            "task": "Extract the goal fields from the transcript with strict field discipline: request_verbatim is the user's answer to the OPENING question — the request exactly as first stated, never a later restatement and never the success answer; success_criteria come only from the answers about what would make the process worth it; feelings_mentioned holds only the emotion words the user actually used (a whole sentence is not a feeling). When unsure which field a quote belongs to, follow the order of the conversation.\n",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -604,6 +605,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "restate",
             "task": "Draft alternative one-sentence restatements of the goal, each assembled only from the user's own phrases.\n",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -769,6 +771,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "extract",
             "task": "Structure the three recollections in the order told, with the feeling, the approved headline, and the headline's main verb for each.\n",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -825,6 +828,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "salience",
             "task": "Record the first verb of the first recollection as told, and note in one sentence whether the three stories read as problem, then intensification, then resolution — or another order. No interpretation beyond that single observation.\n",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -946,6 +950,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "extract",
             "task": "Structure the favorites with their attractions in the order named.",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -998,6 +1003,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "riasec",
             "task": "Classify each favorite's STATED ATTRACTION into the RIASEC taxonomy using only the book's definitions: R Realistic (mechanical, outdoor, making and repairing), I Investigative (scientific, analytic, solving mysteries), A Artistic (creative, aesthetic, performing), S Social (caring, conversational, educational), E Enterprising (managerial, political, persuasive), C Conventional (office, organizing, systematized). Reference examples: This Old House is R, CSI is I, America's Got Talent is A, Friends is S, Shark Tank is E, Martha Stewart is C. The code follows the user's stated attraction, never the title's genre or your own reading of the medium: a science-fiction series loved because \"the shows are imaginative\" is A, even though science fiction sounds Investigative; a magazine read for its politics sections is E, because the pull is the political world, not the act of reading or analysis. When attraction and genre disagree, the attraction wins. overall_codes are the one or two codes that dominate the stated attractions.\n",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -1170,6 +1176,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "extract",
             "task": "Structure the story exactly as the user told it.",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -1503,6 +1510,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "extract",
             "task": "Record the motto exactly as stated, with its origin if given.",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -1891,6 +1899,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "extract",
             "task": "Structure the models and guides with descriptors in the order spoken.",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [
@@ -1984,6 +1993,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
             "id": "salience",
             "task": "Mark salient self-conceptions by primacy and repetition. Primacy: the first descriptor of the first-named model. Repetition: descriptors repeated or closely echoed across models.\n",
             "model_tier": "small",
+            "temperature": 0.2,
             "output_schema": {
               "type": "object",
               "required": [

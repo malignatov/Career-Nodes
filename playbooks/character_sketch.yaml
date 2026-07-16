@@ -35,7 +35,10 @@ induce:
         perspective artifact is present, frame the traits as the solution the
         user constructed to the preoccupation it names — the way bravery solves
         fear. If two traits sit in tension, keep the tension visible rather
-        than smoothing it over. Never add a trait the user did not state.
+        than smoothing it over. Name explicitly how the anchor trait may also
+        work against the user in their present situation — the admired
+        strength read honestly as the very thing that can keep them stuck.
+        Never add a trait the user did not state.
       model_tier: large
       output_schema:
         type: object

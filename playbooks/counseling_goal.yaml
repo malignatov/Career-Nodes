@@ -91,8 +91,17 @@ elicit:
 induce:
   steps:
     - id: extract
-      task: Extract the goal fields from the transcript.
+      task: >
+        Extract the goal fields from the transcript with strict field
+        discipline: request_verbatim is the user's answer to the OPENING
+        question — the request exactly as first stated, never a later
+        restatement and never the success answer; success_criteria come only
+        from the answers about what would make the process worth it;
+        feelings_mentioned holds only the emotion words the user actually used
+        (a whole sentence is not a feeling). When unsure which field a quote
+        belongs to, follow the order of the conversation.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [request_verbatim, success_criteria, request_type]
@@ -137,6 +146,7 @@ induce:
         Draft alternative one-sentence restatements of the goal, each assembled
         only from the user's own phrases.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [candidates]

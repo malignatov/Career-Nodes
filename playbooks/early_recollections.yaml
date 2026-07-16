@@ -92,6 +92,7 @@ induce:
         Structure the three recollections in the order told, with the feeling,
         the approved headline, and the headline's main verb for each.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [recollections]
@@ -127,6 +128,7 @@ induce:
         intensification, then resolution — or another order. No interpretation
         beyond that single observation.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [first_verb_of_first_story, sequence_reading]

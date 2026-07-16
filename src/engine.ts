@@ -291,6 +291,7 @@ async function runInduceStep(
       ],
       jsonSchema: step.output_schema,
       maxTokens: 8192,
+      temperature: step.temperature,
     });
     return JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as Record<string, unknown>;
   };

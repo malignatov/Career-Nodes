@@ -56,10 +56,15 @@ for (const id of ORDER) {
       turns++;
       return queue.shift() ?? "/skip";
     },
-    review: async (payload) =>
-      payload.mode === "candidates"
-        ? { action: "authorize", value: payload.candidates[0] }
-        : { action: "authorize" },
+    review: async (payload) => {
+      if (payload.mode === "candidates" && payload.candidates.length > 0) {
+        // Keep every candidate for the judge: auto-picking [0] is a harness
+        // artifact a real user would never commit to blindly.
+        await store.write(`${pb.id}.candidates.json`, JSON.stringify(payload.candidates, null, 2));
+        return { action: "authorize", value: payload.candidates[0] };
+      }
+      return { action: "authorize" };
+    },
   };
   const t0 = Date.now();
   const outcome = await runPlaybookSession(pb, llm, io, { store, header: false, autoResume: true });

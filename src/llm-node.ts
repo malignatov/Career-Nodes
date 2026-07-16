@@ -21,6 +21,7 @@ export class AnthropicAdapter implements LlmAdapter {
       max_tokens: opts.maxTokens ?? (opts.jsonSchema ? 4096 : 1024),
       system: opts.system,
       messages: opts.messages,
+      ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
       ...(opts.jsonSchema
         ? {
             output_config: {

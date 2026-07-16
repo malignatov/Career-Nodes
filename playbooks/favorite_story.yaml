@@ -80,6 +80,7 @@ induce:
     - id: extract
       task: Structure the story exactly as the user told it.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [title, medium, protagonist, predicament, key_phrases, similarity_to_self]

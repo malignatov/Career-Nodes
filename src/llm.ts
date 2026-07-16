@@ -7,6 +7,7 @@ export interface CompleteOptions {
   tier: Tier;
   jsonSchema?: Record<string, unknown>;
   maxTokens?: number;
+  temperature?: number;
 }
 
 export interface LlmAdapter {
@@ -67,6 +68,7 @@ export class OllamaAdapter implements LlmAdapter {
         stream: false,
         messages: [{ role: "system", content: opts.system }, ...opts.messages],
         ...(opts.jsonSchema ? { format: sanitizeSchema(opts.jsonSchema) } : {}),
+        ...(opts.temperature !== undefined ? { options: { temperature: opts.temperature } } : {}),
       }),
     });
     if (!res.ok) throw new Error(`Ollama request failed: ${res.status} ${await res.text()}`);
@@ -132,6 +134,7 @@ export class OpenAICompatAdapter implements LlmAdapter {
       max_tokens: opts.maxTokens ?? (opts.jsonSchema ? 4096 : 1024),
       messages: [{ role: "system", content: opts.system }, ...opts.messages],
     };
+    if (opts.temperature !== undefined) body.temperature = opts.temperature;
     if (opts.jsonSchema) {
       body.response_format = {
         type: "json_schema",

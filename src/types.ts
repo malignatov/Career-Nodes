@@ -24,6 +24,8 @@ export interface InduceStep {
   id: string;
   task: string;
   model_tier: Tier;
+  /** Sampling temperature for this step (extractions want ~0.2; default = provider default). */
+  temperature?: number;
   output_schema: Record<string, unknown>;
   validation?: string[];
 }

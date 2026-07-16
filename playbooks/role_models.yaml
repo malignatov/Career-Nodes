@@ -98,6 +98,7 @@ induce:
     - id: extract
       task: Structure the models and guides with descriptors in the order spoken.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [models]
@@ -147,6 +148,7 @@ induce:
         first descriptor of the first-named model. Repetition: descriptors
         repeated or closely echoed across models.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [primacy_trait, repeated_traits]

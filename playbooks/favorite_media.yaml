@@ -68,6 +68,7 @@ induce:
     - id: extract
       task: Structure the favorites with their attractions in the order named.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [media]
@@ -107,6 +108,7 @@ induce:
         attraction wins. overall_codes are the one or two codes that dominate
         the stated attractions.
       model_tier: small
+      temperature: 0.2
       output_schema:
         type: object
         required: [classified, overall_codes]
