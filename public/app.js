@@ -111,7 +111,55 @@ function summaryLine(n) {
   return `<div class="summary">${esc(nodeDesc(n))}</div>`;
 }
 
+/** Everything the braid surface needs from the app — no globals cross the seam. */
+function braidCtx() {
+  return {
+    journey, t, lang, theme, mode, profile, profiles, profileName,
+    nodeTitle, nodeDesc, phaseLabel, esc, api, connect, wsSend,
+    currentNodeId, isSettled, markVerbatim, localizeNote, exportPdf,
+    renderFields, compiledHtml,
+    wsLive: () => Boolean(ws),
+    stopDictation() {
+      stopVoice(true);
+      micBtn.hidden = true;
+    },
+    reload: loadJourney,
+    async reset() {
+      await fetch(api("/api/reset"), { method: "POST" });
+      await loadJourney();
+    },
+    closeWs() {
+      if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    },
+    actions: {
+      toggleTheme() {
+        theme = theme === "light" ? "dark" : "light";
+        localStorage.setItem("theme", theme);
+        applyTheme();
+        renderJourney();
+      },
+      toggleLang() {
+        lang = lang === "en" ? "ru" : "en";
+        localStorage.setItem("lang", lang);
+        applyTheme();
+        renderJourney();
+      },
+      toggleMode() {
+        mode = mode === "client" ? "practitioner" : "client";
+        localStorage.setItem("mode", mode);
+        renderJourney();
+      },
+    },
+  };
+}
+
 function renderJourney() {
+  const braidActive = Boolean(window.Braid?.active?.()) && mode === "client";
+  journeyEl.classList.toggle("braid-on", braidActive);
+  if (braidActive) {
+    window.Braid.renderJourney(journeyEl, braidCtx());
+    return;
+  }
   const pct = Math.round((journey.authorized / journey.total) * 100);
   const current = currentNodeId();
   const parts = [];
@@ -297,12 +345,16 @@ function applyModalStrings() {
 
 async function openModal(id) {
   if (mode === "practitioner") return openPractitioner(id);
+  if (window.Braid?.active?.()) return window.Braid.openSession(id, braidCtx());
   const node = byId(id);
   // Authorized nodes open straight into review of the saved artifact (no model
   // call); derived nodes never show the chat — status + review only.
   const reviewMode = isSettled(node.status);
   const chatless = reviewMode || node.kind === "derived";
   modal = { node, view: "chat", review: null, reviewMode, chatless };
+  // Closing or reopening while the fetches below are in flight must strand
+  // this invocation — its identity is the modal object it created.
+  const myModal = modal;
 
   applyModalStrings();
   $("modalTitle").textContent = nodeTitle(node);
@@ -327,14 +379,17 @@ async function openModal(id) {
   }
 
   const pb = await (await fetch(`/api/playbook/${id}?lang=${lang}`)).json();
+  if (modal !== myModal) return;
   $("tWhat").textContent = (lang !== "en" ? `${t("playbook_lang_note")}\n\n` : "") + pb.purpose;
   $("tCompiled").innerHTML = compiledHtml(pb.compiled);
 
   let resuming = false;
   if (node.status === "in_progress" && node.kind === "conversation") {
     const sessRes = await fetch(api(`/api/session/${id}`));
+    if (modal !== myModal) return;
     if (sessRes.ok) {
       const saved = await sessRes.json();
+      if (modal !== myModal) return;
       for (const e of saved.exchange ?? []) addMsg(e.speaker === "user" ? "user" : "say", e.text);
       addMsg("note", t("resumed_note"));
       resuming = true;
@@ -346,8 +401,10 @@ async function openModal(id) {
   $("chatHistory").hidden = true;
   if (reviewMode && node.kind === "conversation") {
     const recRes = await fetch(api(`/api/session/${id}`));
+    if (modal !== myModal) return;
     if (recRes.ok) {
       const rec = await recRes.json();
+      if (modal !== myModal) return;
       if (rec.exchange?.length) {
         $("chatHistoryLabel").textContent = t("chat_history");
         $("chatHistoryBody").innerHTML = rec.exchange
@@ -359,6 +416,7 @@ async function openModal(id) {
     }
   }
 
+  if (modal !== myModal) return;
   connect(id, { resuming, review: reviewMode });
 }
 
@@ -435,7 +493,63 @@ function disableComposer() {
   $("input").disabled = true;
 }
 
-function connect(id, { resuming = false, review = false } = {}) {
+/* The modal's handling of session messages — one implementation of the
+ * "surface" contract. The braid session view provides its own; connect()
+ * itself stays the single WebSocket owner either way. */
+const modalSurface = {
+  say(text, anchor) {
+    if (modal?.chatless) return setStatusLine(text);
+    if (anchor) addMsg("note anchor", t("anchor_label"));
+    addMsg("say", text);
+  },
+  note(text) {
+    const localized = localizeNote(text);
+    if (modal?.chatless || modal?.view === "review") setStatusLine(localized);
+    else addMsg("note", localized);
+  },
+  error(text) {
+    if (modal?.chatless) setStatusLine(text);
+    else addMsg("error", text);
+  },
+  ask(prompt) {
+    enableComposer(prompt);
+  },
+  review(payload) {
+    showReview(payload);
+  },
+  done(outcome) {
+    if (outcome === "authorized") {
+      setChip("authorized");
+      const cont = modal?.continueAfter === true;
+      setTimeout(() => closeModal(cont), 600);
+    } else if (!modal?.chatless) {
+      addMsg("note", t("session_saved", outcome));
+    }
+  },
+  closed() {
+    disableComposer();
+    $("amendBox").classList.remove("busy");
+    if (modal && !modal.chatless) addMsg("note", t("conn_closed"));
+  },
+};
+
+let wsSurface = modalSurface;
+
+/** Send on the live session socket. Returns false when there is none. */
+function wsSend(obj) {
+  if (!ws) return false;
+  ws.send(JSON.stringify(obj));
+  return true;
+}
+
+function connect(id, { resuming = false, review = false, surface } = {}) {
+  // One socket at a time: a stale connect (e.g. an interrupted open) must
+  // never leave a second session feeding the surface.
+  if (ws) {
+    ws.onclose = null;
+    ws.close();
+  }
+  wsSurface = surface ?? modalSurface;
   const langParam = lang === "en" ? "" : `&lang=${lang}`;
   const resumeParam = resuming ? "&resume=1" : "";
   const modeParam = review ? "&mode=review" : "";
@@ -444,38 +558,17 @@ function connect(id, { resuming = false, review = false } = {}) {
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
-    if (msg.type === "say") {
-      if (modal?.chatless) return setStatusLine(msg.text);
-      if (msg.anchor) addMsg("note anchor", t("anchor_label"));
-      addMsg("say", msg.text);
-    }
-    else if (msg.type === "note") {
-      const text = localizeNote(msg.text);
-      if (modal?.chatless || modal?.view === "review") setStatusLine(text);
-      else addMsg("note", text);
-    }
-    else if (msg.type === "error") {
-      if (modal?.chatless) setStatusLine(msg.text);
-      else addMsg("error", msg.text);
-    }
-    else if (msg.type === "ask") enableComposer(msg.text);
-    else if (msg.type === "review") showReview(msg.payload);
-    else if (msg.type === "done") {
-      if (msg.text === "authorized") {
-        setChip("authorized");
-        const cont = modal?.continueAfter === true;
-        setTimeout(() => closeModal(cont), 600);
-      } else if (!modal?.chatless) {
-        addMsg("note", t("session_saved", msg.text));
-      }
-    }
+    if (msg.type === "say") wsSurface.say(msg.text, Boolean(msg.anchor));
+    else if (msg.type === "note") wsSurface.note(msg.text);
+    else if (msg.type === "error") wsSurface.error(msg.text);
+    else if (msg.type === "ask") wsSurface.ask(msg.text);
+    else if (msg.type === "review") wsSurface.review(msg.payload);
+    else if (msg.type === "done") wsSurface.done(msg.text);
   };
 
   ws.onclose = () => {
     ws = null;
-    disableComposer();
-    $("amendBox").classList.remove("busy");
-    if (modal && !modal.chatless) addMsg("note", t("conn_closed"));
+    wsSurface.closed?.();
   };
 }
 
@@ -583,6 +676,7 @@ function renderDraftBody() {
 }
 
 function showReview(payload) {
+  if (!modal) return; // a stray frame after the modal closed
   modal.review = { payload, currentText: payload.candidates[0] ?? "", edited: false };
   setView("review");
   setStatusLine(null);
