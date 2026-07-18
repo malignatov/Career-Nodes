@@ -166,11 +166,11 @@
     return x + (dx / dist) * 100 * Math.exp(-d2 / (190 * 190));
   }
 
-  /* Sample ys every 120px over -80..1740; the pin pair ny∓16 makes the
+  /* Sample ys every 120px over -320..2860; the pin pair ny∓16 makes the
    * curve pass exactly through the node. */
   function sampleYs(ny) {
     const ys = [];
-    for (let y = -80; y <= 1740; y += 120) { if (Math.abs(y - ny) >= 70) ys.push(y); }
+    for (let y = -320; y <= 2860; y += 120) { if (Math.abs(y - ny) >= 70) ys.push(y); }
     ys.push(ny - 16, ny + 16);
     ys.sort((a, b) => a - b);
     return ys;
@@ -181,7 +181,7 @@
     return quadPath(pts);
   }
 
-  const stripY = () => Math.max(-900, Math.min(0, 320 - NY(J.focus)));
+  const stripY = () => Math.max(-900, Math.min(180, 320 - NY(J.focus)));
 
   function threadStyle(status) {
     if (status === "done") return { stroke: "var(--acc)", width: "1.4", opacity: (0.2 + 0.24 * J.vp).toFixed(2) };
