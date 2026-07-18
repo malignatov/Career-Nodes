@@ -19,7 +19,7 @@ OUT="$ROOT/dist-app/share"
 
 mkdir -p "$STAGE/server"
 
-cp "$ROOT/app/main.cjs" "$ROOT/app/package.json" "$STAGE/"
+cp "$ROOT/app/main.cjs" "$ROOT/app/package.json" "$ROOT/app/icon.png" "$STAGE/"
 cp -R "$ROOT/src" "$ROOT/playbooks" "$ROOT/public" "$STAGE/server/"
 cp "$ROOT/package.json" "$ROOT/package-lock.json" "$STAGE/server/"
 
@@ -43,7 +43,7 @@ rm -f "$ZIP"
 if [ "$PLATFORM" = "darwin" ]; then
   npx electron-packager "$STAGE" "Career Counseling" \
     --platform="$PLATFORM" --arch="$ARCH" --out="$OUT" --overwrite \
-    --electron-version="$EL_VER"
+    --electron-version="$EL_VER" --icon="$ROOT/app/icon.icns"
   APP="$BUILT/Career Counseling.app"
   codesign --force --deep -s - "$APP" 2>/dev/null || true
   ditto -c -k --keepParent "$APP" "$ZIP"

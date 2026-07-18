@@ -70,6 +70,8 @@ async function createWindow() {
     height: 940,
     title: "Career Counseling",
     backgroundColor: "#EFE9E0",
+    // Window/taskbar icon on Windows and Linux (macOS uses the bundle's icns).
+    icon: path.join(__dirname, "icon.png"),
     webPreferences: { contextIsolation: true },
   });
   win.loadURL(URL);
