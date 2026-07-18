@@ -164,7 +164,7 @@
   transform: translateY(-84px);
   transition: transform .7s cubic-bezier(.2, .8, .3, 1);
 }
-.br-strip > svg { position: absolute; left: 0; top: 0; }
+.br-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; }
 
 .br-node { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 20; cursor: pointer; }
 .br-label {
@@ -220,15 +220,6 @@
 
 /* The session shell lives on the same centered 900px canvas as the strip. */
 .br7-canvas { position: absolute; left: 50%; top: 0; bottom: 0; width: 900px; margin-left: -450px; pointer-events: none; }
-.br7-exit {
-  position: absolute; left: 40px; top: 64px; z-index: 70;
-  background: none; border: none;
-  font: 500 12px Karla, sans-serif; color: var(--t4sub);
-  cursor: pointer; padding: 4px 0;
-  opacity: 0; pointer-events: none;
-  transition: opacity .6s ease;
-}
-.br7-exit span { opacity: .6; }
 .br7-chat {
   position: absolute; left: 430px; right: 56px; top: 88px; bottom: 116px; z-index: 60;
   opacity: 0; pointer-events: none;
@@ -306,6 +297,18 @@
 .br7-act.active { color: var(--t4ink); }
 .br7-act:disabled { opacity: .4; cursor: default; }
 .br7-authlang { font: 400 10.5px/1.5 Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
+
+/* Review-in-place: a woven bead reads its authored story back — the serif
+   passage, verbatim fragments returned to the right, plain-text actions. */
+.br7-story { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 400px; text-wrap: pretty; text-align: left; animation: floatIn .5s both; }
+.br7-story mark { background: none; color: inherit; border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
+.br7-story .field-label { font: 700 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
+.br7-story .field-value, .br7-story li { font: 500 13.5px/1.6 Lora, serif; color: var(--t4ink); }
+.br7-story ul { margin: 2px 0 4px; padding-left: 18px; }
+.br7-story .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
+.br7-fragments { align-self: flex-end; max-width: 340px; text-align: right; display: flex; flex-direction: column; gap: 8px; animation: floatIn .5s both; }
+.br7-fragment { font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink); text-wrap: pretty; }
+.br7-fragment span { border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
 
 /* ── session overlay ─────────────────────────────────────────── */
 #braidSession {

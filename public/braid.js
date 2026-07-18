@@ -301,7 +301,6 @@
             </div>
           </div>
           <div class="br7-canvas">
-            <button class="br7-exit"></button>
             <div class="br7-chat"><div class="br7-msgs"></div></div>
             <div class="br7-comp">
               <textarea class="br7-input" rows="1" data-own-mic="1" disabled></textarea>
@@ -336,11 +335,9 @@
       }
       if (j === J.focus && openable(j)) {
         if (J.merge) return; // no opening mid-ceremony
-        const n = J.nodes[j];
-        // Woven steps review in the page-style view; actionable steps talk
-        // inline beside their node.
-        if (J.ctx.isSettled(n.status) || J.status[j] === "done") openSession(n.id, J.ctx);
-        else inlineOpen(j);
+        // Every openable bead — woven or actionable — talks inline beside its
+        // node; woven ones open straight to the authored passage.
+        inlineOpen(j);
       } else setFocus(j);
     };
     J.strip.querySelectorAll(".br-node,.br-label").forEach((el) => el.addEventListener("click", onPick));
@@ -366,13 +363,6 @@
     J.stage.addEventListener("mouseleave", () => { J.mx = undefined; });
 
     // Inline session shell wiring.
-    q7(".br7-exit").addEventListener("click", () => {
-      if (!L.open || L.closing) return;
-      const ctx = L.ctx;
-      ctx.closeWs();
-      inlineClose();
-      ctx.reload();
-    });
     const inp = q7(".br7-input");
     inp.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); inlineSend(); }
@@ -452,12 +442,10 @@
   }
 
   function updateTexts() {
-    const { t, esc } = J.ctx;
+    const { t } = J.ctx;
     J.strip.querySelectorAll(".br-label").forEach((el) => {
       el.textContent = J.ctx.nodeTitle(J.nodes[Number(el.dataset.i)]);
     });
-    const exit = q7(".br7-exit");
-    if (exit) exit.innerHTML = `${esc(t("exit"))} <span>· ${esc(t("exit_saved"))}</span>`;
     const inp = q7(".br7-input");
     if (inp && !L.open) inp.placeholder = t("placeholder");
     const tp = q7(".br7-tpanel");
@@ -835,6 +823,7 @@
     knots: [], knotN: 0, review: null, editing: false,
     composerMode: "answer", chatless: false, timers: [],
     placeholder: "", tWhat: "", tCompiled: "",
+    reviewing: false, firstReview: false,
   };
 
   const q7 = (cls) => (J.stage ? J.stage.querySelector(cls) : null);
@@ -1012,11 +1001,67 @@
     });
   }
 
+  /* Review-in-place: the woven bead reads its authored story back — a quiet
+   * "authored" whisper, the serif passage, its verbatim fragments returned to
+   * the right, and plain-text Amend / Continue. No card, no composer. */
+  function buildInlinePassage(payload) {
+    const ctx = L.ctx, t = ctx.t;
+    const box = q7(".br7-msgs");
+    if (!box) return;
+    const old = box.querySelector("[data-review]");
+    if (old) old.remove();
+    const status = box.querySelector("[data-status]");
+    if (status) status.remove();
+
+    // A display:contents wrapper keeps one removable [data-review] element
+    // while its parts still lay out as siblings in the message column.
+    const wrap = document.createElement("div");
+    wrap.dataset.review = "1";
+    wrap.style.display = "contents";
+
+    const candidates = payload.mode === "candidates";
+    const quotes = payload.verified_quotes ?? [];
+    const story = candidates
+      ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
+      : ctx.renderFields(payload.draft, quotes);
+    const frags = quotes.length
+      ? `<div class="br7-fragments">${quotes
+        .map((qt) => `<div class="br7-fragment">«<span>${ctx.esc(qt)}</span>»</div>`)
+        .join("")}</div>`
+      : "";
+    wrap.innerHTML =
+      `<div class="br7-note">${ctx.esc(t("braid_authored_whisper"))}</div>` +
+      `<div class="br7-story">${story}</div>` +
+      frags +
+      `<div class="br7-acts"><button class="br7-act" data-amend>${ctx.esc(t("braid_amend"))}</button>` +
+      `<button class="br7-act accent" data-continue>${ctx.esc(t("braid_continue"))}</button></div>`;
+    box.appendChild(wrap);
+    box.scrollTop = box.scrollHeight;
+
+    wrap.querySelector("[data-amend]").addEventListener("click", () => {
+      if (!ctx.wsLive()) return inlineConnLost();
+      const comp = q7(".br7-comp");
+      if (comp) comp.style.display = ""; // reveal the composer Amend reopens
+      L.composerMode = "amend";
+      wrap.querySelector("[data-amend]").classList.add("active");
+      inlineCompose(true, t("amend_placeholder"));
+    });
+    wrap.querySelector("[data-continue]").addEventListener("click", () => {
+      ctx.closeWs();
+      inlineClose();
+      // Statuses are unchanged, so no reload — just move focus to the step
+      // that is actually next.
+      const cur = ctx.currentNodeId();
+      const k = J.nodes.findIndex((n) => n.id === cur);
+      if (k >= 0) setFocus(k);
+    });
+  }
+
   /* Authorized: seal, whisper, end-knot, then the camera returns and the
    * journey's weaving ceremony takes over. */
   function inlineSeal() {
     L.closing = true;
-    const ctx = L.ctx, idx = L.idx;
+    const ctx = L.ctx, idx = L.idx, wasWoven = L.reviewing;
     const wrap = q7(".br7-msgs")?.querySelector("[data-review]");
     const acts = wrap?.querySelector(".br7-acts");
     if (acts) acts.remove();
@@ -1025,9 +1070,10 @@
     L.timers.push(setTimeout(() => {
       ctx.closeWs();
       inlineClose();
-      setTimeout(() => {
-        // Only weave into a quiet field — not into a ceremony already running
-        // or a session the user reopened meanwhile.
+      // An amended re-authorization of an already-woven bead just closes; only
+      // a first authorization runs the weaving ceremony (into a quiet field —
+      // not a ceremony already running or a session reopened meanwhile).
+      if (!wasWoven) setTimeout(() => {
         if (!J.merge && !J.sess && !L.open && J.stage && J.stage.isConnected) startWeave(idx);
       }, 350);
     }, 1400));
@@ -1054,6 +1100,15 @@
       inlineCompose(true, ph);
     },
     review(payload) {
+      // A woven bead's own authored record reads back as the passage; an
+      // amended re-draft (any later payload) falls through to the editable
+      // card so it can be re-authorized.
+      if (L.reviewing && payload.existing && L.firstReview) {
+        L.firstReview = false;
+        buildInlinePassage(payload);
+        return;
+      }
+      L.firstReview = false;
       L.review = { payload, currentText: payload.candidates[0] ?? "", edited: false };
       L.editing = false;
       L.composerMode = "answer";
@@ -1076,6 +1131,8 @@
     const ctx = J.ctx;
     const node = J.nodes[j];
     if (!node) return;
+    // A woven bead opens to review-in-place, not the interview.
+    const reviewing = ctx.isSettled(node.status) || J.status[j] === "done";
     const my = ++L.gen;
     L.open = true;
     L.closing = false;
@@ -1088,6 +1145,8 @@
     L.editing = false;
     L.composerMode = "answer";
     L.chatless = node.kind === "derived";
+    L.reviewing = reviewing;
+    L.firstReview = reviewing;
     L.tWhat = "";
     L.tCompiled = "";
 
@@ -1110,16 +1169,18 @@
     J.sx = Math.max(-420, Math.min(100, 250 - anchorFor(j).nx));
     layout();
 
-    const exit = q7(".br7-exit"), chat = q7(".br7-chat"), comp = q7(".br7-comp");
-    [chat, comp, exit].forEach((el) => {
+    const chat = q7(".br7-chat"), comp = q7(".br7-comp");
+    [chat, comp].forEach((el) => {
       if (el) { el.style.opacity = "1"; el.style.pointerEvents = "auto"; }
     });
+    // Woven beads review without a composer until Amend reopens it.
+    if (comp) comp.style.display = reviewing ? "none" : "";
     const box = q7(".br7-msgs");
     if (box) box.innerHTML = "";
     const mic = q7(".br7-mic");
     if (mic) mic.hidden = !ctx.voice?.enabled?.();
     inlineCompose(false, ctx.t("placeholder"));
-    if (L.chatless) inlineStatus(ctx.localizeNote(ctx.t("status_preparing")));
+    if (L.chatless && !reviewing) inlineStatus(ctx.localizeNote(ctx.t("status_preparing")));
 
     fetch(`/api/playbook/${node.id}?lang=${ctx.lang}`)
       .then((r) => r.json())
@@ -1136,7 +1197,24 @@
       .catch(() => {});
 
     let resuming = false;
-    if (node.kind === "conversation" && node.status === "in_progress") {
+    if (reviewing) {
+      // Woven records seed knots only: the saved transcript stays folded and
+      // the authored passage stands in for it. Derived nodes have no knots.
+      if (node.kind === "conversation") {
+        try {
+          const res = await fetch(ctx.api(`/api/session/${node.id}`));
+          if (!L.open || L.gen !== my) return;
+          if (res.ok) {
+            const saved = await res.json();
+            if (!L.open || L.gen !== my) return;
+            for (const e of saved.exchange ?? []) {
+              if (e.speaker === "user") pushKnot(false);
+            }
+            pushKnot(true); // the authored end-knot
+          }
+        } catch { /* no recording — no knots */ }
+      }
+    } else if (node.kind === "conversation" && node.status === "in_progress") {
       try {
         const res = await fetch(ctx.api(`/api/session/${node.id}`));
         if (!L.open || L.gen !== my) return;
@@ -1155,7 +1233,7 @@
     }
     if (!L.open || L.gen !== my) return;
 
-    ctx.connect(node.id, { resuming, review: false, surface: inlineSurface });
+    ctx.connect(node.id, { resuming, review: reviewing, surface: inlineSurface });
   }
 
   /* Reverse of inlineOpen: restore the field, clear the shell. */
@@ -1179,10 +1257,13 @@
     }
     L.knots = [];
     L.knotN = 0;
-    const exit = q7(".br7-exit"), chat = q7(".br7-chat"), comp = q7(".br7-comp"), tp = q7(".br7-tpanel");
-    [chat, comp, exit].forEach((el) => {
+    L.reviewing = false;
+    L.firstReview = false;
+    const chat = q7(".br7-chat"), comp = q7(".br7-comp"), tp = q7(".br7-tpanel");
+    [chat, comp].forEach((el) => {
       if (el) { el.style.opacity = "0"; el.style.pointerEvents = "none"; }
     });
+    if (comp) comp.style.display = ""; // restore the composer for the next session
     if (tp) tp.hidden = true;
     const box = q7(".br7-msgs");
     if (box) box.innerHTML = "";
@@ -1199,6 +1280,8 @@
     L.open = false;
     L.closing = false;
     L.review = null;
+    L.reviewing = false;
+    L.firstReview = false;
     L.knots = [];
     L.knotN = 0;
     J.sess = false;
@@ -1215,6 +1298,26 @@
     mic.classList.toggle("err", e.detail === "error");
     const inp = q7(".br7-input");
     if (inp) inp.placeholder = listening ? L.ctx.t("braid_listening") : (L.placeholder || L.ctx.t("placeholder"));
+  });
+
+  // Escape stands in for the retired back buttons: first it dismisses the open
+  // transparency panel, otherwise it leaves whichever session surface is live.
+  // Inert when the braid is showing the card field (app.js owns Escape there).
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const tp = q7(".br7-tpanel");
+    if (tp && !tp.hidden) { tp.hidden = true; return; }
+    if (L.open && !L.closing) {
+      const ctx = L.ctx;
+      ctx.closeWs();
+      inlineClose();
+      ctx.reload();
+    } else if (S.open && !S.closing) {
+      const ctx = S.ctx;
+      ctx.closeWs();
+      teardown();
+      ctx.reload();
+    }
   });
 
   /* ══ session view (t5) ════════════════════════════════════ */
@@ -1688,13 +1791,13 @@
     ctx.connect(id, { resuming, review: S.reviewMode, surface: braidSurface });
   }
 
-  /* Route an open request the same way a field click does: woven steps
-   * review page-style, actionable steps talk inline beside their node. */
+  /* Route an open request the same way a field click does: every openable
+   * step talks inline beside its node (woven ones review in place). Only when
+   * there is no field on screen do we fall back to the page view. */
   function openAny(id, ctx) {
     const node = ctx.journey.nodes.find((n) => n.id === id);
     if (!node) return;
     const j = J.nodes.findIndex((n) => n.id === id);
-    if (ctx.isSettled(node.status) || (j >= 0 && J.status[j] === "done")) return openSession(id, ctx);
     if (j >= 0 && J.stage && J.stage.isConnected) return inlineOpen(j);
     return openSession(id, ctx); // no field on screen — fall back to the page view
   }
