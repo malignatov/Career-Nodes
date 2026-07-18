@@ -120,11 +120,26 @@ export class OpenAICompatAdapter implements LlmAdapter {
     return { baseUrl, apiKey, model };
   }
 
+  /**
+   * Reasoning effort per tier. The large tier — the heavy compositions
+   * (portrait, identity, recipe, sketch, script) — thinks hard by default;
+   * the small tier (interviewer, checker) stays fast and cheap. Override with
+   * LLM_{SMALL,LARGE}_REASONING = low|medium|high, or off to disable.
+   */
+  private reasoning(t: Tier): string | undefined {
+    const U = t === "small" ? "SMALL" : "LARGE";
+    const raw = (cfg(`LLM_${U}_REASONING`) ?? (t === "large" ? "high" : "")).trim().toLowerCase();
+    if (!raw || raw === "off" || raw === "none" || raw === "0") return undefined;
+    return raw;
+  }
+
   describe(): string {
     const s = this.tier("small");
     const l = this.tier("large");
     const zdr = this.zdr ? ", zdr=on" : "";
-    return `${this.provider} (small=${s.model}, large=${l.model}${zdr})`;
+    const lr = this.reasoning("large");
+    const reason = lr ? `, large-reasoning=${lr}` : "";
+    return `${this.provider} (small=${s.model}, large=${l.model}${zdr}${reason})`;
   }
 
   async complete(opts: CompleteOptions): Promise<string> {
@@ -135,6 +150,8 @@ export class OpenAICompatAdapter implements LlmAdapter {
       messages: [{ role: "system", content: opts.system }, ...opts.messages],
     };
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
+    const effort = this.reasoning(opts.tier);
+    if (effort) body.reasoning_effort = effort;
     if (opts.jsonSchema) {
       body.response_format = {
         type: "json_schema",
