@@ -121,14 +121,15 @@ export class OpenAICompatAdapter implements LlmAdapter {
   }
 
   /**
-   * Reasoning effort per tier. The large tier — the heavy compositions
-   * (portrait, identity, recipe, sketch, script) — thinks hard by default;
-   * the small tier (interviewer, checker) stays fast and cheap. Override with
-   * LLM_{SMALL,LARGE}_REASONING = low|medium|high, or off to disable.
+   * Reasoning effort per tier. OFF by default: the golden benchmark showed
+   * reasoning does not help the compositions and mildly hurts verbatim
+   * fidelity (off ≥ high ≥ max), at extra cost and latency — see
+   * golden/report-claude-judge-reasoning-2026-07-18.md. Opt in per tier with
+   * LLM_{SMALL,LARGE}_REASONING = low|medium|high|xhigh|max for experiments.
    */
   private reasoning(t: Tier): string | undefined {
     const U = t === "small" ? "SMALL" : "LARGE";
-    const raw = (cfg(`LLM_${U}_REASONING`) ?? (t === "large" ? "high" : "")).trim().toLowerCase();
+    const raw = (cfg(`LLM_${U}_REASONING`) ?? "").trim().toLowerCase();
     if (!raw || raw === "off" || raw === "none" || raw === "0") return undefined;
     return raw;
   }

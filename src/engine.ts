@@ -3,6 +3,11 @@ import type {
 } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
 import { gatherMarked, verbatimViolations } from "./verbatim.ts";
+import { cfg } from "./config.ts";
+
+// Output ceiling for an induce step. Generous by default; env-tunable because
+// high reasoning effort spends this budget on thinking before the JSON.
+const INDUCE_MAX_TOKENS = Number(cfg("LLM_INDUCE_MAX_TOKENS") ?? 8192);
 
 export interface ReviewPayload {
   mode: "candidates" | "structured_review";
@@ -291,7 +296,7 @@ async function runInduceStep(
         { role: "user", content: `${sourceBlock}${upstreamBlock}${priorBlock}${feedbackBlock}${extra}` },
       ],
       jsonSchema: step.output_schema,
-      maxTokens: 8192,
+      maxTokens: INDUCE_MAX_TOKENS,
       temperature: step.temperature,
     });
     return JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as Record<string, unknown>;
