@@ -71,6 +71,30 @@
       + '<path d="' + dots + '" style="fill:none;stroke:var(--vacc, var(--acc));stroke-width:' + (mode === "wire" ? 1.6 : 1.1) + ';stroke-linecap:round;vector-effect:non-scaling-stroke"></path>';
   }
 
+  /* Solve the rendered midpoint-smoothed path for x at a given y — knots
+   * must sit exactly on the string, not on the pre-smoothing curve. */
+  function qxAt(pts, ky) {
+    let sx = pts[0][0], sy = pts[0][1];
+    for (let i = 1; i < pts.length - 1; i++) {
+      const cx = pts[i][0], cy = pts[i][1];
+      const ex = (pts[i][0] + pts[i + 1][0]) / 2, ey = (pts[i][1] + pts[i + 1][1]) / 2;
+      if (ky >= sy && ky <= ey) {
+        const a = sy - 2 * cy + ey, b = 2 * (cy - sy), c = sy - ky;
+        let t;
+        if (Math.abs(a) < 1e-6) t = b !== 0 ? -c / b : 0;
+        else {
+          const disc = Math.max(0, b * b - 4 * a * c);
+          t = (-b + Math.sqrt(disc)) / (2 * a);
+          if (t < 0 || t > 1) t = (-b - Math.sqrt(disc)) / (2 * a);
+        }
+        t = Math.max(0, Math.min(1, t));
+        return (1 - t) * (1 - t) * sx + 2 * t * (1 - t) * cx + t * t * ex;
+      }
+      sx = ex; sy = ey;
+    }
+    return null;
+  }
+
   /* Quadratic midpoint smoothing. */
   function quadPath(pts) {
     let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1]}`;
@@ -202,13 +226,13 @@
   function renderDoneCore(el, j, big) {
     const D = big ? 25 : 13, sz = big ? 50 : 26;
     el.style.cssText = "position:absolute;left:-" + D + "px;top:-" + D + "px;width:" + sz + "px;height:" + sz + "px;"
-      + "filter:drop-shadow(0 " + (big ? "9px 14px" : "7px 9px") + " var(--t4ds)) drop-shadow(0 0 " + (big ? 18 : 12) + "px color-mix(in srgb, var(--acc) 30%, transparent));"
+      + "filter:drop-shadow(0 " + (big ? "9px 14px" : "7px 9px") + " var(--t4ds)) drop-shadow(0 0 " + (big ? 18 : 12) + "px color-mix(in srgb, var(--pig, var(--acc)) 30%, transparent));"
       + "transition:left .8s cubic-bezier(.3,.7,.2,1), top .8s cubic-bezier(.3,.7,.2,1), width .8s cubic-bezier(.3,.7,.2,1), height .8s cubic-bezier(.3,.7,.2,1)";
     if (el.__c !== "solid3") {
       const pop = el.__c === "wire2";
       el.__c = "solid3";
       el.innerHTML =
-        '<div style="position:absolute;inset:8%;border-radius:99px;opacity:var(--t4fop,.92);background:radial-gradient(circle, var(--acc) 0%, color-mix(in srgb, var(--acc) 76%, #14120c) 58%, color-mix(in srgb, var(--acc) 30%, transparent) 86%, transparent 100%);' + (pop ? "animation:t4fill 1.4s cubic-bezier(.3,.7,.2,1) both;" : "") + '"></div>' +
+        '<div style="position:absolute;inset:8%;border-radius:99px;opacity:var(--t4fop,.62);background:radial-gradient(circle, var(--pig, var(--acc)) 0%, color-mix(in srgb, var(--pig, var(--acc)) 76%, #14120c) 58%, color-mix(in srgb, var(--pig, var(--acc)) 30%, transparent) 86%, transparent 100%);' + (pop ? "animation:t4fill 1.4s cubic-bezier(.3,.7,.2,1) both;" : "") + '"></div>' +
         '<svg width="100%" height="100%" viewBox="-13 -13 26 26" style="position:absolute;inset:0;overflow:visible">' + sphereSVG(11, 0.9 + j * 1.7, 0.42, "wire") + "</svg>" +
         '<div style="position:absolute;inset:7%;border-radius:99px;background:radial-gradient(circle at 32% 24%, rgba(255,255,255,.42), rgba(255,255,255,0) 38%), radial-gradient(circle at 70% 84%, rgba(0,0,0,.32), transparent 46%)"></div>';
       if (pop) el.style.animation = "t4solidify 1.5s cubic-bezier(.25,.75,.2,1)";
@@ -640,24 +664,31 @@
         l.style.transform = `translate(${lx.toFixed(1)}px, ${(ny - 10).toFixed(1)}px)`;
         l.style.textAlign = right ? "left" : "right";
       }
-      renderKnots(strip, j, anchor, amp);
+      renderKnots(strip, j, anchor, amp, pts);
     };
     J.loop = loop;
     J.raf = requestAnimationFrame(loop);
   }
 
-  /* Session knots ride the live thread: each answer's knot swings with the
-   * same oscillation bell the thread does. Rebuilt every frame. */
-  function renderKnots(strip, nextJ, anchor, amp) {
+  /* Session knots sit exactly on the rendered string (qxAt over the same
+   * pts that drew it), riding its oscillation. Rebuilt every frame. */
+  function renderKnots(strip, nextJ, anchor, amp, livePts) {
     if (!J.sess || !L.open) return;
     const kg = strip.querySelector("[data-knots]");
     if (!kg) return;
     const sNy = nodeYf(L.idx);
+    // The session thread's rendered pts: the live oscillating set when the
+    // session node IS the waking one, else its static curve.
+    const pts = (livePts && L.idx === nextJ)
+      ? livePts
+      : sampleYs(sNy).map((y) => [withGrav(baseX(L.idx, y), y, anchor), y]);
     let kn = "";
     for (const [ky, big] of L.knots) {
+      const kxv = qxAt(pts, ky);
       const bell = Math.exp(-Math.pow((ky - sNy) / 170, 2));
-      const osc = L.idx === nextJ ? amp * bell : 0;
-      const kx = (withGrav(baseX(L.idx, ky), ky, anchor) + osc).toFixed(1);
+      const kx = (kxv == null
+        ? withGrav(baseX(L.idx, ky), ky, anchor) + (L.idx === nextJ ? amp * bell : 0)
+        : kxv).toFixed(1);
       kn += big
         ? `<circle cx="${kx}" cy="${ky}" r="6" fill="var(--acc)"></circle><circle cx="${kx}" cy="${ky}" r="12" fill="none" stroke="var(--acc)" stroke-opacity=".4"></circle>`
         : `<circle cx="${kx}" cy="${ky}" r="3.6" fill="var(--acc)"></circle><circle cx="${kx}" cy="${ky}" r="8" fill="none" stroke="var(--acc)" stroke-opacity=".3"></circle>`;
@@ -720,7 +751,9 @@
     }, 3600);
   }
 
-  /* Damped shake of every woven thread, bell-centered on the join. */
+  /* Damped shake of every woven thread, bell-centered on the join. The
+   * beads ride their strings (joining bead full amplitude, braid ×.45),
+   * then hand back to the .7s settle transition. */
   function shakeBraid(j) {
     const strip = J.strip;
     if (!strip) return;
@@ -730,6 +763,16 @@
     for (let k = 0; k < J.nodes.length; k++) if (J.status[k] === "done") ks.push(k);
     const paths = ks.map((k) => [k, strip.querySelector(`[data-s="${k}"]`)]).filter((e) => e[1]);
     paths.forEach(([, p]) => { p.style.transition = "opacity .7s ease"; });
+    const nodes = ks.map((k) => {
+      const n = strip.querySelector(`.br-node[data-i="${k}"]`);
+      if (!n) return null;
+      const nyk = nodeYf(k);
+      const nxk = withGrav(baseX(k, nyk), nyk, anchor);
+      const bl = Math.exp(-Math.pow((nyk - ny) / 200, 2));
+      const sc = k === J.focus ? 1.6 : 1;
+      n.style.transition = "none";
+      return { k, n, nyk, nxk, bl, sc };
+    }).filter(Boolean);
     const setAll = (amp) => {
       paths.forEach(([k, p]) => {
         const a2 = k === j ? amp : amp * 0.45;
@@ -739,6 +782,10 @@
         });
         setD(p, quadPath(pts));
       });
+      nodes.forEach((o) => {
+        const a2 = o.k === j ? amp : amp * 0.45;
+        o.n.style.transform = `translate(${(o.nxk + a2 * o.bl).toFixed(1)}px, ${o.nyk.toFixed(1)}px)${o.sc === 1.6 ? " scale(1.6)" : ""}`;
+      });
     };
     const step = (now) => {
       if (!J.merge || J.merge.j !== j) return;
@@ -746,6 +793,7 @@
       if (t >= 1) {
         setAll(0);
         paths.forEach(([, p]) => { p.style.transition = "d .7s cubic-bezier(.2,.8,.3,1), opacity .7s ease"; });
+        nodes.forEach((o) => { o.n.style.transition = "transform .7s cubic-bezier(.2,.8,.3,1), opacity .45s ease"; });
         return;
       }
       setAll(10 * Math.exp(-4.2 * t) * Math.sin(t * 26.4));
@@ -1254,13 +1302,15 @@
 
   function orbInit() {
     el(".t5-orb").innerHTML =
-      '<div data-pig style="position:absolute;inset:11%;border-radius:99px;opacity:0;transition:opacity 1.1s ease;background:radial-gradient(circle, var(--acc) 0%, color-mix(in srgb, var(--acc) 76%, #14120c) 58%, color-mix(in srgb, var(--acc) 30%, transparent) 86%, transparent 100%)"></div>'
+      '<div data-pig style="position:absolute;inset:11%;border-radius:99px;opacity:0;transition:opacity 1.1s ease;background:radial-gradient(circle, var(--pig, var(--acc)) 0%, color-mix(in srgb, var(--pig, var(--acc)) 76%, #14120c) 58%, color-mix(in srgb, var(--pig, var(--acc)) 30%, transparent) 86%, transparent 100%)"></div>'
       + '<svg width="100%" height="100%" viewBox="-19 -19 38 38" style="position:absolute;inset:0;overflow:visible">' + sphereSVG(16, 0.7, 0.32, "wire") + "</svg>";
   }
 
   function orbSet(p) {
     const pig = S.root && S.root.querySelector("[data-pig]");
-    if (pig) pig.style.opacity = (Math.max(0, Math.min(1, p)) * 0.92).toFixed(2);
+    if (!pig) return;
+    const fop = parseFloat(getComputedStyle(pig).getPropertyValue("--t4fop")) || 0.62;
+    pig.style.opacity = (Math.max(0, Math.min(1, p)) * fop).toFixed(2);
   }
 
   /* Interviews have no fixed exchange count — the pigment approaches full

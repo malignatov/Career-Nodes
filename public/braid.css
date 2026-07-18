@@ -16,10 +16,15 @@
 
 /* ── palette ─────────────────────────────────────────────────── */
 #journey.braid-on, #braidSession {
-  --acc: #B7F24C;
-  --acc-ink: #18280B;
-  /* Accent used AS TEXT: full accent on the dark field, a deep readable
-     cousin on parchment (lime on light is ~1.1:1). */
+  /* Product defaults from design review: MONO field — a pure grayscale
+     world where only authored meaning carries color. */
+  --acc: #E2E2E2;
+  --acc-ink: #101010;
+  /* Pigment inside authored spheres, independent of the field accent.
+     Default: pine. Falls back to --acc wherever unset. */
+  --pig: #2A5E14;
+  /* Accent used AS TEXT follows the field accent (mono is readable in
+     both modes). */
   --acc-text: var(--acc);
 
   --t4bg: #0d0c08;
@@ -30,6 +35,7 @@
   --t4body: #CFC6B2;
   --t4cnt: #B7AE9E;
   --t4cnt2: #6C6455;
+  --t4note: #6C6455; /* session whispers — separate from header chrome */
   --t4btnBg: #1B1A12;
   --t4btnBd: #3A362A;
   --t4btnInk: #D8D0BC;
@@ -41,7 +47,7 @@
   --t4wireF: rgba(242, 236, 216, .95);
   --t4wireB: rgba(238, 232, 214, .16);
   --t4ds: rgba(0, 0, 0, .6);
-  --t4fop: .92;
+  --t4fop: .62; /* pigment opacity — tuned in design review */
   --t4ts1: rgba(0, 0, 0, .95);
   --t4ts2: rgba(0, 0, 0, .9);
   --t4ts3: rgba(0, 0, 0, .7);
@@ -59,7 +65,9 @@
 
 :root[data-theme="light"] #journey.braid-on,
 :root[data-theme="light"] #braidSession {
-  --acc-text: #4E8A1F;
+  /* Mono × Light: dark-umber cord on paper. Pigment is unaffected. */
+  --acc: #33302A;
+  --acc-ink: #F2EFE8;
   --t4bg: #EFEAE0;
   --t4bd: #DAD3C4;
   --t4ink: #2A2620;
@@ -68,6 +76,7 @@
   --t4body: #56503F;
   --t4cnt: #6B6252;
   --t4cnt2: #9A9080;
+  --t4note: #7A7060; /* session notes — tuned so nothing washes out on paper */
   --t4btnBg: #F7F3EA;
   --t4btnBd: #D5CDBB;
   --t4btnInk: #4A4234;
@@ -83,10 +92,10 @@
   --t4ts2: rgba(239, 234, 224, .9);
   --t4ts3: rgba(239, 234, 224, .9);
 
-  --t5say: #3A3428;
+  --t5say: #2E2A22;
   --t5user-bg: rgba(60, 53, 42, .05);
   --t5user-bd: rgba(60, 53, 42, .18);
-  --t5user-ink: #4A4234;
+  --t5user-ink: #4A4436;
   --t5card-bg: rgba(255, 255, 255, .5);
   --t5card-bd: rgba(60, 53, 42, .2);
   --t5panel-bg: #F7F3EA;
@@ -259,7 +268,7 @@
 
 /* Message materials (inline variant: user answers are bare text, no card). */
 .br7-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 370px; animation: floatIn .5s both; text-wrap: pretty; }
-.br7-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt2); animation: floatIn .5s both; }
+.br7-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
 .br7-user { align-self: flex-end; max-width: 340px; text-align: right; font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink); animation: floatIn .5s both; text-wrap: pretty; }
 .br7-woven { align-self: center; font: italic 500 16px Lora, serif; color: var(--acc-text); animation: floatIn .8s both; }
 .br7-error { align-self: center; text-align: center; font: 500 12px Karla, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 370px; }
@@ -355,7 +364,7 @@
 .t5-msgs { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 26px; }
 
 .t5-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 430px; animation: floatIn .5s both; text-wrap: pretty; }
-.t5-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt2); animation: floatIn .5s both; }
+.t5-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
 .t5-error { align-self: center; text-align: center; font: 500 12px Karla, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 430px; }
 .t5-user {
   align-self: flex-end; max-width: 390px;
