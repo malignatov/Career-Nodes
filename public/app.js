@@ -123,6 +123,12 @@ function braidCtx() {
       stopVoice(true);
       micBtn.hidden = true;
     },
+    voice: {
+      enabled: () => journey?.voice === true,
+      active: () => Boolean(voice),
+      start(el) { startVoice(el); },
+      stop() { stopVoice(); },
+    },
     reload: loadJourney,
     async reset() {
       await fetch(api("/api/reset"), { method: "POST" });
@@ -160,6 +166,9 @@ function renderJourney() {
     window.Braid.renderJourney(journeyEl, braidCtx());
     return;
   }
+  // Leaving braid mode (resize, mode switch) must not strand a live inline
+  // session — its DOM is about to be replaced.
+  window.Braid?.abortSession?.();
   const pct = Math.round((journey.authorized / journey.total) * 100);
   const current = currentNodeId();
   const parts = [];
@@ -1284,11 +1293,15 @@ function setMic(state) {
   micBtn.innerHTML = state === "rec" ? MIC_ICONS.stop : state === "error" ? MIC_ICONS.warn : MIC_ICONS.mic;
   micBtn.classList.toggle("rec", state === "connecting" || state === "rec");
   micBtn.classList.toggle("err", state === "error");
+  // Surfaces with their own mic (the braid) mirror this state.
+  document.dispatchEvent(new CustomEvent("cc-voice-state", { detail: state }));
 }
 setMic("idle");
 
+/** Fields that render their own mic (the braid composer) opt out of the
+ * floating one via data-own-mic; dictation itself still works for them. */
 const voiceEligible = (el) =>
-  journey?.voice === true && el && !el.disabled && !el.readOnly &&
+  journey?.voice === true && el && !el.disabled && !el.readOnly && !el.dataset?.ownMic &&
   (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text"));
 
 function placeMic(el) {

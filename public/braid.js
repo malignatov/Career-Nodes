@@ -94,6 +94,7 @@
     raf: 0, lastTs: undefined, mx: undefined, my: undefined,
     spin: 0.6, hoverScale: 1, nimX: undefined, nimY: undefined,
     flashOn: false, resetTimer: 0,
+    sess: false, sx: 0, // inline session: camera X shift while the field recedes
   };
 
   const nodeYf = (j) => {
@@ -238,6 +239,7 @@
   function build(root) {
     const n = J.nodes.length;
     stopTick();
+    if (L.open) inlineAbort(); // a rebuild strands any live inline session
     const paths = [];
     for (let j = 0; j < n; j++) {
       paths.push(`<path data-s="${j}" d="" fill="none" stroke-linecap="round"></path>`);
@@ -274,6 +276,26 @@
               <div class="br-plaque-line"></div>
             </div>
           </div>
+          <div class="br7-canvas">
+            <button class="br7-exit"></button>
+            <div class="br7-chat"><div class="br7-msgs"></div></div>
+            <div class="br7-comp">
+              <textarea class="br7-input" rows="1" data-own-mic="1" disabled></textarea>
+              <button class="br7-mic" hidden>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
+              </button>
+            </div>
+            <div class="t5-tpanel br7-tpanel" hidden style="pointer-events:auto">
+              <div class="t5-tpanel-head">
+                <span class="t5-tpanel-kicker"></span>
+                <button class="t5-tclose">✕</button>
+              </div>
+              <div class="t5-tlabel" data-l1></div>
+              <div class="t5-twhat"></div>
+              <div class="t5-tlabel" data-l2></div>
+              <div class="t5-tmono"></div>
+            </div>
+          </div>
         </div>
       </div>`;
     J.frame = root.firstElementChild;
@@ -282,13 +304,30 @@
 
     const onPick = (e) => {
       const j = Number(e.currentTarget.dataset.i);
-      if (j === J.focus && openable(j)) openSession(J.nodes[j].id, J.ctx);
-      else setFocus(j);
+      if (J.sess) {
+        // The field is inert during a session; the node itself stays the
+        // transparency button (the app's invariant).
+        if (j === L.idx) toggleInlineTransparency();
+        return;
+      }
+      if (j === J.focus && openable(j)) {
+        if (J.merge) return; // no opening mid-ceremony
+        const n = J.nodes[j];
+        // Woven steps review in the page-style view; actionable steps talk
+        // inline beside their node.
+        if (J.ctx.isSettled(n.status) || J.status[j] === "done") openSession(n.id, J.ctx);
+        else inlineOpen(j);
+      } else setFocus(j);
     };
     J.strip.querySelectorAll(".br-node,.br-label").forEach((el) => el.addEventListener("click", onPick));
 
     let acc = 0;
     J.stage.addEventListener("wheel", (e) => {
+      if (J.sess) {
+        // Navigation freezes, but the transcript itself must stay scrollable.
+        if (!e.target.closest(".br7-chat")) e.preventDefault();
+        return;
+      }
       e.preventDefault();
       acc += e.deltaY;
       if (acc > 34) { acc = 0; setFocus(J.focus + 1); }
@@ -301,6 +340,31 @@
       J.my = e.clientY - r.top;
     });
     J.stage.addEventListener("mouseleave", () => { J.mx = undefined; });
+
+    // Inline session shell wiring.
+    q7(".br7-exit").addEventListener("click", () => {
+      if (!L.open || L.closing) return;
+      const ctx = L.ctx;
+      ctx.closeWs();
+      inlineClose();
+      ctx.reload();
+    });
+    const inp = q7(".br7-input");
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); inlineSend(); }
+    });
+    inp.addEventListener("input", () => {
+      inp.style.height = "38px";
+      inp.style.height = Math.min(120, Math.max(38, inp.scrollHeight)) + "px";
+    });
+    q7(".br7-mic").addEventListener("click", () => {
+      if (!L.open) return;
+      const v = L.ctx.voice;
+      if (!v?.enabled?.()) return;
+      if (v.active()) v.stop();
+      else v.start(inp);
+    });
+    q7(".t5-tclose").addEventListener("click", () => { q7(".br7-tpanel").hidden = true; });
   }
 
   function updateHeader() {
@@ -364,9 +428,20 @@
   }
 
   function updateTexts() {
+    const { t, esc } = J.ctx;
     J.strip.querySelectorAll(".br-label").forEach((el) => {
       el.textContent = J.ctx.nodeTitle(J.nodes[Number(el.dataset.i)]);
     });
+    const exit = q7(".br7-exit");
+    if (exit) exit.innerHTML = `${esc(t("exit"))} <span>· ${esc(t("exit_saved"))}</span>`;
+    const inp = q7(".br7-input");
+    if (inp && !L.open) inp.placeholder = t("placeholder");
+    const tp = q7(".br7-tpanel");
+    if (tp) {
+      tp.querySelector(".t5-tpanel-kicker").textContent = `◎ ${t("transparency")}`;
+      tp.querySelector("[data-l1]").textContent = t("t_what");
+      tp.querySelector("[data-l2]").textContent = t("t_compiled");
+    }
   }
 
   const timing = () => Date.now() < J.slowUntil
@@ -400,7 +475,7 @@
     J.stage.style.setProperty("--vacc", `color-mix(in srgb, var(--acc) ${Math.round(8 + 92 * J.vp)}%, var(--t4mut))`);
 
     J.strip.style.transition = `transform ${tm.dur} ${tm.ease}`;
-    J.strip.style.transform = `translateY(${stripY().toFixed(0)}px)`;
+    J.strip.style.transform = `translate(${(J.sess ? J.sx : 0).toFixed(0)}px, ${stripY().toFixed(0)}px)`;
 
     for (let j = 0; j < n; j++) {
       const p = J.strip.querySelector(`[data-s="${j}"]`);
@@ -490,13 +565,14 @@
   function startTick() {
     if (J.raf) return;
     const loop = (ts) => {
+      J.loop = loop;
       J.raf = requestAnimationFrame(loop);
       const stage = J.stage, strip = J.strip;
       if (!stage || !stage.isConnected) { stopTick(); return; }
-      if (S.open) return; // session overlay owns the screen
+      if (S.open) return; // the page-style review overlay owns the screen
       const j = J.status.indexOf("next");
-      if (j < 0) return;
       const anchor = anchorFor(J.focus);
+      if (j < 0) { renderKnots(strip, j, anchor, 0); return; }
       const ny = nodeYf(j);
       const nx0 = withGrav(baseX(j, ny), ny, anchor);
       const dir = Math.sign(braidX(j, ny) - nx0) || 1;
@@ -514,7 +590,7 @@
       const offX = (stage.clientWidth - 900) / 2;
       const sy = stripY();
       const hov = J.mx !== undefined
-        && Math.abs(J.mx - offX - (nx0 + amp)) < 140
+        && Math.abs(J.mx - offX - (J.sess ? J.sx : 0) - (nx0 + amp)) < 140
         && (J.my - (ny + sy)) > -105 && (J.my - (ny + sy)) < 140;
       J.hoverScale += ((hov ? 1.09 : 1) - J.hoverScale) * 0.15;
       if (nd) {
@@ -564,8 +640,29 @@
         l.style.transform = `translate(${lx.toFixed(1)}px, ${(ny - 10).toFixed(1)}px)`;
         l.style.textAlign = right ? "left" : "right";
       }
+      renderKnots(strip, j, anchor, amp);
     };
+    J.loop = loop;
     J.raf = requestAnimationFrame(loop);
+  }
+
+  /* Session knots ride the live thread: each answer's knot swings with the
+   * same oscillation bell the thread does. Rebuilt every frame. */
+  function renderKnots(strip, nextJ, anchor, amp) {
+    if (!J.sess || !L.open) return;
+    const kg = strip.querySelector("[data-knots]");
+    if (!kg) return;
+    const sNy = nodeYf(L.idx);
+    let kn = "";
+    for (const [ky, big] of L.knots) {
+      const bell = Math.exp(-Math.pow((ky - sNy) / 170, 2));
+      const osc = L.idx === nextJ ? amp * bell : 0;
+      const kx = (withGrav(baseX(L.idx, ky), ky, anchor) + osc).toFixed(1);
+      kn += big
+        ? `<circle cx="${kx}" cy="${ky}" r="6" fill="var(--acc)"></circle><circle cx="${kx}" cy="${ky}" r="12" fill="none" stroke="var(--acc)" stroke-opacity=".4"></circle>`
+        : `<circle cx="${kx}" cy="${ky}" r="3.6" fill="var(--acc)"></circle><circle cx="${kx}" cy="${ky}" r="8" fill="none" stroke="var(--acc)" stroke-opacity=".3"></circle>`;
+    }
+    kg.innerHTML = kn;
   }
 
   function stopTick() {
@@ -664,7 +761,7 @@
     J.nodes = ctx.journey.nodes;
     const rebuild = !J.frame || !J.frame.isConnected || J.frame.parentElement !== root
       || J.strip.querySelectorAll(".br-node").length !== J.nodes.length;
-    if (!J.merge) {
+    if (!J.merge && !J.sess) {
       const fresh = mapStatuses();
       const changed = fresh.join() !== J.status.join();
       J.status = fresh;
@@ -682,6 +779,395 @@
     updateHeader();
     startTick();
   }
+
+  /* ══ inline session: the talk happens beside the node ═════ */
+
+  const L = {
+    open: false, closing: false, gen: 0, ctx: null, node: null, idx: -1,
+    knots: [], knotN: 0, review: null, editing: false,
+    composerMode: "answer", chatless: false, timers: [],
+    placeholder: "", tWhat: "", tCompiled: "",
+  };
+
+  const q7 = (cls) => (J.stage ? J.stage.querySelector(cls) : null);
+
+  function inlineMsg(kind, text, html) {
+    const box = q7(".br7-msgs");
+    if (!box) return null;
+    const d = document.createElement("div");
+    d.className = `br7-${kind}`;
+    if (html !== undefined) d.innerHTML = html;
+    else d.textContent = text;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+    return d;
+  }
+
+  function inlineCompose(on, placeholder) {
+    const inp = q7(".br7-input");
+    if (!inp) return;
+    inp.disabled = !on;
+    inp.style.opacity = on ? "1" : ".35";
+    if (placeholder) { inp.placeholder = placeholder; L.placeholder = placeholder; }
+    if (on) inp.focus({ preventScroll: true });
+  }
+
+  /* Knot y follows the reference: first at nodeY+98, then every 46px; the
+   * big authorize knot takes the next slot without consuming it. */
+  function pushKnot(big) {
+    const n = big ? L.knotN + 1 : ++L.knotN;
+    L.knots.push([NY(L.idx) + 52 + n * 46, big]);
+  }
+
+  function inlineConnLost() {
+    inlineCompose(false);
+    inlineMsg("note", L.ctx.t("conn_closed"));
+  }
+
+  /* Engine process notes (inducing/revising) update one whisper in place
+   * instead of stacking — the transcript keeps only the conversation. */
+  function inlineStatus(text) {
+    const box = q7(".br7-msgs");
+    if (!box) return;
+    const st = box.querySelector("[data-status]");
+    if (st) {
+      st.textContent = text;
+      box.scrollTop = box.scrollHeight;
+    } else {
+      const d = inlineMsg("note", text);
+      if (d) d.dataset.status = "1";
+    }
+  }
+
+  function inlineSend() {
+    const inp = q7(".br7-input");
+    const text = inp && inp.value.trim();
+    if (!text || !L.open || L.closing) return;
+    const payload = L.composerMode === "amend"
+      ? { type: "review_action", action: "feedback", text }
+      : { type: "answer", text };
+    if (!L.ctx.wsSend(payload)) return inlineConnLost();
+    inp.value = "";
+    inp.style.height = "38px";
+    inlineCompose(false);
+    inlineMsg("user", text);
+    if (L.composerMode === "amend") {
+      L.composerMode = "answer";
+      inlineStatus(L.ctx.t("status_revising"));
+    } else pushKnot(false);
+  }
+
+  function toggleInlineTransparency() {
+    const tp = q7(".br7-tpanel");
+    if (!tp) return;
+    if (tp.hidden) {
+      tp.querySelector(".t5-twhat").textContent = L.tWhat;
+      tp.querySelector(".t5-tmono").innerHTML = L.tCompiled;
+    }
+    tp.hidden = !tp.hidden;
+  }
+
+  /* The accent-left-ruled review passage — full parity with the modal
+   * (alternates, edit wording, amend, reprocess), quiet plain-text actions. */
+  function buildInlineReview() {
+    const { payload, currentText, edited } = L.review;
+    const ctx = L.ctx, t = ctx.t;
+    const box = q7(".br7-msgs");
+    if (!box) return;
+    const old = box.querySelector("[data-review]");
+    if (old) old.remove();
+    const st = box.querySelector("[data-status]");
+    if (st) st.remove(); // the arriving draft supersedes the process whisper
+
+    const candidates = payload.mode === "candidates";
+    const others = candidates ? payload.candidates.filter((c) => c !== currentText) : [];
+    const verifiedN = candidates ? quotesIn(currentText, payload.verified_quotes) : payload.verified_quotes.length;
+
+    const parts = [];
+    if (L.editing) {
+      parts.push(`<div class="br7-edit"><textarea data-edit>${ctx.esc(currentText)}</textarea></div>`);
+    } else if (candidates) {
+      parts.push(`<div class="br7-review-body">${edited ? ctx.esc(currentText) : ctx.markVerbatim(currentText, payload.verified_quotes)}</div>`);
+    } else {
+      parts.push(`<div class="br7-review-body">${ctx.renderFields(payload.draft, payload.verified_quotes)}</div>`);
+    }
+    if (payload.existing && L.node.status === "stale") parts.push(`<div class="br7-stale">${ctx.esc(t("stale_note"))}</div>`);
+    if (edited) parts.push(`<div class="br7-verify"><span class="tick">✓</span> ${ctx.esc(t("edited_by_you"))}</div>`);
+    else if (verifiedN > 0) parts.push(`<div class="br7-verify"><span class="tick">✓</span> ${ctx.esc(t("verified", verifiedN))} · ${ctx.esc(t("braid_verbatim_note"))}</div>`);
+    if (!L.editing && candidates && !edited && others.length) {
+      parts.push(`<div class="br7-alts"><div class="br7-alts-label">${ctx.esc(t("alt_label"))}</div>${others
+        .map((c, i) => `<button class="br7-alt" data-alt="${i}">${ctx.markVerbatim(c, payload.verified_quotes)}</button>`)
+        .join("")}</div>`);
+    }
+    const acts = [];
+    if (candidates) acts.push(`<button class="br7-act" data-edit-btn>${ctx.esc(L.editing ? t("cancel_edit") : t("edit_wording"))}</button>`);
+    if (L.editing) acts.push(`<button class="br7-act accent" data-save>${ctx.esc(t("save_wording"))}</button>`);
+    else {
+      acts.push(`<button class="br7-act" data-amend>${ctx.esc(t("braid_amend"))}</button>`);
+      if (payload.existing) {
+        acts.push(`<button class="br7-act" data-reprocess>${ctx.esc(L.node.kind === "derived" ? t("reprocess") : t("reprocess_conversation"))}</button>`);
+      }
+      acts.push(`<button class="br7-act accent" data-auth>${ctx.esc(t("braid_authorize"))}</button>`);
+    }
+    parts.push(`<div class="br7-acts">${acts.join("")}</div>`);
+    if (payload.authorize_language) parts.push(`<div class="br7-authlang">${ctx.esc(payload.authorize_language)}</div>`);
+
+    const wrap = document.createElement("div");
+    wrap.className = "br7-say";
+    wrap.dataset.review = "1";
+    wrap.style.maxWidth = "400px";
+    wrap.innerHTML = `<div class="br7-review">${parts.join("")}</div>`;
+    box.appendChild(wrap);
+    box.scrollTop = box.scrollHeight;
+
+    wrap.querySelectorAll("[data-alt]").forEach((b) =>
+      b.addEventListener("click", () => {
+        L.review.currentText = others[Number(b.dataset.alt)];
+        buildInlineReview();
+      }));
+    const editBtn = wrap.querySelector("[data-edit-btn]");
+    if (editBtn) editBtn.addEventListener("click", () => {
+      L.editing = !L.editing;
+      buildInlineReview();
+    });
+    const save = wrap.querySelector("[data-save]");
+    if (save) save.addEventListener("click", () => {
+      const ta = wrap.querySelector("[data-edit]");
+      const text = ta && ta.value.trim();
+      if (text) {
+        L.review.currentText = text;
+        L.review.edited = true;
+      }
+      L.editing = false;
+      buildInlineReview();
+    });
+    const amend = wrap.querySelector("[data-amend]");
+    if (amend) amend.addEventListener("click", () => {
+      const on = L.composerMode !== "amend";
+      if (on && !ctx.wsLive()) return inlineConnLost();
+      L.composerMode = on ? "amend" : "answer";
+      amend.classList.toggle("active", on);
+      inlineCompose(on, t("amend_placeholder"));
+    });
+    const reprocess = wrap.querySelector("[data-reprocess]");
+    if (reprocess) reprocess.addEventListener("click", () => {
+      if (!ctx.wsSend({ type: "review_action", action: "reprocess" })) return inlineConnLost();
+      inlineMsg("note", t("status_revising"));
+      wrap.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    });
+    const auth = wrap.querySelector("[data-auth]");
+    if (auth) auth.addEventListener("click", () => {
+      const m = { type: "review_action", action: "authorize" };
+      if (candidates) m.value = L.review.currentText;
+      if (!ctx.wsSend(m)) return inlineConnLost();
+      wrap.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    });
+  }
+
+  /* Authorized: seal, whisper, end-knot, then the camera returns and the
+   * journey's weaving ceremony takes over. */
+  function inlineSeal() {
+    L.closing = true;
+    const ctx = L.ctx, idx = L.idx;
+    const wrap = q7(".br7-msgs")?.querySelector("[data-review]");
+    const acts = wrap?.querySelector(".br7-acts");
+    if (acts) acts.remove();
+    inlineMsg("woven", ctx.t("braid_woven_in"));
+    pushKnot(true);
+    L.timers.push(setTimeout(() => {
+      ctx.closeWs();
+      inlineClose();
+      setTimeout(() => {
+        // Only weave into a quiet field — not into a ceremony already running
+        // or a session the user reopened meanwhile.
+        if (!J.merge && !J.sess && !L.open && J.stage && J.stage.isConnected) startWeave(idx);
+      }, 350);
+    }, 1400));
+  }
+
+  const inlineSurface = {
+    say(text, anchor) {
+      if (anchor) inlineMsg("note", L.ctx.t("anchor_label"));
+      inlineMsg("say", text);
+    },
+    note(text) {
+      const localized = L.ctx.localizeNote(text);
+      // Process notes during induction or revision collapse onto one line;
+      // conversation notes (topics) stay part of the transcript.
+      if (L.review || L.chatless) inlineStatus(localized);
+      else inlineMsg("note", localized);
+    },
+    error(text) { inlineMsg("error", text); },
+    ask(prompt) {
+      L.composerMode = "answer";
+      const t = L.ctx.t;
+      const ph = prompt && prompt.includes("esume") ? t("placeholder_resume")
+        : prompt && prompt !== "you" ? prompt : t("placeholder");
+      inlineCompose(true, ph);
+    },
+    review(payload) {
+      L.review = { payload, currentText: payload.candidates[0] ?? "", edited: false };
+      L.editing = false;
+      L.composerMode = "answer";
+      inlineCompose(false);
+      buildInlineReview();
+    },
+    done(outcome) {
+      if (outcome === "authorized") inlineSeal();
+      else inlineMsg("note", L.ctx.t("session_saved", outcome));
+    },
+    closed() {
+      if (!L.open || L.closing) return;
+      inlineCompose(false);
+      inlineMsg("note", L.ctx.t("conn_closed"));
+    },
+  };
+
+  async function inlineOpen(j) {
+    if (L.open || S.open || !J.stage) return;
+    const ctx = J.ctx;
+    const node = J.nodes[j];
+    if (!node) return;
+    const my = ++L.gen;
+    L.open = true;
+    L.closing = false;
+    L.ctx = ctx;
+    L.node = node;
+    L.idx = j;
+    L.knots = [];
+    L.knotN = 0;
+    L.review = null;
+    L.editing = false;
+    L.composerMode = "answer";
+    L.chatless = node.kind === "derived";
+    L.tWhat = "";
+    L.tCompiled = "";
+
+    // Camera + recession: [data-sess] drives the CSS fades; the focused
+    // thread/node carry [data-cur] and stay lit.
+    J.sess = true;
+    J.focus = j;
+    J.stage.dataset.sess = "1";
+    J.frame.dataset.sess = "1";
+    const pth = J.strip.querySelector(`[data-s="${j}"]`);
+    if (pth) pth.dataset.cur = "1";
+    const nd = J.strip.querySelector(`.br-node[data-i="${j}"]`);
+    if (nd) nd.dataset.cur = "1";
+    const svg = J.strip.querySelector("svg");
+    if (svg && !svg.querySelector("[data-knots]")) {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("data-knots", "");
+      svg.appendChild(g);
+    }
+    J.sx = Math.max(-420, Math.min(100, 250 - anchorFor(j).nx));
+    layout();
+
+    const exit = q7(".br7-exit"), chat = q7(".br7-chat"), comp = q7(".br7-comp");
+    [chat, comp, exit].forEach((el) => {
+      if (el) { el.style.opacity = "1"; el.style.pointerEvents = "auto"; }
+    });
+    const box = q7(".br7-msgs");
+    if (box) box.innerHTML = "";
+    const mic = q7(".br7-mic");
+    if (mic) mic.hidden = !ctx.voice?.enabled?.();
+    inlineCompose(false, ctx.t("placeholder"));
+    if (L.chatless) inlineStatus(ctx.localizeNote(ctx.t("status_preparing")));
+
+    fetch(`/api/playbook/${node.id}?lang=${ctx.lang}`)
+      .then((r) => r.json())
+      .then((pb) => {
+        if (!L.open || L.gen !== my) return;
+        L.tWhat = (ctx.lang !== "en" ? `${ctx.t("playbook_lang_note")}\n\n` : "") + pb.purpose;
+        L.tCompiled = ctx.compiledHtml(pb.compiled);
+        const tp = q7(".br7-tpanel");
+        if (tp && !tp.hidden) { // panel already open — fill it in place
+          tp.querySelector(".t5-twhat").textContent = L.tWhat;
+          tp.querySelector(".t5-tmono").innerHTML = L.tCompiled;
+        }
+      })
+      .catch(() => {});
+
+    let resuming = false;
+    if (node.kind === "conversation" && node.status === "in_progress") {
+      try {
+        const res = await fetch(ctx.api(`/api/session/${node.id}`));
+        if (!L.open || L.gen !== my) return;
+        if (res.ok) {
+          const saved = await res.json();
+          if (!L.open || L.gen !== my) return;
+          for (const e of saved.exchange ?? []) {
+            const d = inlineMsg(e.speaker === "user" ? "user" : "say", e.text);
+            if (d) d.style.animation = "none";
+            if (e.speaker === "user") pushKnot(false);
+          }
+          inlineMsg("note", ctx.t("resumed_note"));
+          resuming = true;
+        }
+      } catch { /* no recording — fresh start */ }
+    }
+    if (!L.open || L.gen !== my) return;
+
+    ctx.connect(node.id, { resuming, review: false, surface: inlineSurface });
+  }
+
+  /* Reverse of inlineOpen: restore the field, clear the shell. */
+  function inlineClose() {
+    if (!L.open) return;
+    L.gen++;
+    L.timers.forEach(clearTimeout);
+    L.timers = [];
+    L.ctx?.stopDictation?.();
+    L.open = false;
+    L.closing = false;
+    L.review = null;
+    J.sess = false;
+    J.sx = 0;
+    if (J.stage) delete J.stage.dataset.sess;
+    if (J.frame) delete J.frame.dataset.sess;
+    if (J.strip) {
+      J.strip.querySelectorAll("[data-cur]").forEach((el) => { delete el.dataset.cur; });
+      const kg = J.strip.querySelector("[data-knots]");
+      if (kg) kg.innerHTML = "";
+    }
+    L.knots = [];
+    L.knotN = 0;
+    const exit = q7(".br7-exit"), chat = q7(".br7-chat"), comp = q7(".br7-comp"), tp = q7(".br7-tpanel");
+    [chat, comp, exit].forEach((el) => {
+      if (el) { el.style.opacity = "0"; el.style.pointerEvents = "none"; }
+    });
+    if (tp) tp.hidden = true;
+    const box = q7(".br7-msgs");
+    if (box) box.innerHTML = "";
+    if (J.stage && J.stage.isConnected) layout();
+  }
+
+  /* A DOM rebuild strands the session without touching the old DOM. */
+  function inlineAbort() {
+    L.gen++;
+    L.timers.forEach(clearTimeout);
+    L.timers = [];
+    L.ctx?.closeWs?.();
+    L.ctx?.stopDictation?.();
+    L.open = false;
+    L.closing = false;
+    L.review = null;
+    L.knots = [];
+    L.knotN = 0;
+    J.sess = false;
+    J.sx = 0;
+  }
+
+  // The braid mic mirrors the app's dictation state (app.js broadcasts it).
+  document.addEventListener("cc-voice-state", (e) => {
+    if (!L.open) return;
+    const mic = q7(".br7-mic");
+    if (!mic) return;
+    const listening = e.detail === "connecting" || e.detail === "rec";
+    mic.classList.toggle("listening", listening);
+    mic.classList.toggle("err", e.detail === "error");
+    const inp = q7(".br7-input");
+    if (inp) inp.placeholder = listening ? L.ctx.t("braid_listening") : (L.placeholder || L.ctx.t("placeholder"));
+  });
 
   /* ══ session view (t5) ════════════════════════════════════ */
 
@@ -1152,10 +1638,24 @@
     ctx.connect(id, { resuming, review: S.reviewMode, surface: braidSurface });
   }
 
+  /* Route an open request the same way a field click does: woven steps
+   * review page-style, actionable steps talk inline beside their node. */
+  function openAny(id, ctx) {
+    const node = ctx.journey.nodes.find((n) => n.id === id);
+    if (!node) return;
+    const j = J.nodes.findIndex((n) => n.id === id);
+    if (ctx.isSettled(node.status) || (j >= 0 && J.status[j] === "done")) return openSession(id, ctx);
+    if (j >= 0 && J.stage && J.stage.isConnected) return inlineOpen(j);
+    return openSession(id, ctx); // no field on screen — fall back to the page view
+  }
+
   /* ══ public seam ══════════════════════════════════════════ */
 
   const wide = matchMedia("(min-width: 900px)");
-  wide.addEventListener?.("change", () => { if (J.ctx) J.ctx.reload(); });
+  wide.addEventListener?.("change", () => {
+    if (L.open) inlineAbort(); // leaving braid mode must not strand the interview
+    if (J.ctx) J.ctx.reload();
+  });
 
   window.Braid = {
     ready: true,
@@ -1168,6 +1668,11 @@
     },
 
     renderJourney,
-    openSession,
+    openSession: openAny,
+    /** Close any live inline session (ws included) — called by the app when
+     * the braid stops being the active journey surface. */
+    abortSession() { if (L.open) inlineAbort(); },
+    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length }),
+    _frame: (ts) => { if (J.loop) J.loop(ts); },
   };
 })();

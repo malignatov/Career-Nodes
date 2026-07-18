@@ -18,6 +18,9 @@
 #journey.braid-on, #braidSession {
   --acc: #B7F24C;
   --acc-ink: #18280B;
+  /* Accent used AS TEXT: full accent on the dark field, a deep readable
+     cousin on parchment (lime on light is ~1.1:1). */
+  --acc-text: var(--acc);
 
   --t4bg: #0d0c08;
   --t4bd: #262318;
@@ -56,6 +59,7 @@
 
 :root[data-theme="light"] #journey.braid-on,
 :root[data-theme="light"] #braidSession {
+  --acc-text: #4E8A1F;
   --t4bg: #EFEAE0;
   --t4bd: #DAD3C4;
   --t4ink: #2A2620;
@@ -190,6 +194,110 @@
 }
 .br-omega { position: absolute; left: 240px; top: 1540px; width: 420px; height: 420px; opacity: .6; pointer-events: none; }
 
+/* ── inline session (the field recedes; the talk happens beside the node) ── */
+
+/* Dimming: [data-sess] on the stage fades everything except the one
+   thread/node carrying [data-cur]. Transitions come from the elements. */
+.br-stage[data-sess] [data-s]:not([data-cur]) { opacity: .05 !important; }
+.br-stage[data-sess] .br-node:not([data-cur]) { opacity: .06 !important; }
+.br-stage[data-sess] .br-label { opacity: 0 !important; pointer-events: none; }
+.br-stage[data-sess] .br-omega { opacity: .06 !important; }
+.br-stage[data-sess] .br-plaque-line { opacity: 0 !important; }
+.br-stage[data-sess] [data-ping] { display: none !important; }
+/* Focus mode: the header's tools sleep while a session is open. */
+.br-frame[data-sess] .br-tools { opacity: 0; pointer-events: none; }
+.br-frame[data-sess] .br-sub { opacity: 0; }
+.br-tools, .br-sub { transition: opacity .45s ease; }
+
+/* The session shell lives on the same centered 900px canvas as the strip. */
+.br7-canvas { position: absolute; left: 50%; top: 0; bottom: 0; width: 900px; margin-left: -450px; pointer-events: none; }
+.br7-exit {
+  position: absolute; left: 40px; top: 64px; z-index: 70;
+  background: none; border: none;
+  font: 500 12px Karla, sans-serif; color: var(--t4sub);
+  cursor: pointer; padding: 4px 0;
+  opacity: 0; pointer-events: none;
+  transition: opacity .6s ease;
+}
+.br7-exit span { opacity: .6; }
+.br7-chat {
+  position: absolute; left: 430px; right: 56px; top: 88px; bottom: 116px; z-index: 60;
+  opacity: 0; pointer-events: none;
+  transition: opacity .8s ease .45s;
+  display: flex; flex-direction: column;
+}
+.br7-msgs {
+  flex: 1; overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 22px; padding: 12px 4px;
+}
+.br7-msgs::-webkit-scrollbar { display: none; }
+.br7-comp {
+  position: absolute; left: 430px; right: 56px; bottom: 26px; z-index: 60;
+  display: flex; align-items: flex-end; gap: 12px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .8s ease .55s;
+}
+.br7-input {
+  flex: 1; background: none; border: none; resize: none;
+  font: 400 14px/1.5 Karla, sans-serif; color: var(--t4ink);
+  outline: none; padding: 8px 0; height: 38px;
+  box-sizing: border-box; max-height: 120px; overflow-y: hidden;
+  transition: opacity .3s ease;
+}
+.br7-input::placeholder { color: var(--t4cnt2); }
+.br7-mic {
+  width: 34px; height: 34px; border-radius: 99px;
+  border: 1px solid var(--t5panel-bd); background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; flex: none;
+  transition: border-color .4s ease;
+  color: var(--t4cnt);
+}
+.br7-mic.listening { border-color: var(--acc-text); color: var(--acc-text); animation: breatheGlow 2s ease-in-out infinite; }
+.br7-mic.err { border-color: var(--t5err); color: var(--t5err); }
+
+/* Message materials (inline variant: user answers are bare text, no card). */
+.br7-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 370px; animation: floatIn .5s both; text-wrap: pretty; }
+.br7-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt2); animation: floatIn .5s both; }
+.br7-user { align-self: flex-end; max-width: 340px; text-align: right; font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink); animation: floatIn .5s both; text-wrap: pretty; }
+.br7-woven { align-self: center; font: italic 500 16px Lora, serif; color: var(--acc-text); animation: floatIn .8s both; }
+.br7-error { align-self: center; text-align: center; font: 500 12px Karla, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 370px; }
+
+/* Review: an accent-left-ruled passage, not a card. */
+.br7-review { border-left: 2px solid color-mix(in srgb, var(--acc) 40%, transparent); padding-left: 14px; max-width: 400px; }
+.br7-review-body { font: 500 14.5px/1.65 Lora, serif; color: var(--t4ink); text-wrap: pretty; text-align: left; }
+.br7-review-body mark { background: none; color: inherit; border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
+.br7-review-body .field-label { font: 700 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
+.br7-review-body .field-value, .br7-review-body li { font: 500 13.5px/1.6 Lora, serif; color: var(--t4ink); }
+.br7-review-body ul { margin: 2px 0 4px; padding-left: 18px; }
+.br7-review-body .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
+.br7-verify { font: 400 10.5px Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
+.br7-verify .tick { color: var(--acc-text); }
+.br7-stale { font: 400 11px Karla, sans-serif; color: var(--t4cnt); margin-top: 8px; }
+.br7-alts { margin-top: 10px; }
+.br7-alts-label { font: 600 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin-bottom: 6px; }
+.br7-alt {
+  display: block; width: 100%; text-align: left; box-sizing: border-box;
+  background: none; border: none; border-left: 2px solid var(--t5card-bd);
+  padding: 4px 0 4px 10px; margin-bottom: 6px;
+  font: 400 12.5px/1.5 Lora, serif; color: var(--t4body); cursor: pointer;
+}
+.br7-alt:hover { border-left-color: color-mix(in srgb, var(--acc) 55%, transparent); }
+.br7-alt mark { background: none; color: inherit; border-bottom: 1.5px solid color-mix(in srgb, var(--acc) 55%, transparent); }
+.br7-edit textarea {
+  width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical;
+  background: var(--t5user-bg); border: 1px solid var(--t5user-bd); border-radius: 10px;
+  padding: 9px 11px; font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t4ink); outline: none;
+  margin-top: 8px;
+}
+.br7-acts { display: flex; justify-content: flex-end; align-items: center; gap: 18px; margin-top: 12px; font: 600 12px Karla, sans-serif; flex-wrap: wrap; }
+.br7-act { color: var(--t4cnt); cursor: pointer; background: none; border: none; font: inherit; padding: 0; }
+.br7-act.accent { color: var(--acc-text); }
+.br7-act.active { color: var(--t4ink); }
+.br7-act:disabled { opacity: .4; cursor: default; }
+.br7-authlang { font: 400 10.5px/1.5 Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
+
 /* ── session overlay ─────────────────────────────────────────── */
 #braidSession {
   position: fixed; inset: 0; z-index: 50;
@@ -256,7 +364,7 @@
   font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink);
   animation: floatIn .5s both; text-wrap: pretty;
 }
-.t5-woven { align-self: center; font: italic 500 17px Lora, serif; color: var(--acc); margin-top: 4px; animation: floatIn .8s both; }
+.t5-woven { align-self: center; font: italic 500 17px Lora, serif; color: var(--acc-text); margin-top: 4px; animation: floatIn .8s both; }
 
 /* inline review draft card */
 .t5-draft {
@@ -276,7 +384,7 @@
 .t5-draft-body .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
 .t5-stale { font: 400 11px Karla, sans-serif; color: var(--t4cnt); margin-top: 8px; }
 .t5-verify { font: 400 10.5px Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
-.t5-verify .tick { color: var(--acc); }
+.t5-verify .tick { color: var(--acc-text); }
 .t5-alts { margin-top: 10px; }
 .t5-alts-label { font: 600 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin-bottom: 6px; }
 .t5-alt {
