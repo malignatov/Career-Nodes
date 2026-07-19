@@ -137,9 +137,9 @@
   z-index: 40;
 }
 .br-title { font: 600 26px Lora, serif; color: var(--t4ink); }
-.br-sub { font: 400 12.5px Karla, sans-serif; color: var(--t4sub); margin-top: 3px; }
+.br-sub { font: 400 12.5px Karla, Manrope, sans-serif; color: var(--t4sub); margin-top: 3px; }
 .br-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.br-count { font: 600 12px Karla, sans-serif; color: var(--t4cnt); white-space: nowrap; }
+.br-count { font: 600 12px Karla, Manrope, sans-serif; color: var(--t4cnt); white-space: nowrap; }
 .br-count span { color: var(--t4cnt2); }
 .br-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .br-pill {
@@ -147,13 +147,13 @@
   border: 1px solid var(--t4btnBd);
   border-radius: 99px;
   padding: 7px 12px;
-  font: 600 11px Karla, sans-serif;
+  font: 600 11px Karla, Manrope, sans-serif;
   color: var(--t4btnInk);
   cursor: pointer;
 }
 .br-pill.quiet { background: none; border: none; color: var(--t4cnt2); font-weight: 500; padding: 4px 6px; }
 .br-pill.quiet.armed { color: var(--t5err); }
-.br-chip { font: 600 11px Karla, sans-serif; color: var(--t4cnt2); padding: 7px 4px; }
+.br-chip { font: 600 11px Karla, Manrope, sans-serif; color: var(--t4cnt2); padding: 7px 4px; }
 
 .br-stage { position: absolute; inset: 0; z-index: 20; overflow: hidden; }
 .br-strip {
@@ -189,17 +189,27 @@
   animation: t4ping 3.4s ease-out infinite;
 }
 .br-plaque { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 30; pointer-events: none; }
+/* Focused node: title sits left of the sphere (right-aligned), caption right
+   (left-aligned) — each with a soft blurred halo so neither crowds the braid.
+   JS flips the title to the right for far-left nodes (see layout titleFlip). */
 .br-plaque-title {
-  position: absolute; left: -170px; bottom: 54px; width: 340px; text-align: center;
+  position: absolute; left: -356px; bottom: 48px; width: 340px; text-align: right;
   font: 600 26px/1.08 Lora, serif; color: var(--t4ink2);
-  text-shadow: 0 1px 12px var(--t4ts1);
+  text-shadow: 0 1px 12px var(--t4ts1), 0 0 24px var(--t4ts1);
   transition: color .5s ease;
 }
 .br-plaque-line {
-  position: absolute; left: -130px; top: 56px; width: 260px; text-align: center;
-  font: 400 13px/1.55 Karla, sans-serif; color: var(--t4body); text-wrap: pretty;
-  text-shadow: 0 1px 6px var(--t4ts2);
+  position: absolute; left: 20px; top: 48px; width: 260px; text-align: left;
+  /* The prompt is the counselor's voice — the same Lora the chat speaks in,
+     not UI chrome type. Keeps the focused node's title+caption coherent. */
+  font: 400 13.5px/1.6 Lora, serif; color: var(--t4body); text-wrap: pretty;
+  text-shadow: 0 1px 6px var(--t4ts2), 0 0 18px var(--t4ts2);
   transition: color .5s ease;
+}
+/* Locked sibling label sub-line ("Unlocks after …"). */
+.br-label-sub {
+  margin-top: 2px; font: 600 9px Karla, Manrope, sans-serif;
+  letter-spacing: .05em; text-transform: uppercase; opacity: .6; color: var(--t4lab3);
 }
 .br-omega { position: absolute; left: 240px; top: 1540px; width: 420px; height: 420px; opacity: .6; pointer-events: none; }
 
@@ -213,10 +223,10 @@
 .br-stage[data-sess] .br-omega { opacity: .06 !important; }
 .br-stage[data-sess] .br-plaque-line { opacity: 0 !important; }
 .br-stage[data-sess] [data-ping] { display: none !important; }
-/* Focus mode: the header's tools sleep while a session is open. */
-.br-frame[data-sess] .br-tools { opacity: 0; pointer-events: none; }
-.br-frame[data-sess] .br-sub { opacity: 0; }
-.br-tools, .br-sub { transition: opacity .45s ease; }
+/* Focus mode: the whole header sleeps while a session is open so the
+   ← Journey (left) and ◎ (right) session chrome own the top corners. */
+.br-head { transition: opacity .45s ease; }
+.br-frame[data-sess] .br-head { opacity: 0; pointer-events: none; }
 
 /* The session shell lives on the same centered 900px canvas as the strip. */
 .br7-canvas { position: absolute; left: 50%; top: 0; bottom: 0; width: 900px; margin-left: -450px; pointer-events: none; }
@@ -240,12 +250,35 @@
 }
 .br7-input {
   flex: 1; background: none; border: none; resize: none;
-  font: 400 14px/1.5 Karla, sans-serif; color: var(--t4ink);
+  font: 400 14px/1.5 Karla, Manrope, sans-serif; color: var(--t4ink);
   outline: none; padding: 8px 0; height: 38px;
   box-sizing: border-box; max-height: 120px; overflow-y: hidden;
   transition: opacity .3s ease;
+  caret-color: var(--acc); /* the accent caret draws the eye to the borderless field */
 }
 .br7-input::placeholder { color: var(--t4cnt2); }
+
+/* ← Journey exit — session chrome, top-left (with Esc and click-out). */
+.br7-exit {
+  position: absolute; left: 40px; top: 18px; z-index: 70;
+  background: none; border: none; cursor: pointer; padding: 4px 0;
+  font: 500 12px Karla, Manrope, sans-serif; color: var(--t4sub);
+  display: none; pointer-events: auto;
+}
+.br7-exit-label { opacity: .75; }
+.br-frame[data-sess] .br7-exit { display: block !important; }
+
+/* ◎ transparency button — session chrome, top-right. The focused node stays a
+   transparency button too; this is the explicit affordance testers looked for. */
+.br7-info {
+  position: absolute; right: 40px; top: 18px; z-index: 70;
+  width: 30px; height: 30px; border-radius: 99px;
+  border: 1px solid var(--t4btnBd); background: var(--t4btnBg);
+  color: var(--t4cnt); cursor: pointer; font: 500 15px Karla, Manrope, sans-serif;
+  display: none; align-items: center; justify-content: center; padding: 0;
+  pointer-events: auto;
+}
+.br-frame[data-sess] .br7-info { display: flex !important; }
 .br7-mic {
   width: 34px; height: 34px; border-radius: 99px;
   border: 1px solid var(--t5panel-bd); background: none; cursor: pointer;
@@ -259,24 +292,24 @@
 
 /* Message materials (inline variant: user answers are bare text, no card). */
 .br7-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 370px; animation: floatIn .5s both; text-wrap: pretty; }
-.br7-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
-.br7-user { align-self: flex-end; max-width: 340px; text-align: right; font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink); animation: floatIn .5s both; text-wrap: pretty; }
+.br7-note { align-self: center; text-align: center; font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
+.br7-user { align-self: flex-end; max-width: 340px; text-align: right; font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t5user-ink); animation: floatIn .5s both; text-wrap: pretty; }
 .br7-woven { align-self: center; font: italic 500 16px Lora, serif; color: var(--acc-text); animation: floatIn .8s both; }
-.br7-error { align-self: center; text-align: center; font: 500 12px Karla, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 370px; }
+.br7-error { align-self: center; text-align: center; font: 500 12px Karla, Manrope, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 370px; }
 
 /* Review: an accent-left-ruled passage, not a card. */
 .br7-review { border-left: 2px solid color-mix(in srgb, var(--acc) 40%, transparent); padding-left: 14px; max-width: 400px; }
 .br7-review-body { font: 500 14.5px/1.65 Lora, serif; color: var(--t4ink); text-wrap: pretty; text-align: left; }
 .br7-review-body mark { background: none; color: inherit; border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
-.br7-review-body .field-label { font: 700 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
+.br7-review-body .field-label { font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
 .br7-review-body .field-value, .br7-review-body li { font: 500 13.5px/1.6 Lora, serif; color: var(--t4ink); }
 .br7-review-body ul { margin: 2px 0 4px; padding-left: 18px; }
 .br7-review-body .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
-.br7-verify { font: 400 10.5px Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
+.br7-verify { font: 400 10.5px Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
 .br7-verify .tick { color: var(--acc-text); }
-.br7-stale { font: 400 11px Karla, sans-serif; color: var(--t4cnt); margin-top: 8px; }
+.br7-stale { font: 400 11px Karla, Manrope, sans-serif; color: var(--t4cnt); margin-top: 8px; }
 .br7-alts { margin-top: 10px; }
-.br7-alts-label { font: 600 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin-bottom: 6px; }
+.br7-alts-label { font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin-bottom: 6px; }
 .br7-alt {
   display: block; width: 100%; text-align: left; box-sizing: border-box;
   background: none; border: none; border-left: 2px solid var(--t5card-bd);
@@ -288,26 +321,26 @@
 .br7-edit textarea {
   width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical;
   background: var(--t5user-bg); border: 1px solid var(--t5user-bd); border-radius: 10px;
-  padding: 9px 11px; font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t4ink); outline: none;
+  padding: 9px 11px; font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t4ink); outline: none;
   margin-top: 8px;
 }
-.br7-acts { display: flex; justify-content: flex-end; align-items: center; gap: 18px; margin-top: 12px; font: 600 12px Karla, sans-serif; flex-wrap: wrap; }
+.br7-acts { display: flex; justify-content: flex-end; align-items: center; gap: 18px; margin-top: 12px; font: 600 12px Karla, Manrope, sans-serif; flex-wrap: wrap; }
 .br7-act { color: var(--t4cnt); cursor: pointer; background: none; border: none; font: inherit; padding: 0; }
 .br7-act.accent { color: var(--acc-text); }
 .br7-act.active { color: var(--t4ink); }
 .br7-act:disabled { opacity: .4; cursor: default; }
-.br7-authlang { font: 400 10.5px/1.5 Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
+.br7-authlang { font: 400 10.5px/1.5 Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
 
 /* Review-in-place: a woven bead reads its authored story back — the serif
    passage, verbatim fragments returned to the right, plain-text actions. */
 .br7-story { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 400px; text-wrap: pretty; text-align: left; animation: floatIn .5s both; }
 .br7-story mark { background: none; color: inherit; border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
-.br7-story .field-label { font: 700 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
+.br7-story .field-label { font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
 .br7-story .field-value, .br7-story li { font: 500 13.5px/1.6 Lora, serif; color: var(--t4ink); }
 .br7-story ul { margin: 2px 0 4px; padding-left: 18px; }
 .br7-story .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
 .br7-fragments { align-self: flex-end; max-width: 340px; text-align: right; display: flex; flex-direction: column; gap: 8px; animation: floatIn .5s both; }
-.br7-fragment { font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink); text-wrap: pretty; }
+.br7-fragment { font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t5user-ink); text-wrap: pretty; }
 .br7-fragment span { border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
 
 /* ── session overlay ─────────────────────────────────────────── */
@@ -315,7 +348,7 @@
   position: fixed; inset: 0; z-index: 50;
   background: var(--t4bg);
   animation: floatIn .6s both;
-  font-family: Karla, sans-serif;
+  font-family: Karla, Manrope, sans-serif;
 }
 .t5-col { position: absolute; left: 50%; top: 0; bottom: 0; width: 900px; margin-left: -450px; }
 @media (max-width: 940px) { .t5-col { width: 100%; left: 0; margin-left: 0; } }
@@ -326,9 +359,9 @@
   display: flex; align-items: center; justify-content: space-between;
   z-index: 40;
 }
-.t5-back { background: none; border: none; font: 500 12px Karla, sans-serif; color: var(--t4sub); cursor: pointer; padding: 4px 0; text-align: left; }
+.t5-back { background: none; border: none; font: 500 12px Karla, Manrope, sans-serif; color: var(--t4sub); cursor: pointer; padding: 4px 0; text-align: left; }
 .t5-back span { color: var(--t4cnt2); }
-.t5-step { font: 500 11px Karla, sans-serif; color: var(--t4cnt2); }
+.t5-step { font: 500 11px Karla, Manrope, sans-serif; color: var(--t4cnt2); }
 
 .t5-hero {
   position: absolute; left: 0; right: 0; top: 58px;
@@ -337,7 +370,7 @@
 }
 .t5-orb { position: relative; width: 38px; height: 38px; pointer-events: auto; cursor: pointer; transition: filter .35s ease; }
 .t5-title { font: 600 24px Lora, serif; color: var(--t4ink2); }
-.t5-sub { font: 400 11.5px Karla, sans-serif; color: var(--t4sub); margin-top: 1px; max-width: 460px; }
+.t5-sub { font: 400 11.5px Karla, Manrope, sans-serif; color: var(--t4sub); margin-top: 1px; max-width: 460px; }
 
 .t5-topfade {
   position: absolute; left: 0; right: 0; top: 0; height: 150px;
@@ -352,13 +385,17 @@
   border-radius: 16px; padding: 16px 18px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
 }
+/* Inline panel scrolls cleanly for long compiled instructions: hidden
+   scrollbar + top/bottom mask fade. */
+.br7-tpanel { scrollbar-width: none; -webkit-mask-image: linear-gradient(transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.br7-tpanel::-webkit-scrollbar { display: none; }
 .t5-tpanel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.t5-tpanel-kicker { font: 700 10px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt); }
-.t5-tclose { background: none; border: none; color: var(--t4sub); font: 600 12px Karla, sans-serif; cursor: pointer; }
-.t5-tlabel { font: 600 10px Karla, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: var(--t4cnt2); margin: 12px 0 4px; }
-.t5-twhat { font: 400 12.5px/1.55 Karla, sans-serif; color: var(--t4body); white-space: pre-line; }
+.t5-tpanel-kicker { font: 700 10px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt); }
+.t5-tclose { background: none; border: none; color: var(--t4sub); font: 600 12px Karla, Manrope, sans-serif; cursor: pointer; }
+.t5-tlabel { font: 600 10px Karla, Manrope, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: var(--t4cnt2); margin: 12px 0 4px; }
+.t5-twhat { font: 400 12.5px/1.55 Karla, Manrope, sans-serif; color: var(--t4body); white-space: pre-line; }
 .t5-tmono { font: 400 11px/1.6 ui-monospace, Menlo, monospace; color: var(--t4sub); background: rgba(128, 128, 128, .07); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: break-word; }
-.t5-tmono h5 { margin: 10px 0 3px; font: 700 10px Karla, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--t4cnt); }
+.t5-tmono h5 { margin: 10px 0 3px; font: 700 10px Karla, Manrope, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--t4cnt); }
 
 .t5-scroll { position: absolute; left: 0; right: 0; top: 0; bottom: 86px; overflow-y: auto; overflow-x: hidden; z-index: 20; scrollbar-width: none; }
 .t5-scroll::-webkit-scrollbar { display: none; }
@@ -367,13 +404,13 @@
 .t5-msgs { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 26px; }
 
 .t5-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 430px; animation: floatIn .5s both; text-wrap: pretty; }
-.t5-note { align-self: center; text-align: center; font: 600 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
-.t5-error { align-self: center; text-align: center; font: 500 12px Karla, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 430px; }
+.t5-note { align-self: center; text-align: center; font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
+.t5-error { align-self: center; text-align: center; font: 500 12px Karla, Manrope, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 430px; }
 .t5-user {
   align-self: flex-end; max-width: 390px;
   background: var(--t5user-bg); border: 1px solid var(--t5user-bd);
   border-radius: 14px; padding: 11px 15px;
-  font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t5user-ink);
+  font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t5user-ink);
   animation: floatIn .5s both; text-wrap: pretty;
 }
 .t5-woven { align-self: center; font: italic 500 17px Lora, serif; color: var(--acc-text); margin-top: 4px; animation: floatIn .8s both; }
@@ -387,18 +424,18 @@
   transition: border-color .8s ease;
 }
 .t5-draft.sealed { border-color: color-mix(in srgb, var(--acc) 55%, transparent); }
-.t5-draft-kicker { font: 700 9.5px Karla, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt); margin-bottom: 8px; }
+.t5-draft-kicker { font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4cnt); margin-bottom: 8px; }
 .t5-draft-body { font: 500 14.5px/1.65 Lora, serif; color: var(--t4ink); text-wrap: pretty; }
 .t5-draft-body mark { background: none; color: inherit; border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
-.t5-draft-body .field-label { font: 700 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
+.t5-draft-body .field-label { font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin: 10px 0 2px; }
 .t5-draft-body .field-value, .t5-draft-body li { font: 500 13.5px/1.6 Lora, serif; color: var(--t4ink); }
 .t5-draft-body ul { margin: 2px 0 4px; padding-left: 18px; }
 .t5-draft-body .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
-.t5-stale { font: 400 11px Karla, sans-serif; color: var(--t4cnt); margin-top: 8px; }
-.t5-verify { font: 400 10.5px Karla, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
+.t5-stale { font: 400 11px Karla, Manrope, sans-serif; color: var(--t4cnt); margin-top: 8px; }
+.t5-verify { font: 400 10.5px Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
 .t5-verify .tick { color: var(--acc-text); }
 .t5-alts { margin-top: 10px; }
-.t5-alts-label { font: 600 9.5px Karla, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin-bottom: 6px; }
+.t5-alts-label { font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--t4cnt2); margin-bottom: 6px; }
 .t5-alt {
   display: block; width: 100%; text-align: left; box-sizing: border-box;
   background: none; border: 1px solid var(--t5card-bd); border-radius: 10px;
@@ -411,20 +448,20 @@
 .t5-edit-area textarea {
   width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical;
   background: var(--t5user-bg); border: 1px solid var(--t5user-bd); border-radius: 10px;
-  padding: 9px 11px; font: 400 13.5px/1.55 Karla, sans-serif; color: var(--t4ink); outline: none;
+  padding: 9px 11px; font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t4ink); outline: none;
 }
 .t5-acts { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .t5-ghost {
   background: none; border: 1px solid var(--t5panel-bd); border-radius: 99px;
-  padding: 7px 14px; font: 600 11px Karla, sans-serif; color: var(--t4cnt); cursor: pointer;
+  padding: 7px 14px; font: 600 11px Karla, Manrope, sans-serif; color: var(--t4cnt); cursor: pointer;
 }
 .t5-ghost.active { border-color: color-mix(in srgb, var(--acc) 55%, transparent); color: var(--t4ink); }
 .t5-auth {
   background: var(--acc); border: none; border-radius: 99px;
-  padding: 7px 16px; font: 700 11px Karla, sans-serif; color: var(--acc-ink); cursor: pointer;
+  padding: 7px 16px; font: 700 11px Karla, Manrope, sans-serif; color: var(--acc-ink); cursor: pointer;
 }
 .t5-auth:disabled, .t5-ghost:disabled { opacity: .45; cursor: default; }
-.t5-authlang { font: 400 10.5px/1.5 Karla, sans-serif; color: var(--t4cnt2); margin-top: 10px; }
+.t5-authlang { font: 400 10.5px/1.5 Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 10px; }
 
 .t5-botfade {
   position: absolute; left: 0; right: 0; bottom: 86px; height: 56px;
@@ -440,13 +477,13 @@
   flex: 1; background: none; border: none;
   border-bottom: 1px solid var(--t5panel-bd);
   padding: 10px 34px 10px 2px;
-  font: 400 14px Karla, sans-serif; color: var(--t4ink); outline: none;
+  font: 400 14px Karla, Manrope, sans-serif; color: var(--t4ink); outline: none;
   transition: opacity .3s ease;
 }
 .t5-input::placeholder { color: var(--t4cnt2); }
 .t5-send {
   width: 38px; height: 38px; border-radius: 99px; border: none; flex: none;
   background: var(--acc); color: var(--acc-ink);
-  font: 700 15px Karla, sans-serif; cursor: pointer;
+  font: 700 15px Karla, Manrope, sans-serif; cursor: pointer;
   transition: opacity .3s ease;
 }

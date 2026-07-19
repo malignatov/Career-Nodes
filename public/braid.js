@@ -183,9 +183,11 @@
 
   const stripY = () => Math.max(-900, Math.min(180, 320 - NY(J.focus)));
 
-  function threadStyle(status) {
+  function threadStyle(status, focused) {
     if (status === "done") return { stroke: "var(--acc)", width: "1.4", opacity: (0.2 + 0.24 * J.vp).toFixed(2) };
     if (status === "next") return { stroke: "var(--vacc, var(--acc))", width: "1.8", opacity: ".42" };
+    // A focused-but-dormant (locked) thread lights up — highlighted yet inactive.
+    if (focused) return { stroke: "var(--t4bone)", width: "1.3", opacity: ".4" };
     return { stroke: "var(--t4bone)", width: "0.9", opacity: ".1" };
   }
 
@@ -320,6 +322,8 @@
             </div>
           </div>
         </div>
+        <button class="br7-exit"><span class="br7-exit-arrow">←</span> <span class="br7-exit-label"></span></button>
+        <button class="br7-info" title="Transparency">◎</button>
       </div>`;
     J.frame = root.firstElementChild;
     J.stage = J.frame.querySelector(".br-stage");
@@ -333,20 +337,29 @@
         if (j === L.idx) toggleInlineTransparency();
         return;
       }
-      if (j === J.focus && openable(j)) {
-        if (J.merge) return; // no opening mid-ceremony
-        // Every openable bead — woven or actionable — talks inline beside its
-        // node; woven ones open straight to the authored passage.
-        inlineOpen(j);
-      } else setFocus(j);
+      if (j === J.focus) {
+        // Press the focused node: open it if it's ready, else nudge to explain
+        // it's locked. Every openable bead — woven or actionable — talks inline
+        // beside its node; woven ones open straight to the authored passage.
+        if (openable(j)) { if (!J.merge) inlineOpen(j); }
+        else lockFeedback();
+      } else setFocus(j); // press any other node → bring its thread to center
     };
-    J.strip.querySelectorAll(".br-node,.br-label").forEach((el) => el.addEventListener("click", onPick));
+    // The waking sphere oscillates every frame, so a real `click` (press+release
+    // on the same element) gets dropped when it slides out from under the cursor.
+    // Activate on `pointerdown` (one instantaneous hit-test) and swallow the
+    // trailing synthetic click for 700ms.
+    J.strip.querySelectorAll(".br-node,.br-label").forEach((el) => {
+      el.addEventListener("pointerdown", (e) => { J.__pd = Date.now(); onPick(e); });
+      el.addEventListener("click", (e) => { if (Date.now() - (J.__pd || 0) < 700) return; onPick(e); });
+    });
 
     let acc = 0;
     J.stage.addEventListener("wheel", (e) => {
       if (J.sess) {
-        // Navigation freezes, but the transcript itself must stay scrollable.
-        if (!e.target.closest(".br7-chat")) e.preventDefault();
+        // Navigation freezes, but the transcript and the transparency panel
+        // must stay scrollable (their scrollbars are hidden, not their scroll).
+        if (!e.target.closest(".br7-chat,.br7-tpanel")) e.preventDefault();
         return;
       }
       e.preventDefault();
@@ -354,6 +367,20 @@
       if (acc > 34) { acc = 0; setFocus(J.focus + 1); }
       else if (acc < -34) { acc = 0; setFocus(J.focus - 1); }
     }, { passive: false });
+
+    // Third exit (with Esc and the node-as-button): click empty field to leave —
+    // the open transparency panel closes first, then the session.
+    J.stage.addEventListener("click", (e) => {
+      if (!J.sess || L.closing) return;
+      // The click that follows a node press must never count as a click-out:
+      // opening shifts the camera, so the node slides out from under the
+      // cursor and this click's target is no longer the node.
+      if (Date.now() - (J.__pd || 0) < 700) return;
+      if (e.target.closest(".br7-chat,.br7-comp,.br7-info,.br7-exit,.br7-tpanel,.br7-mic,.br-node")) return;
+      const tp = q7(".br7-tpanel");
+      if (tp && !tp.hidden) { tp.hidden = true; return; }
+      if (L.open) { L.ctx.closeWs(); inlineClose(); L.ctx.reload(); }
+    });
 
     J.stage.addEventListener("mousemove", (e) => {
       const r = J.stage.getBoundingClientRect();
@@ -370,6 +397,7 @@
     inp.addEventListener("input", () => {
       inp.style.height = "38px";
       inp.style.height = Math.min(120, Math.max(38, inp.scrollHeight)) + "px";
+      L.draft = inp.value; // persist the in-progress draft across re-renders
     });
     q7(".br7-mic").addEventListener("click", () => {
       if (!L.open) return;
@@ -379,6 +407,13 @@
       else v.start(inp);
     });
     q7(".t5-tclose").addEventListener("click", () => { q7(".br7-tpanel").hidden = true; });
+    J.frame.querySelector(".br7-info").addEventListener("click", toggleInlineTransparency);
+    J.frame.querySelector(".br7-exit").addEventListener("click", () => {
+      if (!L.open || L.closing) return;
+      L.ctx.closeWs();
+      inlineClose();
+      L.ctx.reload();
+    });
   }
 
   function updateHeader() {
@@ -442,12 +477,24 @@
   }
 
   function updateTexts() {
-    const { t } = J.ctx;
+    const { t, esc } = J.ctx;
     J.strip.querySelectorAll(".br-label").forEach((el) => {
-      el.textContent = J.ctx.nodeTitle(J.nodes[Number(el.dataset.i)]);
+      const j = Number(el.dataset.i);
+      const nm = J.ctx.nodeTitle(J.nodes[j]);
+      // Locked steps carry an "Unlocks after {previous step}" sub-line.
+      if (J.status[j] === "plan" && j > 0) {
+        const prev = J.ctx.nodeTitle(J.nodes[j - 1]);
+        el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(t("unlocks_after", prev))}</div>`;
+      } else if (el.textContent !== nm || el.querySelector(".br-label-sub")) {
+        el.textContent = nm;
+      }
     });
     const inp = q7(".br7-input");
     if (inp && !L.open) inp.placeholder = t("placeholder");
+    const info = J.frame.querySelector(".br7-info");
+    if (info) info.title = t("transparency");
+    const exitLabel = J.frame.querySelector(".br7-exit-label");
+    if (exitLabel) exitLabel.textContent = `${t("exit").replace(/^[←\s]+/, "")} ${t("exit_saved")}`;
     const tp = q7(".br7-tpanel");
     if (tp) {
       tp.querySelector(".t5-tpanel-kicker").textContent = `◎ ${t("transparency")}`;
@@ -463,8 +510,14 @@
   function labelPlace(j, anchor) {
     const ny = nodeYf(j);
     const nx = withGrav(baseX(j, ny), ny, anchor);
+    // ~14px gap from node center; flip to the in-frame side; clamp inside the
+    // 900-wide field so no name leaves the frame.
+    const LW = 180, FW = 900;
     let right = nx < 450;
-    let lx = right ? nx + 18 : nx - 198;
+    let lx = right ? nx + 14 : nx - 194;
+    if (!right && lx < 12) { right = true; lx = nx + 14; }
+    else if (right && lx + LW > FW - 12) { right = false; lx = nx - 194; }
+    lx = Math.max(12, Math.min(FW - 12 - LW, lx));
     let squeezed = false;
     if (Math.abs(j - J.focus) === 1 &&
       ((ny + 8 > anchor.py - 88 && ny - 10 < anchor.py - 50) ||
@@ -494,7 +547,7 @@
       if (p) {
         p.style.transition = `d ${tm.dur} ${tm.ease}, opacity ${tm.op} ease`;
         setD(p, threadD(j, anchor));
-        const st = threadStyle(J.status[j]);
+        const st = threadStyle(J.status[j], j === J.focus);
         p.setAttribute("stroke", st.stroke);
         p.setAttribute("stroke-width", st.width);
         p.style.opacity = st.opacity;
@@ -523,11 +576,20 @@
     const fst = J.status[J.focus];
     const plaque = J.strip.querySelector(".br-plaque");
     const nimbus = J.strip.querySelector(".br-nimbus");
-    plaque.querySelector(".br-plaque-title").textContent = J.ctx.nodeTitle(focused);
+    const titleEl = plaque.querySelector(".br-plaque-title");
+    titleEl.textContent = J.ctx.nodeTitle(focused);
+    // Far-left locked nodes (strings splay left) would run the title off-frame:
+    // flip it to the node's right. Caption stays right in both cases.
+    const flip = !J.sess && anchor.nx < 372;
+    titleEl.style.right = "auto";
+    titleEl.style.left = flip ? "20px" : "-356px";
+    titleEl.style.textAlign = flip ? "left" : "right";
     plaque.querySelector(".br-plaque-line").textContent =
       J.merge && J.merge.j === J.focus && J.merge.phase === "solid"
         ? J.ctx.t("braid_woven_in")
-        : J.ctx.nodeDesc(focused);
+        : (fst === "plan" && J.focus > 0)
+          ? J.ctx.t("locked_unlocks_after", J.ctx.nodeTitle(J.nodes[J.focus - 1]))
+          : J.ctx.nodeDesc(focused);
     // When the waking sphere is focused, the rAF loop owns plaque/nimbus
     // position (lerp .14/frame); reset the lerp so it starts from the node.
     if (fst === "next") {
@@ -570,6 +632,18 @@
       clearTimeout(J.timers.reload);
       J.timers.reload = setTimeout(() => J.ctx.reload(), 1300);
     }
+  }
+
+  /* A press on a focused-but-locked node explains itself: the caption flickers
+   * and the sphere gives a small shake, instead of a silent no-op. */
+  function lockFeedback() {
+    const line = J.strip?.querySelector(".br-plaque-line");
+    line?.animate?.([{ opacity: 1 }, { opacity: .35 }, { opacity: 1 }], { duration: 460, easing: "ease" });
+    const core = J.strip?.querySelector(`.br-node[data-i="${J.focus}"] [data-core]`);
+    core?.animate?.([
+      { transform: "translateX(0)" }, { transform: "translateX(-4px)" },
+      { transform: "translateX(4px)" }, { transform: "translateX(-2px)" }, { transform: "translateX(0)" },
+    ], { duration: 380, easing: "ease" });
   }
 
   /* ── rAF loop: oscillation, spin, hover, nimbus/ping ────── */
@@ -846,7 +920,11 @@
     inp.disabled = !on;
     inp.style.opacity = on ? "1" : ".35";
     if (placeholder) { inp.placeholder = placeholder; L.placeholder = placeholder; }
-    if (on) inp.focus({ preventScroll: true });
+    if (on) {
+      if (!inp.value && L.draft) inp.value = L.draft; // restore a draft after re-render
+      // Auto-focus once the camera has settled, so the accent caret draws the eye.
+      setTimeout(() => { if (L.open) inp.focus({ preventScroll: true }); }, 480);
+    }
   }
 
   /* Knot y follows the reference: first at nodeY+98, then every 46px; the
@@ -885,6 +963,7 @@
       : { type: "answer", text };
     if (!L.ctx.wsSend(payload)) return inlineConnLost();
     inp.value = "";
+    L.draft = "";
     inp.style.height = "38px";
     inlineCompose(false);
     inlineMsg("user", text);
@@ -1147,6 +1226,7 @@
     L.chatless = node.kind === "derived";
     L.reviewing = reviewing;
     L.firstReview = reviewing;
+    L.draft = "";
     L.tWhat = "";
     L.tCompiled = "";
 

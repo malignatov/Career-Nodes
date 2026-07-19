@@ -76,7 +76,7 @@
 
 body {
   margin: 0;
-  font-family: Karla, sans-serif;
+  font-family: Karla, Manrope, sans-serif;
   background: var(--canvas);
   color: var(--ink);
   min-height: 100vh;
@@ -109,7 +109,7 @@ body:has(#scrim:not([hidden])) {
   padding: 0 4px 4px;
 }
 .j-title { font: 600 26px Lora, serif; color: var(--ink); }
-.j-sub { font: 400 13px Karla, sans-serif; color: var(--muted); margin-top: 3px; }
+.j-sub { font: 400 13px Karla, Manrope, sans-serif; color: var(--muted); margin-top: 3px; }
 .j-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
 .j-tools { display: flex; gap: 8px; margin-bottom: 2px; }
 .tool-btn {
@@ -117,17 +117,17 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 5px 12px;
-  font: 600 11px Karla, sans-serif;
+  font: 600 11px Karla, Manrope, sans-serif;
   color: var(--ink3);
   cursor: pointer;
 }
 .tool-btn:hover { background: var(--panel); }
-.j-count { font: 500 12px Karla, sans-serif; color: var(--muted); }
+.j-count { font: 500 12px Karla, Manrope, sans-serif; color: var(--muted); }
 .j-bar { width: 180px; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
 .j-fill { height: 100%; background: var(--sage); border-radius: 99px; transition: width 0.4s ease; }
 
 .phase-label {
-  font: 600 11px Karla, sans-serif;
+  font: 600 11px Karla, Manrope, sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -135,7 +135,7 @@ body:has(#scrim:not([hidden])) {
 }
 
 .chip {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 4px 9px;
@@ -157,7 +157,7 @@ body:has(#scrim:not([hidden])) {
   width: 250px;
   background: var(--ink);
   color: var(--canvas);
-  font: 400 11.5px/1.5 Karla, sans-serif;
+  font: 400 11.5px/1.5 Karla, Manrope, sans-serif;
   text-transform: none;
   letter-spacing: normal;
   white-space: normal;
@@ -178,7 +178,7 @@ body:has(#scrim:not([hidden])) {
   padding: 9px 14px;
   background: var(--mark-bg);
   border-radius: 10px;
-  font: 500 12px/1.5 Karla, sans-serif;
+  font: 500 12px/1.5 Karla, Manrope, sans-serif;
   color: var(--mark-ink);
 }
 
@@ -194,12 +194,12 @@ body:has(#scrim:not([hidden])) {
 .node-card .row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .node-card .title { font: 600 17px Lora, serif; color: var(--ink); }
 .node-card .chips { display: flex; gap: 6px; }
-.node-card .summary { font: 400 13px/1.5 Karla, sans-serif; color: var(--muted); }
+.node-card .summary { font: 400 13px/1.5 Karla, Manrope, sans-serif; color: var(--muted); }
 .node-card .summary.distilled { font: 500 13.5px/1.6 Lora, serif; color: var(--ink2); font-style: italic; }
 .summary.distilled p { margin: 0 0 9px; white-space: pre-line; }
 .summary.distilled p:last-child { margin-bottom: 0; }
 .summary.distilled .sum-label {
-  font: 600 10px Karla, sans-serif;
+  font: 600 10px Karla, Manrope, sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--faint);
@@ -208,14 +208,14 @@ body:has(#scrim:not([hidden])) {
 }
 .summary.distilled .sum-label:first-child { margin-top: 2px; }
 .node-card .row3 { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; gap: 10px; }
-.node-card .dep { font: 500 11px Karla, sans-serif; color: var(--faint); }
+.node-card .dep { font: 500 11px Karla, Manrope, sans-serif; color: var(--faint); }
 
 .btn-fill {
   background: var(--accent);
   border: none;
   border-radius: 99px;
   padding: 8px 20px;
-  font: 600 12px Karla, sans-serif;
+  font: 600 12px Karla, Manrope, sans-serif;
   color: #fff;
   cursor: pointer;
   flex: none;
@@ -226,7 +226,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 7px 18px;
-  font: 600 12px Karla, sans-serif;
+  font: 600 12px Karla, Manrope, sans-serif;
   color: var(--ink3);
   cursor: pointer;
   flex: none;
@@ -254,7 +254,7 @@ body:has(#scrim:not([hidden])) {
   left: 16px;
   background: var(--accent);
   color: #fff;
-  font: 600 10px Karla, sans-serif;
+  font: 600 10px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 3px 11px;
@@ -272,7 +272,7 @@ body:has(#scrim:not([hidden])) {
   opacity: 0.75;
 }
 .node-row .title { font: 600 15px Lora, serif; color: var(--ink3); }
-.node-row .dep, .cond-cell .dep { font: 500 11px Karla, sans-serif; color: var(--faint); }
+.node-row .dep, .cond-cell .dep { font: 500 11px Karla, Manrope, sans-serif; color: var(--faint); }
 .node-row .chips { display: flex; gap: 6px; }
 
 .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -327,10 +327,10 @@ body:has(#scrim:not([hidden])) {
   flex-shrink: 0;
 }
 .head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#exitBtn { background: none; border: none; font: 500 12.5px Karla, sans-serif; color: var(--muted); cursor: pointer; padding: 0; }
+#exitBtn { background: none; border: none; font: 500 12.5px Karla, Manrope, sans-serif; color: var(--muted); cursor: pointer; padding: 0; }
 #exitHint { color: var(--faint2); }
 .head-meta { display: flex; align-items: center; gap: 8px; }
-#modalPhase { font: 500 11.5px Karla, sans-serif; color: var(--faint); }
+#modalPhase { font: 500 11.5px Karla, Manrope, sans-serif; color: var(--faint); }
 #modalTitle { font: 600 22px Lora, serif; color: var(--ink); margin: 0; }
 #tToggle {
   display: flex;
@@ -340,7 +340,7 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 99px;
   padding: 7px 14px;
-  font: 500 12px Karla, sans-serif;
+  font: 500 12px Karla, Manrope, sans-serif;
   color: var(--ink3);
   cursor: pointer;
   flex: none;
@@ -359,13 +359,13 @@ body:has(#scrim:not([hidden])) {
   overflow-y: auto;
 }
 .t-label {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 3px;
 }
-.t-text { font: 400 12px/1.5 Karla, sans-serif; color: var(--ink2); }
+.t-text { font: 400 12px/1.5 Karla, Manrope, sans-serif; color: var(--ink2); }
 .t-mono {
   font: 400 10.5px/1.55 ui-monospace, Menlo, monospace;
   color: var(--ink3);
@@ -376,7 +376,7 @@ body:has(#scrim:not([hidden])) {
   white-space: pre-wrap;
 }
 .t-mono h5 {
-  font: 600 10px Karla, sans-serif;
+  font: 600 10px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
@@ -395,14 +395,14 @@ body:has(#scrim:not([hidden])) {
   flex-direction: column;
   gap: 11px;
 }
-.msg { max-width: 78%; padding: 12px 16px; font: 400 14px/1.55 Karla, sans-serif; white-space: pre-wrap; }
+.msg { max-width: 78%; padding: 12px 16px; font: 400 14px/1.55 Karla, Manrope, sans-serif; white-space: pre-wrap; }
 .msg.say { align-self: flex-start; background: var(--c-bubble); border-radius: 16px 16px 16px 5px; color: var(--ink); }
 .msg.user { align-self: flex-end; background: var(--u-bubble); border-radius: 16px 16px 5px 16px; color: var(--u-ink); }
 .msg.note {
   align-self: center;
   background: var(--panel);
   border-radius: 99px;
-  font: 500 11px Karla, sans-serif;
+  font: 500 11px Karla, Manrope, sans-serif;
   color: var(--muted);
   padding: 5px 12px;
   max-width: 92%;
@@ -429,7 +429,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 12px 18px;
-  font: 400 14px Karla, sans-serif;
+  font: 400 14px Karla, Manrope, sans-serif;
   color: var(--ink);
   outline: none;
   min-width: 0;
@@ -441,7 +441,7 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 99px;
   padding: 12px 24px;
-  font: 600 14px Karla, sans-serif;
+  font: 600 14px Karla, Manrope, sans-serif;
   cursor: pointer;
 }
 #composer.disabled { opacity: 0.45; }
@@ -458,7 +458,7 @@ body:has(#scrim:not([hidden])) {
   border-radius: 12px;
   padding: 9px 14px;
 }
-#chatHistory summary { font: 600 12.5px Karla, sans-serif; color: var(--ink3); cursor: pointer; }
+#chatHistory summary { font: 600 12.5px Karla, Manrope, sans-serif; color: var(--ink3); cursor: pointer; }
 #chatHistoryBody {
   margin-top: 10px;
   max-height: 320px;
@@ -467,7 +467,7 @@ body:has(#scrim:not([hidden])) {
   flex-direction: column;
   gap: 9px;
 }
-#reviewExplainer { padding: 16px 22px 6px; font: 400 13px/1.5 Karla, sans-serif; color: var(--muted); }
+#reviewExplainer { padding: 16px 22px 6px; font: 400 13px/1.5 Karla, Manrope, sans-serif; color: var(--muted); }
 
 .draft-panel {
   margin: 8px 22px 14px;
@@ -480,7 +480,7 @@ body:has(#scrim:not([hidden])) {
   gap: 10px;
 }
 #draftKicker {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -488,7 +488,7 @@ body:has(#scrim:not([hidden])) {
 #draftBody { font: 500 17px/1.7 Lora, serif; color: var(--ink); }
 #draftBody mark { background: var(--mark-bg); color: var(--mark-ink); padding: 1px 4px; border-radius: 4px; }
 #draftBody .field-label {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--faint);
@@ -509,7 +509,7 @@ body:has(#scrim:not([hidden])) {
 #draftBody .sub-card .field-label:first-child { margin-top: 0; }
 #draftBody .sub-card .field-value { font-size: 14px; }
 
-#verifyLine { display: flex; align-items: center; gap: 7px; font: 500 11.5px Karla, sans-serif; color: var(--sage); }
+#verifyLine { display: flex; align-items: center; gap: 7px; font: 500 11.5px Karla, Manrope, sans-serif; color: var(--sage); }
 
 #editArea { display: flex; flex-direction: column; gap: 8px; }
 #draftTextarea {
@@ -530,13 +530,13 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 99px;
   padding: 8px 18px;
-  font: 600 12px Karla, sans-serif;
+  font: 600 12px Karla, Manrope, sans-serif;
   cursor: pointer;
 }
 
 #altList { display: flex; flex-direction: column; gap: 6px; }
 .alt-label {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--faint);
@@ -561,7 +561,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  font: 600 13px Karla, sans-serif;
+  font: 600 13px Karla, Manrope, sans-serif;
   color: var(--ink3);
   cursor: pointer;
 }
@@ -573,19 +573,19 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 12px;
   padding: 12px;
-  font: 600 13.5px Karla, sans-serif;
+  font: 600 13.5px Karla, Manrope, sans-serif;
   cursor: pointer;
 }
 #authorizeBtn:hover { filter: brightness(1.05); }
 
-#reviewFoot { padding: 0 22px 18px; font: 400 11.5px/1.5 Karla, sans-serif; color: var(--faint); }
+#reviewFoot { padding: 0 22px 18px; font: 400 11.5px/1.5 Karla, Manrope, sans-serif; color: var(--faint); }
 
 #reviewStatus {
   margin: 16px 22px;
   padding: 9px 14px;
   background: var(--panel);
   border-radius: 99px;
-  font: 500 12px Karla, sans-serif;
+  font: 500 12px Karla, Manrope, sans-serif;
   color: var(--muted);
   text-align: center;
 }
@@ -598,7 +598,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 14px;
-  font: 400 13.5px/1.5 Karla, sans-serif;
+  font: 400 13.5px/1.5 Karla, Manrope, sans-serif;
   color: var(--ink);
   outline: none;
 }
@@ -609,7 +609,7 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 12px;
   padding: 0 18px;
-  font: 600 13px Karla, sans-serif;
+  font: 600 13px Karla, Manrope, sans-serif;
   cursor: pointer;
 }
 #amendBox.busy { opacity: 0.45; pointer-events: none; }
@@ -644,13 +644,13 @@ body:has(#scrim:not([hidden])) {
 #practPrimary .pane-head { background: var(--panel2); }
 #practSecondary .pane-head { background: var(--surface); }
 .pane-kicker {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 #practPrimary .pane-kicker { color: var(--sage); }
 #practSecondary .pane-kicker { color: var(--accent); }
-.pane-sub { font: 400 11.5px/1.5 Karla, sans-serif; color: var(--muted); margin-top: 3px; }
+.pane-sub { font: 400 11.5px/1.5 Karla, Manrope, sans-serif; color: var(--muted); margin-top: 3px; }
 .pane-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 
 #generateBtn {
@@ -659,7 +659,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 8px 14px;
-  font: 600 12px Karla, sans-serif;
+  font: 600 12px Karla, Manrope, sans-serif;
   color: var(--ink3);
   cursor: pointer;
 }
@@ -680,7 +680,7 @@ body:has(#scrim:not([hidden])) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font: 600 13px Karla, sans-serif;
+  font: 600 13px Karla, Manrope, sans-serif;
   box-shadow: 0 2px 8px rgba(61, 54, 45, 0.12);
 }
 
@@ -701,7 +701,7 @@ body:has(#scrim:not([hidden])) {
   padding: 8px 13px;
   background: var(--panel);
   border-radius: 10px;
-  font: 500 12px Karla, sans-serif;
+  font: 500 12px Karla, Manrope, sans-serif;
   color: var(--muted);
 }
 
@@ -713,7 +713,7 @@ body:has(#scrim:not([hidden])) {
   margin-bottom: 10px;
 }
 .stage-num {
-  font: 600 10px Karla, sans-serif;
+  font: 600 10px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--faint);
@@ -722,7 +722,7 @@ body:has(#scrim:not([hidden])) {
 .stage-q { font: 500 15px/1.55 Lora, serif; color: var(--ink); margin-bottom: 8px; }
 .stage-card details { margin-bottom: 8px; }
 .stage-card summary {
-  font: 500 11.5px Karla, sans-serif;
+  font: 500 11.5px Karla, Manrope, sans-serif;
   color: var(--muted);
   cursor: pointer;
   list-style: none;
@@ -730,7 +730,7 @@ body:has(#scrim:not([hidden])) {
 .stage-card summary::before { content: "▸ "; color: var(--accent); }
 .stage-card details[open] summary::before { content: "▾ "; }
 .stage-card details ul { margin: 6px 0 2px; padding-left: 18px; }
-.stage-card details li { font: 400 12px/1.5 Karla, sans-serif; color: var(--ink3); }
+.stage-card details li { font: 400 12px/1.5 Karla, Manrope, sans-serif; color: var(--ink3); }
 
 .f-text {
   width: 100%;
@@ -743,14 +743,14 @@ body:has(#scrim:not([hidden])) {
   outline: none;
   resize: vertical;
 }
-.f-text::placeholder { color: var(--faint); font-family: Karla, sans-serif; font-size: 13px; }
+.f-text::placeholder { color: var(--faint); font-family: Karla, Manrope, sans-serif; font-size: 13px; }
 .f-text:focus { border-color: var(--border-dashed); }
 .f-text.verbatim { border-left: 3px solid var(--mark-bg); }
 
 #formBody { display: flex; flex-direction: column; gap: 4px; padding-bottom: 6px; }
 #formBody.busy { opacity: 0.45; pointer-events: none; }
 .f-label {
-  font: 600 10.5px Karla, sans-serif;
+  font: 600 10.5px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--faint);
@@ -764,7 +764,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--hairline);
   border-radius: 8px;
   color: var(--faint);
-  font: 500 13px Karla, sans-serif;
+  font: 500 13px Karla, Manrope, sans-serif;
   padding: 8px 10px;
   cursor: pointer;
   flex: none;
@@ -776,7 +776,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px dashed var(--border-dashed);
   border-radius: 10px;
   padding: 7px 14px;
-  font: 600 12px Karla, sans-serif;
+  font: 600 12px Karla, Manrope, sans-serif;
   color: var(--muted);
   cursor: pointer;
   margin: 2px 0 6px;
@@ -798,7 +798,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 9px 12px;
-  font: 500 13px Karla, sans-serif;
+  font: 500 13px Karla, Manrope, sans-serif;
   color: var(--ink);
   outline: none;
 }
@@ -808,11 +808,11 @@ body:has(#scrim:not([hidden])) {
   padding: 10px 14px;
   background: var(--mark-bg);
   border-radius: 12px;
-  font: 500 12px/1.5 Karla, sans-serif;
+  font: 500 12px/1.5 Karla, Manrope, sans-serif;
   color: var(--mark-ink);
 }
 #formWarnings ul { margin: 4px 0 0; padding-left: 18px; }
-#saveLine { font: 500 11px Karla, sans-serif; color: var(--sage); padding: 2px 0 10px; }
+#saveLine { font: 500 11px Karla, Manrope, sans-serif; color: var(--sage); padding: 2px 0 10px; }
 
 #sourcesList details {
   background: var(--panel);
@@ -821,10 +821,10 @@ body:has(#scrim:not([hidden])) {
   padding: 9px 14px;
   margin-bottom: 7px;
 }
-#sourcesList summary { font: 600 12.5px Karla, sans-serif; color: var(--ink3); cursor: pointer; }
+#sourcesList summary { font: 600 12.5px Karla, Manrope, sans-serif; color: var(--ink3); cursor: pointer; }
 #sourcesList .src-body { padding-top: 6px; font: 500 14px/1.6 Lora, serif; color: var(--ink2); }
 #sourcesList .src-body .field-label {
-  font: 600 10px Karla, sans-serif;
+  font: 600 10px Karla, Manrope, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--faint);
@@ -849,7 +849,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 14px;
-  font: 400 13.5px/1.5 Karla, sans-serif;
+  font: 400 13.5px/1.5 Karla, Manrope, sans-serif;
   color: var(--ink);
   outline: none;
 }
@@ -860,7 +860,7 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 12px;
   padding: 0 18px;
-  font: 600 13px Karla, sans-serif;
+  font: 600 13px Karla, Manrope, sans-serif;
   cursor: pointer;
 }
 #practAmendBox.busy { opacity: 0.45; pointer-events: none; }
@@ -871,12 +871,12 @@ body:has(#scrim:not([hidden])) {
   border: none;
   border-radius: 12px;
   padding: 12px;
-  font: 600 13.5px Karla, sans-serif;
+  font: 600 13.5px Karla, Manrope, sans-serif;
   cursor: pointer;
 }
 #practAuthorizeBtn:hover { filter: brightness(1.05); }
 #practAuthorizeBtn:disabled { opacity: 0.45; cursor: default; filter: none; }
-#practFoot { padding: 0 22px 18px; font: 400 11.5px/1.5 Karla, sans-serif; color: var(--faint); }
+#practFoot { padding: 0 22px 18px; font: 400 11.5px/1.5 Karla, Manrope, sans-serif; color: var(--faint); }
 .pract-transcript { display: flex; flex-direction: column; gap: 9px; margin-bottom: 8px; }
 
 /* ── voice dictation ─────────────────────────────────── */
@@ -926,7 +926,7 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 6px 12px;
-  font: 500 11.5px Karla, sans-serif;
+  font: 500 11.5px Karla, Manrope, sans-serif;
   color: var(--ink3);
   cursor: pointer;
   outline: none;
@@ -938,12 +938,12 @@ body:has(#scrim:not([hidden])) {
   border: 1px solid var(--border-dashed);
   border-radius: 99px;
   padding: 6px 12px;
-  font: 500 11.5px Karla, sans-serif;
+  font: 500 11.5px Karla, Manrope, sans-serif;
   color: var(--ink);
   outline: none;
   width: 190px;
 }
-.ai-note { font: 500 11.5px Karla, sans-serif; color: var(--mark-ink); margin-top: 4px; }
+.ai-note { font: 500 11.5px Karla, Manrope, sans-serif; color: var(--mark-ink); margin-top: 4px; }
 
 /* ── reset footer ────────────────────────────────────── */
 
@@ -951,7 +951,7 @@ body:has(#scrim:not([hidden])) {
 .reset-link {
   background: none;
   border: none;
-  font: 500 11.5px Karla, sans-serif;
+  font: 500 11.5px Karla, Manrope, sans-serif;
   color: var(--faint);
   cursor: pointer;
   padding: 7px 14px;
@@ -976,9 +976,9 @@ body:has(#scrim:not([hidden])) {
   /* Fixed colors: a dark-theme user still gets a printable document. */
   #printDoc { display: block; color: #201b14; font: 400 12pt/1.6 Lora, Georgia, serif; }
   .pd-head h1 { font: 600 23pt Lora, Georgia, serif; margin: 0 0 4pt; }
-  .pd-meta { font: 500 10pt Karla, sans-serif; color: #8a7f6e; }
+  .pd-meta { font: 500 10pt Karla, Manrope, sans-serif; color: #8a7f6e; }
   .pd-phase {
-    font: 600 9.5pt Karla, sans-serif;
+    font: 600 9.5pt Karla, Manrope, sans-serif;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #8a7f6e;
@@ -988,9 +988,9 @@ body:has(#scrim:not([hidden])) {
   }
   .pd-node { margin: 10pt 0 14pt; break-inside: avoid; }
   .pd-node h2 { font: 600 15pt Lora, Georgia, serif; margin: 0 0 1pt; }
-  .pd-date { font: 500 9pt Karla, sans-serif; color: #a89c88; margin-bottom: 4pt; }
+  .pd-date { font: 500 9pt Karla, Manrope, sans-serif; color: #a89c88; margin-bottom: 4pt; }
   #printDoc .field-label {
-    font: 600 8.5pt Karla, sans-serif;
+    font: 600 8.5pt Karla, Manrope, sans-serif;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: #8a7f6e;

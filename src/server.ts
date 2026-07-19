@@ -47,6 +47,7 @@ const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".json": "application/json",
   ".svg": "image/svg+xml",
+  ".woff2": "font/woff2",
 };
 
 function json(res: ServerResponse, status: number, body: unknown): void {
