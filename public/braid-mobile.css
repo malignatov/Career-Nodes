@@ -1,0 +1,257 @@
+/* The braid, portrait — mobile client-mode journey (Braid Mobile App handoff).
+   Scoped under #journey.braidm-on; active on Capacitor or sub-900px client
+   viewports. Dark is native; light rides the app's [data-theme] switch. */
+
+@keyframes mfloatIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes mpulse { 0% { transform: scale(.5); opacity: 0; } 14% { opacity: .6; } 70%, 100% { transform: scale(1.15); opacity: 0; } }
+@keyframes t4msolidify { 0% { transform: scale(1.55); } 45% { transform: scale(.93); } 75% { transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes t4mfill { 0% { transform: scale(.22); opacity: 0; } 100% { transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  #journey.braidm-on * { animation: none !important; }
+}
+
+/* ── theme tokens (verbatim from the mobile reference) ───────── */
+#journey.braidm-on {
+  --acc: #E2E2E2; --acc-ink: #101010; --pig: #35624A;
+  --bm-bg: #0d0c08; --bm-ink: #F6F0E2; --bm-sub: #8C8272; --bm-cnt: #B7AE9E;
+  --bm-swBd: #3A362A; --bm-btnBg: rgba(20, 19, 9, .55); --bm-body: #CFC6B2;
+  --bm-note: #7A7060; --bm-say: #E8E0CC; --bm-user: #B8AE9A; --bm-inp: #EFE8DA;
+  --bm-lab3: rgba(184, 174, 152, .7); --bm-bone: rgba(242, 236, 216, .9);
+  --bm-wireF: rgba(242, 236, 214, .95); --bm-wireB: rgba(238, 232, 214, .16);
+  --bm-mut: rgba(206, 199, 181, .92); --bm-hal: rgba(13, 12, 8, .95);
+  --bm-err: #E08585;
+}
+:root[data-theme="light"] #journey.braidm-on {
+  --acc: #33302A; --acc-ink: #F2EFE8;
+  --bm-bg: #EFEAE0; --bm-ink: #2A2620; --bm-sub: #857B69; --bm-cnt: #6B6252;
+  --bm-swBd: #D5CDBB; --bm-btnBg: #F7F3EA; --bm-body: #56503F;
+  --bm-note: #7A7060; --bm-say: #2E2A22; --bm-user: #4A4436; --bm-inp: #2A2620;
+  --bm-lab3: rgba(140, 130, 110, .55); --bm-bone: rgba(80, 72, 56, .75);
+  --bm-wireF: rgba(60, 53, 42, .95); --bm-wireB: rgba(60, 53, 42, .15);
+  --bm-mut: rgba(148, 138, 120, .95); --bm-hal: rgba(239, 234, 224, .95);
+  --bm-err: #A33F3F;
+}
+
+/* Fixed to the true viewport: the body's safe-area padding (for the card UI)
+   must not push the field down or overflow it past the home indicator — the
+   braid handles the notch itself, exactly once. */
+#journey.braidm-on {
+  max-width: none; margin: 0; padding: 0; display: block;
+  position: fixed; inset: 0; height: auto; overflow: hidden;
+}
+.bm-root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  position: relative; width: 100%; height: 100%;
+  background: var(--bm-bg); overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  transition: background .6s ease;
+}
+
+.bm-topfade {
+  position: absolute; left: 0; right: 0; top: 0; height: 132px; z-index: 14;
+  background: linear-gradient(var(--bm-bg) 40%, transparent);
+  pointer-events: none; transition: background .6s ease;
+}
+.bm-head {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 20;
+  /* Flush with the safe area — no additive gap under the notch. */
+  padding: max(env(safe-area-inset-top, 0px), 8px) 22px 0;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  transition: opacity .45s ease;
+}
+.bm-htitle { font: 600 22px Lora, serif; color: var(--bm-ink); }
+.bm-hsub { font: 400 11.5px Karla, Manrope, sans-serif; color: var(--bm-sub); margin-top: 2px; }
+.bm-count { font: 600 12px Karla, Manrope, sans-serif; color: var(--bm-cnt); white-space: nowrap; }
+.bm-count span { color: var(--bm-note); }
+.bm-root[data-sess] .bm-head { opacity: 0; pointer-events: none; }
+
+.bm-exit, .bm-info {
+  position: absolute; z-index: 40; top: calc(10px + env(safe-area-inset-top, 0px));
+  background: var(--bm-btnBg); border: 1px solid var(--bm-swBd); border-radius: 99px;
+  color: var(--bm-cnt); cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity .5s ease;
+}
+.bm-exit { left: 14px; padding: 8px 14px; font: 500 12px Karla, Manrope, sans-serif; }
+.bm-info { right: 14px; width: 32px; height: 32px; font: 500 15px Karla, Manrope, sans-serif; padding: 0; }
+.bm-root[data-sess]:not([data-merge]) .bm-exit,
+.bm-root[data-sess]:not([data-merge]) .bm-info { opacity: 1 !important; pointer-events: auto !important; }
+
+.bm-stage { position: absolute; inset: 0; z-index: 10; overflow: hidden; }
+.bm-strip {
+  position: absolute; left: 50%; top: 0; margin-left: -195px;
+  width: 390px; height: 1640px; will-change: transform;
+}
+.bm-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; }
+
+.bm-node { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 8; }
+.bm-node[data-cur], .bm-node.focus { z-index: 12; }
+.bm-hit { position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; }
+.bm-ping {
+  position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 99px;
+  border: 1px solid color-mix(in srgb, var(--vacc, var(--acc)) 80%, transparent);
+  display: none;
+}
+.bm-ping.on { display: block; animation: mpulse 2.6s ease-out infinite; }
+
+/* Focused name above / caption below, clamped in frame, triple halo. */
+.bm-title {
+  position: absolute; left: 0; top: 0; width: 300px; text-align: center; z-index: 13;
+  font: 600 25px/1.1 Lora, serif; color: var(--bm-ink);
+  text-shadow: 0 1px 4px var(--bm-hal), 0 0 16px var(--bm-hal), 0 0 34px var(--bm-hal);
+  pointer-events: none; transition: opacity .4s ease;
+}
+.bm-prompt {
+  position: absolute; left: 0; top: 0; width: 312px; text-align: center; z-index: 13;
+  font: 400 13.5px/1.5 Karla, Manrope, sans-serif; color: var(--bm-body); text-wrap: pretty;
+  text-shadow: 0 1px 4px var(--bm-hal), 0 0 14px var(--bm-hal), 0 0 30px var(--bm-hal);
+  pointer-events: none; transition: opacity .4s ease;
+}
+.bm-prompt .bm-locked {
+  display: block; margin-top: 4px;
+  font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--bm-lab3);
+}
+.bm-root[data-sess] .bm-title, .bm-root[data-sess] .bm-prompt { opacity: 0; }
+
+/* Session dimming: everything but the current thread/node recedes. */
+.bm-root[data-sess] [data-s]:not([data-cur]) { opacity: .05 !important; }
+.bm-root[data-sess] .bm-node:not([data-cur]) { opacity: .06 !important; }
+
+/* ── session chrome ──────────────────────────────────────────── */
+.bm-sesshead {
+  position: absolute; z-index: 22; left: 22px; right: 22px;
+  top: calc(48px + env(safe-area-inset-top, 0px));
+  opacity: 0; pointer-events: none; transition: opacity .5s ease;
+  text-align: center;
+}
+.bm-sh-title { font: 600 18px Lora, serif; color: var(--bm-ink); }
+.bm-sh-note { margin-top: 3px; font: 600 9px Karla, Manrope, sans-serif; letter-spacing: .13em; text-transform: uppercase; color: var(--bm-note); }
+.bm-root[data-sess] .bm-sesshead { opacity: 1; }
+
+.bm-chat {
+  position: absolute; z-index: 18; left: 0; right: 0;
+  top: calc(208px + env(safe-area-inset-top, 0px));
+  bottom: calc(74px + max(var(--kb, 0px), env(safe-area-inset-bottom, 0px)));
+  opacity: 0; pointer-events: none;
+  transition: opacity .6s ease .3s, bottom .25s ease;
+}
+.bm-msgs {
+  height: 100%; overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 18px; padding: 14px 22px 8px;
+}
+.bm-msgs::-webkit-scrollbar { display: none; }
+.bm-root[data-sess]:not([data-merge]) .bm-chat { opacity: 1; pointer-events: auto; }
+
+.bm-say { align-self: flex-start; max-width: 82%; font: 500 15.5px/1.6 Lora, serif; color: var(--bm-say); animation: mfloatIn .5s both; text-wrap: pretty; }
+.bm-user { align-self: flex-end; text-align: right; max-width: 82%; font: 400 14.5px/1.55 Karla, Manrope, sans-serif; color: var(--bm-user); animation: mfloatIn .5s both; text-wrap: pretty; }
+.bm-note { align-self: center; text-align: center; font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--bm-note); animation: mfloatIn .5s both; }
+.bm-error { align-self: center; text-align: center; font: 500 12px Karla, Manrope, sans-serif; color: var(--bm-err); animation: mfloatIn .5s both; max-width: 82%; }
+.bm-frag span { border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
+.bm-story { align-self: flex-start; max-width: 88%; font: 500 15.5px/1.6 Lora, serif; color: var(--bm-say); animation: mfloatIn .5s both; text-wrap: pretty; }
+.bm-story mark { background: none; color: inherit; border-bottom: 2px solid color-mix(in srgb, var(--acc) 70%, transparent); }
+.bm-story .field-label { font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--bm-note); margin: 10px 0 2px; }
+.bm-story .field-value, .bm-story li { font: 500 14px/1.55 Lora, serif; color: var(--bm-say); }
+.bm-story ul { margin: 2px 0 4px; padding-left: 18px; }
+.bm-story .sub-card { border-left: 2px solid var(--bm-swBd); padding-left: 10px; margin: 6px 0; }
+.bm-hist {
+  align-self: stretch; display: flex; flex-direction: column; gap: 18px;
+  margin: 2px 0; padding: 14px 0;
+  border-top: 1px dashed color-mix(in srgb, var(--bm-swBd) 85%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--bm-swBd) 85%, transparent);
+}
+.bm-hist-toggle { cursor: pointer; }
+.bm-acts { align-self: center; display: flex; gap: 22px; margin-top: 8px; font: 600 13px Karla, Manrope, sans-serif; animation: mfloatIn .5s both; }
+.bm-act { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--bm-cnt); }
+.bm-act.accent { color: var(--acc); }
+.bm-act:disabled { opacity: .4; }
+
+.bm-comp, .bm-authbar {
+  position: absolute; z-index: 24; left: 14px; right: 14px;
+  /* --kb = live keyboard overlap (visualViewport) — lifts the bar above it. */
+  bottom: calc(14px + max(var(--kb, 0px), env(safe-area-inset-bottom, 0px)));
+  display: flex; align-items: flex-end; gap: 10px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .5s ease .35s, bottom .25s ease;
+}
+.bm-comp.on, .bm-authbar.on { opacity: 1; pointer-events: auto; }
+.bm-mic {
+  width: 40px; height: 40px; border-radius: 99px; flex: none;
+  border: 1px solid var(--bm-swBd); background: var(--bm-btnBg); color: var(--bm-cnt);
+  display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  transition: border-color .4s ease;
+}
+.bm-mic.listening { border-color: var(--acc); color: var(--acc); animation: breatheGlow 2s ease-in-out infinite; }
+.bm-mic.err { border-color: var(--bm-err); color: var(--bm-err); }
+.bm-input {
+  flex: 1; height: 42px; max-height: 120px; box-sizing: border-box; resize: none;
+  background: var(--bm-btnBg); border: 1px solid var(--bm-swBd); border-radius: 20px;
+  padding: 10px 14px; font: 400 14px/1.5 Karla, Manrope, sans-serif; color: var(--bm-inp);
+  outline: none; overflow-y: hidden; caret-color: var(--acc);
+}
+.bm-input::placeholder { color: var(--bm-note); }
+/* WKWebView: a parent's user-select:none blocks text-input focus — the
+   composer must opt back in, and manipulation keeps taps crisp. */
+.bm-comp { touch-action: manipulation; }
+.bm-input { -webkit-user-select: text; user-select: text; }
+/* iOS zooms the page when focusing inputs under 16px — pin it there. */
+@supports (-webkit-touch-callout: none) {
+  .bm-input { font-size: 16px; }
+}
+.bm-send {
+  width: 42px; height: 42px; border-radius: 99px; flex: none; border: none;
+  background: var(--acc); color: var(--acc-ink); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  font: 700 16px Karla, Manrope, sans-serif;
+}
+.bm-authorize {
+  flex: 1; padding: 15px; border-radius: 16px; border: none; cursor: pointer;
+  background: var(--acc); color: var(--acc-ink);
+  font: 700 13.5px Karla, Manrope, sans-serif;
+}
+.bm-authamend {
+  padding: 11px 14px; border-radius: 14px; cursor: pointer;
+  background: none; border: 1px solid var(--bm-swBd); color: var(--bm-cnt);
+  font: 600 12px Karla, Manrope, sans-serif;
+}
+
+.bm-tpanel {
+  position: absolute; z-index: 44; left: 16px; right: 16px;
+  top: calc(56px + env(safe-area-inset-top, 0px)); max-height: 60%;
+  background: var(--bm-btnBg); border: 1px solid var(--bm-swBd); border-radius: 18px;
+  padding: 14px 16px; display: none; flex-direction: column;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.bm-tpanel.on { display: flex; }
+.bm-tbody {
+  min-height: 0; overflow-y: auto; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  padding: 10px 0;
+}
+.bm-tbody::-webkit-scrollbar { display: none; }
+.bm-tp-kicker { font: 700 10px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--bm-cnt); }
+.bm-tp-head { display: flex; align-items: center; justify-content: space-between; }
+.bm-tp-close { background: none; border: none; color: var(--bm-sub); font: 600 13px Karla, Manrope, sans-serif; cursor: pointer; }
+.bm-tp-label { font: 600 10px Karla, Manrope, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: var(--bm-note); margin: 12px 0 4px; }
+.bm-tp-what { font: 400 12.5px/1.55 Karla, Manrope, sans-serif; color: var(--bm-body); white-space: pre-line; }
+.bm-tp-mono { font: 400 11px/1.6 ui-monospace, Menlo, monospace; color: var(--bm-sub); background: rgba(120, 110, 90, .08); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: break-word; }
+.bm-tp-mono h5 { margin: 10px 0 3px; font: 700 10px Karla, Manrope, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--bm-cnt); }
+
+.bm-flash {
+  position: absolute; inset: 0; z-index: 60; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle at var(--fx, 50%) var(--fy, 32%),
+    color-mix(in srgb, var(--pig) 55%, transparent) 0%, transparent 60%);
+}
+.bm-toast {
+  position: absolute; left: 50%; top: 26%; z-index: 62;
+  transform: translate(-50%, -6px); opacity: 0;
+  transition: opacity .4s ease, transform .4s ease;
+  background: var(--bm-btnBg); border: 1px solid var(--bm-swBd); border-radius: 99px;
+  padding: 9px 16px; font: 600 10px Karla, Manrope, sans-serif;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--bm-cnt);
+  pointer-events: none; white-space: nowrap;
+}
+.bm-toast.on { opacity: 1; transform: translate(-50%, 0); }

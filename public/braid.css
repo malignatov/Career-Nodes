@@ -297,6 +297,16 @@
 .br7-woven { align-self: center; font: italic 500 16px Lora, serif; color: var(--acc-text); animation: floatIn .8s both; }
 .br7-error { align-self: center; text-align: center; font: 500 12px Karla, Manrope, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 370px; }
 
+/* The whisper-as-toggle and the unfolded interview record. */
+.br7-hist-toggle { cursor: pointer; }
+.br7-hist {
+  align-self: stretch;
+  display: flex; flex-direction: column; gap: 16px;
+  margin: 2px 0; padding: 14px 0;
+  border-top: 1px dashed color-mix(in srgb, var(--t5panel-bd) 85%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--t5panel-bd) 85%, transparent);
+}
+
 /* Review: an accent-left-ruled passage, not a card. */
 .br7-review { border-left: 2px solid color-mix(in srgb, var(--acc) 40%, transparent); padding-left: 14px; max-width: 400px; }
 .br7-review-body { font: 500 14.5px/1.65 Lora, serif; color: var(--t4ink); text-wrap: pretty; text-align: left; }

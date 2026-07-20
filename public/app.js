@@ -161,14 +161,23 @@ function braidCtx() {
 
 function renderJourney() {
   const braidActive = Boolean(window.Braid?.active?.()) && mode === "client";
+  const braidMActive = !braidActive && Boolean(window.BraidM?.active?.()) && mode === "client";
   journeyEl.classList.toggle("braid-on", braidActive);
+  journeyEl.classList.toggle("braidm-on", braidMActive);
   if (braidActive) {
+    window.BraidM?.abortSession?.();
     window.Braid.renderJourney(journeyEl, braidCtx());
+    return;
+  }
+  if (braidMActive) {
+    window.Braid?.abortSession?.();
+    window.BraidM.renderJourney(journeyEl, braidCtx());
     return;
   }
   // Leaving braid mode (resize, mode switch) must not strand a live inline
   // session — its DOM is about to be replaced.
   window.Braid?.abortSession?.();
+  window.BraidM?.abortSession?.();
   const pct = Math.round((journey.authorized / journey.total) * 100);
   const current = currentNodeId();
   const parts = [];
@@ -355,6 +364,7 @@ function applyModalStrings() {
 async function openModal(id) {
   if (mode === "practitioner") return openPractitioner(id);
   if (window.Braid?.active?.()) return window.Braid.openSession(id, braidCtx());
+  if (window.BraidM?.active?.()) return window.BraidM.openSession(id, braidCtx());
   const node = byId(id);
   // Authorized nodes open straight into review of the saved artifact (no model
   // call); derived nodes never show the chat — status + review only.

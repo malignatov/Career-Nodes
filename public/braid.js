@@ -330,6 +330,7 @@
     J.strip = J.frame.querySelector(".br-strip");
 
     const onPick = (e) => {
+      if (J.merge) return; // the weave ceremony owns the field until it settles
       const j = Number(e.currentTarget.dataset.i);
       if (J.sess) {
         // The field is inert during a session; the node itself stays the
@@ -363,6 +364,7 @@
         return;
       }
       e.preventDefault();
+      if (J.merge) return; // no scrolling away mid-weave
       acc += e.deltaY;
       if (acc > 34) { acc = 0; setFocus(J.focus + 1); }
       else if (acc < -34) { acc = 0; setFocus(J.focus - 1); }
@@ -482,7 +484,7 @@
       const j = Number(el.dataset.i);
       const nm = J.ctx.nodeTitle(J.nodes[j]);
       // Locked steps carry an "Unlocks after {previous step}" sub-line.
-      if (J.status[j] === "plan" && j > 0) {
+      if (J.nodes[j].status === "planned" && j > 0) { // server truth, not paint state
         const prev = J.ctx.nodeTitle(J.nodes[j - 1]);
         el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(t("unlocks_after", prev))}</div>`;
       } else if (el.textContent !== nm || el.querySelector(".br-label-sub")) {
@@ -587,7 +589,9 @@
     plaque.querySelector(".br-plaque-line").textContent =
       J.merge && J.merge.j === J.focus && J.merge.phase === "solid"
         ? J.ctx.t("braid_woven_in")
-        : (fst === "plan" && J.focus > 0)
+        // "Locked" must reflect SERVER truth: a step that is available but
+        // simply not the current one still opens — never call it locked.
+        : (focused.status === "planned" && J.focus > 0)
           ? J.ctx.t("locked_unlocks_after", J.ctx.nodeTitle(J.nodes[J.focus - 1]))
           : J.ctx.nodeDesc(focused);
     // When the waking sphere is focused, the rAF loop owns plaque/nimbus
@@ -808,8 +812,13 @@
     }, 1750);
     J.timers.advance = setTimeout(() => {
       J.merge = null;
-      // setFocus sees the pending promotion and schedules the server sync.
       setFocus(J.pendingNext ?? Math.min(J.nodes.length - 1, i + 1));
+      // ALWAYS resync after a weave: the authorize changed server state even
+      // when no already-known step wakes — the step this one just unlocked
+      // only exists server-side. (Sequential unlocks otherwise paint stale
+      // "Locked" until a manual reload.)
+      clearTimeout(J.timers.reload);
+      J.timers.reload = setTimeout(() => J.ctx.reload(), 1300);
     }, 3600);
   }
 
@@ -875,8 +884,9 @@
       const fresh = mapStatuses();
       const changed = fresh.join() !== J.status.join();
       J.status = fresh;
+      J._syncs = (J._syncs || 0) + 1;
       if (rebuild || changed) J.focus = Math.max(0, Math.min(J.nodes.length - 1, defaultFocus()));
-    }
+    } else J._syncSkips = (J._syncSkips || 0) + 1;
     if (rebuild) {
       build(root);
       updateTexts();
@@ -1083,6 +1093,35 @@
   /* Review-in-place: the woven bead reads its authored story back — a quiet
    * "authored" whisper, the serif passage, its verbatim fragments returned to
    * the right, and plain-text Amend / Continue. No card, no composer. */
+  /* The "Authored · woven in" whisper unfolds the recorded interview inline —
+   * the same say/user bubbles as live chat, in a dash-bordered section above
+   * the authored story — and folds it back on a second tap. */
+  function toggleHist(e) {
+    const note = e.currentTarget;
+    const ctx = L.ctx;
+    const label = ctx.esc(ctx.t("braid_authored_whisper"));
+    const ex = note.parentElement?.querySelector("[data-hist]");
+    if (ex) {
+      ex.remove();
+      note.innerHTML = `${label}  ▸`;
+      return;
+    }
+    const w = document.createElement("div");
+    w.dataset.hist = "1";
+    w.className = "br7-hist";
+    for (const turn of L.record ?? []) {
+      const d = document.createElement("div");
+      d.className = turn.speaker === "user" ? "br7-user" : "br7-say";
+      d.style.animation = "none";
+      d.textContent = turn.text;
+      w.appendChild(d);
+    }
+    note.after(w);
+    note.innerHTML = `${label}  ▾`;
+    const box = q7(".br7-msgs");
+    if (box) box.scrollTop = note.offsetTop - 12;
+  }
+
   function buildInlinePassage(payload) {
     const ctx = L.ctx, t = ctx.t;
     const box = q7(".br7-msgs");
@@ -1108,14 +1147,20 @@
         .map((qt) => `<div class="br7-fragment">«<span>${ctx.esc(qt)}</span>»</div>`)
         .join("")}</div>`
       : "";
+    // With a recorded interview behind the artifact, the whisper becomes a
+    // toggle that unfolds the original conversation above the story.
+    const hasRecord = Boolean(L.record?.length);
     wrap.innerHTML =
-      `<div class="br7-note">${ctx.esc(t("braid_authored_whisper"))}</div>` +
+      `<div class="br7-note${hasRecord ? " br7-hist-toggle" : ""}" data-whisper>${ctx.esc(t("braid_authored_whisper"))}${hasRecord ? "  ▸" : ""}</div>` +
       `<div class="br7-story">${story}</div>` +
       frags +
       `<div class="br7-acts"><button class="br7-act" data-amend>${ctx.esc(t("braid_amend"))}</button>` +
       `<button class="br7-act accent" data-continue>${ctx.esc(t("braid_continue"))}</button></div>`;
     box.appendChild(wrap);
     box.scrollTop = box.scrollHeight;
+    if (hasRecord) {
+      wrap.querySelector("[data-whisper]").addEventListener("click", toggleHist);
+    }
 
     wrap.querySelector("[data-amend]").addEventListener("click", () => {
       if (!ctx.wsLive()) return inlineConnLost();
@@ -1227,6 +1272,7 @@
     L.reviewing = reviewing;
     L.firstReview = reviewing;
     L.draft = "";
+    L.record = null;
     L.tWhat = "";
     L.tCompiled = "";
 
@@ -1287,7 +1333,8 @@
           if (res.ok) {
             const saved = await res.json();
             if (!L.open || L.gen !== my) return;
-            for (const e of saved.exchange ?? []) {
+            L.record = saved.exchange ?? []; // kept for the transcript toggle
+            for (const e of L.record) {
               if (e.speaker === "user") pushKnot(false);
             }
             pushKnot(true); // the authored end-knot
@@ -1905,7 +1952,7 @@
     /** Close any live inline session (ws included) — called by the app when
      * the braid stops being the active journey surface. */
     abortSession() { if (L.open) inlineAbort(); },
-    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length }),
+    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext }),
     _frame: (ts) => { if (J.loop) J.loop(ts); },
   };
 })();
