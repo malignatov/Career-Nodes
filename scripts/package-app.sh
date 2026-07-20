@@ -59,6 +59,27 @@ else
   if [ "$PLATFORM" = "win32" ]; then
     mv "$BUILT/electron.exe" "$BUILT/Career Nodes.exe"
     ditto -c -k --keepParent "$BUILT" "$ZIP"
+    # Friendlier hand-off than a zip: a per-user Setup.exe with shortcuts and
+    # an uninstaller. Native makensis first; the Homebrew arm64 bottle crashes
+    # with bad_alloc on this OS (even on a 4-line script), so fall back to the
+    # Debian makensis in docker (colima must be running).
+    SETUP="$ROOT/dist-app/Career-Nodes-Setup-x64.exe"
+    rm -f "$SETUP"
+    NSI_OK=0
+    if command -v makensis >/dev/null 2>&1; then
+      makensis -V2 -DSRCDIR="$BUILT" -DOUTFILE="$SETUP" "$ROOT/scripts/installer.nsi" && NSI_OK=1 || true
+    fi
+    if [ "$NSI_OK" = 0 ] && command -v docker >/dev/null 2>&1; then
+      echo "native makensis unavailable or crashed — building the installer in docker…"
+      docker run --rm -v "$ROOT:/work" -w /work debian:stable-slim bash -c \
+        "apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq nsis >/dev/null 2>&1 && makensis -V2 -DSRCDIR='/work/${BUILT#"$ROOT"/}' -DOUTFILE='/work/dist-app/Career-Nodes-Setup-x64.exe' scripts/installer.nsi" \
+        && NSI_OK=1 || true
+    fi
+    if [ "$NSI_OK" = 1 ] && [ -f "$SETUP" ]; then
+      echo "Setup: $SETUP  ($(du -h "$SETUP" | cut -f1 | tr -d ' '))"
+    else
+      echo "note: no working makensis (native or docker) — skipped Career-Nodes-Setup-x64.exe"
+    fi
   else
     mv "$BUILT/electron" "$BUILT/career-nodes"
     chmod +x "$BUILT/career-nodes" "$BUILT/chrome-sandbox" 2>/dev/null || true
