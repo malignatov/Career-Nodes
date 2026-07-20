@@ -1,5 +1,33 @@
 import UIKit
+import WebKit
 import Capacitor
+
+/// Hides WKWebView's default input-accessory bar (the ^ ∨ ✓ strip above the
+/// keyboard): the app's chat composer is the only input, so the bar is noise.
+/// Standard runtime-subclass technique — the WKContent view's class is swapped
+/// for a dynamic subclass whose `inputAccessoryView` returns nil.
+final class BraidBridgeViewController: CAPBridgeViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        guard let webView = self.webView,
+              let target = webView.scrollView.subviews.first(where: {
+                  String(describing: type(of: $0)).hasPrefix("WKContent")
+              }) else { return }
+        let name = "NoInputAccessory_\(String(describing: type(of: target)))"
+        var cls: AnyClass? = NSClassFromString(name)
+        if cls == nil,
+           let original = object_getClass(target),
+           let method = class_getInstanceMethod(UIView.self, #selector(getter: UIResponder.inputAccessoryView)) {
+            cls = objc_allocateClassPair(original, name, 0)
+            if let cls = cls {
+                let imp = imp_implementationWithBlock({ (_: Any) -> UIView? in nil } as @convention(block) (Any) -> UIView?)
+                class_addMethod(cls, #selector(getter: UIResponder.inputAccessoryView), imp, method_getTypeEncoding(method))
+                objc_registerClassPair(cls)
+            }
+        }
+        if let cls = cls { object_setClass(target, cls) }
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -10,7 +38,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Storyboard-free bootstrap: the app is a single Capacitor WebView, so
         // the window is built in code (also sidesteps ibtool on beta toolchains).
         window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = CAPBridgeViewController()
+        window?.rootViewController = BraidBridgeViewController()
         window?.makeKeyAndVisible()
         return true
     }

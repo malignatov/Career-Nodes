@@ -500,78 +500,8 @@ const WSShim = function (this: unknown, url: string, protocols?: string | string
 (WSShim as unknown as Record<string, number>).CLOSED = 3;
 window.WebSocket = WSShim;
 
-/* ── settings: keys live on the device, nowhere else ───── */
-
-function injectSettings(): void {
-  const gear = document.createElement("button");
-  gear.id = "ccGear";
-  gear.textContent = "⚙";
-  gear.style.cssText =
-    "position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));right:14px;z-index:70;width:40px;height:40px;" +
-    "border-radius:99px;border:1px solid rgba(128,116,98,.4);background:rgba(255,255,255,.85);font-size:18px;cursor:pointer;";
-  const panel = document.createElement("div");
-  panel.id = "ccSettingsPanel";
-  panel.hidden = true;
-  panel.style.cssText =
-    "position:fixed;bottom:calc(62px + env(safe-area-inset-bottom));right:14px;z-index:70;width:min(320px,88vw);padding:14px;border-radius:14px;" +
-    "border:1px solid rgba(128,116,98,.4);background:#fffdf9;box-shadow:0 8px 30px rgba(61,54,45,.25);" +
-    "font:13px Karla,sans-serif;color:#3c352b;display:flex;flex-direction:column;gap:8px;";
-  const field = (id: string, label: string, type = "password"): string =>
-    `<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#8a7f6e">${label}` +
-    `<input id="${id}" type="${type}" autocomplete="off" style="padding:8px;border:1px solid #d8d0c2;border-radius:8px;font-size:13px"/></label>`;
-  panel.innerHTML =
-    `<div style="font-weight:600">Keys stay on this device</div>` +
-    field("ccKeyLlm", "OpenRouter API key (AI interviewer)") +
-    field("ccKeyVoice", "OpenAI API key (voice dictation, optional)") +
-    field("ccInvite", "Invite code (get a free key)", "text") +
-    `<button id="ccRedeem" style="padding:8px;border-radius:8px;border:1px solid #d8d0c2;background:none;cursor:pointer">Redeem invite</button>` +
-    `<button id="ccSave" style="padding:9px;border-radius:8px;border:none;background:#6f8265;color:#fff;font-weight:600;cursor:pointer">Save & reload</button>` +
-    `<div id="ccSettingsNote" style="font-size:11px;color:#8a7f6e"></div>`;
-  document.body.append(gear, panel);
-
-  const $ = (id: string): HTMLInputElement => document.getElementById(id) as HTMLInputElement;
-  gear.addEventListener("click", () => {
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) {
-      $("ccKeyLlm").value = cfg("LLM_API_KEY") ?? "";
-      $("ccKeyVoice").value = cfg("OPENAI_API_KEY") ?? "";
-    }
-  });
-  (document.getElementById("ccSave") as HTMLButtonElement).addEventListener("click", () => {
-    void (async () => {
-      await Preferences.set({ key: "LLM_API_KEY", value: $("ccKeyLlm").value.trim() });
-      await Preferences.set({ key: "OPENAI_API_KEY", value: $("ccKeyVoice").value.trim() });
-      location.reload();
-    })();
-  });
-  (document.getElementById("ccRedeem") as HTMLButtonElement).addEventListener("click", () => {
-    void (async () => {
-      const note = document.getElementById("ccSettingsNote") as HTMLElement;
-      const vendor = cfg("VENDOR_URL") ?? "";
-      const code = $("ccInvite").value.trim();
-      if (!vendor) { note.textContent = "No key service configured in this build."; return; }
-      if (!code) { note.textContent = "Enter your invite code first."; return; }
-      note.textContent = "Redeeming…";
-      try {
-        const res = await realFetch(`${vendor}/redeem`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ code }),
-        });
-        const data = (await res.json()) as { key?: string; error?: string };
-        if (!res.ok || !data.key) throw new Error(data.error ?? `${res.status}`);
-        await Preferences.set({ key: "LLM_API_KEY", value: data.key });
-        note.textContent = "Key installed — reloading…";
-        setTimeout(() => location.reload(), 700);
-      } catch (err) {
-        note.textContent = `Could not redeem: ${(err as Error).message}`;
-      }
-    })();
-  });
-}
 
 document.addEventListener("DOMContentLoaded", () => {
-  injectSettings();
   // No print dialogs inside native WebViews — hide the PDF export there.
   const capacitor = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
   if (capacitor?.isNativePlatform?.()) {
