@@ -769,7 +769,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the three recollections in the order told, with the feeling, the approved headline, and the headline's main verb for each.\n",
+            "task": "Structure the recollections in the order told — the three asked for, plus any extra story the user offered and asked to keep. For each: the feeling, the approved headline, and the headline's main verb. Feelings and headlines come only from the transcript: the feeling must be one the user actually named (null when none was named — never substitute a scene phrase or a thought), and the headline must be wording the user approved in conversation (null when a story never received one — never compose one yourself).\n",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -781,7 +781,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                 "recollections": {
                   "type": "array",
                   "minItems": 3,
-                  "maxItems": 3,
+                  "maxItems": 5,
                   "items": {
                     "type": "object",
                     "required": [
@@ -805,15 +805,25 @@ export const PLAYBOOKS: Record<string, Playbook> =
                         "description": "The load-bearing phrases of the story as told."
                       },
                       "feeling": {
-                        "type": "string",
-                        "x-verbatim": true
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "x-verbatim": true,
+                        "description": "Null when the user never named a feeling for this story."
                       },
                       "headline": {
-                        "type": "string",
-                        "description": "The wording the user approved in conversation (it may have been co-authored, so it is not checked against the user's turns alone)."
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "The wording the user approved in conversation (it may have been co-authored, so it is not checked against the user's turns alone). Null when the story never received an approved headline."
                       },
                       "headline_verb": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     }
                   }
@@ -821,7 +831,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
               }
             },
             "validation": [
-              "Each headline must be exactly the wording the user approved, and must contain a verb."
+              "Each non-null headline must be exactly the wording the user approved, and must contain a verb."
             ]
           },
           {
@@ -948,7 +958,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the favorites with their attractions in the order named.",
+            "task": "Structure the favorites with their attractions in the order named. Attractions come only from what the user actually said about that favorite — anywhere in the transcript, parentheticals included; when the user never stated an attraction for a favorite, leave its attractions as an empty array. Never infer one, and never reuse another favorite's attraction.",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -1174,7 +1184,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the story exactly as the user told it.",
+            "task": "Structure the story exactly as the user told it. similarity_to_self records only what the user answered to the bridge question — null when they declined or it was never asked. Never infer the similarity yourself.",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -1897,7 +1907,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the models and guides with descriptors in the order spoken.",
+            "task": "Structure the models and guides with descriptors in the order spoken. Similarities and differences come only from the user's explicit comparison statements; when a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
