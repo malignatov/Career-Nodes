@@ -326,6 +326,9 @@ window.BraidM = (() => {
       const dy = e.clientY - pd.y;
       if (M.sess) {
         if (pd.moved) return;
+        // Tapping UI that re-renders on tap detaches the target before this
+        // handler runs; closest() would miss the chat and exit the session.
+        if (!e.target || !e.target.isConnected) return;
         if (e.target.closest(".bm-chat,.bm-comp,.bm-authbar,.bm-info,.bm-tpanel,.bm-exit,.bm-sesshead,.bm-mic")) return;
         const tp = q(".bm-tpanel");
         if (tp && tp.classList.contains("on")) { tp.classList.remove("on"); return; }
@@ -354,8 +357,7 @@ window.BraidM = (() => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });
     inp.addEventListener("input", () => {
-      inp.style.height = "42px";
-      inp.style.height = Math.min(120, Math.max(42, inp.scrollHeight)) + "px";
+      autosize(inp);
       M.draft = inp.value;
     });
     q(".bm-send").addEventListener("click", send);
@@ -667,6 +669,34 @@ window.BraidM = (() => {
 
   const coarse = matchMedia("(pointer: coarse)").matches;
 
+  /* One sizing rule for typing, dictation, and draft restore: grow to 40% of
+   * the viewport, then the field scrolls internally. */
+  function autosize(inp) {
+    inp = inp || q(".bm-input");
+    if (!inp) return;
+    const cap = Math.round(((M.root && M.root.clientHeight) || 844) * 0.4);
+    inp.style.height = "42px";
+    const h = Math.min(cap, Math.max(42, inp.scrollHeight));
+    inp.style.height = h + "px";
+    // The chat floor rides up with the growing field (see .bm-chat bottom).
+    if (M.root) M.root.style.setProperty("--bm-grow", (h - 42) + "px");
+  }
+
+  /* Three pulsing dots while the counselor reads or composes. */
+  function showThink() {
+    const box = q(".bm-msgs");
+    if (!box || box.querySelector("[data-mthink]")) return;
+    const d = document.createElement("div");
+    d.className = "bm-think";
+    d.dataset.mthink = "1";
+    d.innerHTML = "<span></span><span></span><span></span>";
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+  function clearThink() {
+    q(".bm-msgs")?.querySelector("[data-mthink]")?.remove();
+  }
+
   /* iOS raises the keyboard only on user-gesture focus, and dismisses it when
    * the field is disabled — so on touch devices the input stays enabled and
    * unfocused-by-code; `on` gates SENDING (button + Enter), not the field. */
@@ -686,6 +716,7 @@ window.BraidM = (() => {
     if (placeholder) { inp.placeholder = placeholder; M.placeholder = placeholder; }
     if (on) {
       if (!inp.value && M.draft) inp.value = M.draft;
+      autosize(inp);
       // Desktop-narrow only: the accent caret draws the eye. On touch, a
       // programmatic focus would break the next tap's keyboard.
       if (!coarse) setTimeout(() => { if (M.open) inp.focus({ preventScroll: true }); }, 480);
@@ -710,14 +741,14 @@ window.BraidM = (() => {
     }
     inp.value = "";
     M.draft = "";
-    inp.style.height = "42px";
+    autosize(inp);
     compose(false);
     msgEl("user", text);
     if (M.mock) { mockTurn(text); return; }
-    if (M.composerMode === "amend") {
-      M.composerMode = "answer";
-      statusMsg(t("status_revising"));
-    }
+    // An amend note opens a conversation — the counselor confirms before any
+    // revision, so the "revising…" whisper waits for the server's own note.
+    if (M.composerMode === "amend") M.composerMode = "answer";
+    showThink(); // cleared by whatever arrives next
   }
 
   /* Keyless mock: a scripted counselor that keeps the whole interaction —
@@ -726,8 +757,10 @@ window.BraidM = (() => {
   function mockTurn(text) {
     M.mockAnswers.push(text);
     M.mockTurns++;
+    showThink();
     setTimeout(() => {
       if (!M.open || !M.mock) return;
+      clearThink();
       if (M.mockTurns < 2) {
         msgEl("say", t("braid_m_mock_ack"));
         setTimeout(() => { if (M.open) { compose(true, t("placeholder")); } }, 400);
@@ -797,7 +830,7 @@ window.BraidM = (() => {
     wrap.style.display = "contents";
     const story = payload.mode === "candidates"
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes);
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? []);
     let html = `<div class="bm-note">${esc(t("braid_m_draft_ready"))}</div><div class="bm-story">${story}</div>`;
     for (const qt of quotes) html += `<div class="bm-user bm-frag" data-big="1">«<span>${esc(qt)}</span>»</div>`;
     wrap.innerHTML = html;
@@ -825,7 +858,7 @@ window.BraidM = (() => {
     wrap.style.display = "contents";
     const story = payload.mode === "candidates"
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes);
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? []);
     const hasRecord = Boolean(M.record?.length);
     let html = `<div class="bm-note${hasRecord ? " bm-hist-toggle" : ""}" data-mwhisper>${esc(t("braid_authored_whisper"))}${hasRecord ? "  ▸" : ""}</div>`;
     html += `<div class="bm-story">${story}</div>`;
@@ -862,7 +895,17 @@ window.BraidM = (() => {
     const w = document.createElement("div");
     w.dataset.mhist = "1";
     w.className = "bm-hist";
+    // The full session log, amends included, with a divider per amend run.
+    let inAmend = false;
     for (const turn of M.record ?? []) {
+      if (turn.phase === "amend" && !inAmend) {
+        const n = document.createElement("div");
+        n.className = "bm-note";
+        n.style.animation = "none";
+        n.textContent = t("braid_amend_divider");
+        w.appendChild(n);
+      }
+      inAmend = turn.phase === "amend";
       const d = document.createElement("div");
       d.className = turn.speaker === "user" ? "bm-user" : "bm-say";
       d.style.animation = "none";
@@ -887,31 +930,44 @@ window.BraidM = (() => {
 
   const surface = {
     say(text, anchor) {
+      clearThink();
       if (anchor) msgEl("note", t("anchor_label"));
       msgEl("say", text);
     },
     note(text) {
+      clearThink();
       const localized = M.ctx.localizeNote(text);
-      if (M.reviewing || M.chatless || M.scriptDone) statusMsg(localized);
-      else msgEl("note", localized);
+      if (M.reviewing || M.chatless || M.scriptDone) {
+        statusMsg(localized);
+        // A process note means the model is still working — keep the pulse.
+        showThink();
+      } else msgEl("note", localized);
     },
-    error(text) { msgEl("error", text); },
+    error(text) { clearThink(); msgEl("error", text); },
     ask(prompt) {
+      clearThink();
       M.composerMode = "answer";
       M.scriptDone = false;
       composerBars();
       const ph = prompt && prompt.includes("esume") ? t("placeholder_resume")
         : prompt && prompt !== "you" ? prompt : t("placeholder");
       compose(true, ph);
-      setSessNote(t("braid_m_st_int"));
+      // An amend conversation over a woven bead is not an interview — keep
+      // the "Woven · authored" header note.
+      if (!M.reviewing) setSessNote(t("braid_m_st_int"));
     },
     review(payload) {
-      if (M.reviewing && M.firstReview && payload.existing) reviewFill(payload);
+      clearThink();
+      // existing stays true through a withdrawn amend — re-present as the
+      // authored passage; only a real re-draft opens the editable card.
+      if (M.reviewing && payload.existing) { M.firstReview = false; reviewFill(payload); }
       else { M.sess = "chat"; M.firstReview = false; renderDraft(payload); }
     },
     done(outcome) {
       if (outcome === "authorized") {
-        if (M.reviewing && M.firstReview) { // re-authorized woven bead: no ceremony
+        // A re-authorized woven bead (amended or not) never re-runs the
+        // ceremony — it was woven the moment the session opened for review.
+        if (M.reviewing) {
           M.ctx.closeWs();
           exitSession();
           return;

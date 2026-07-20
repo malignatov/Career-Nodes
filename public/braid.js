@@ -374,6 +374,10 @@
     // the open transparency panel closes first, then the session.
     J.stage.addEventListener("click", (e) => {
       if (!J.sess || L.closing) return;
+      // Clicking UI that re-renders on click (alternative wording, review
+      // actions) detaches the target before this handler runs; closest()
+      // would then miss the chat and close the session out from under it.
+      if (!e.target || !e.target.isConnected) return;
       // The click that follows a node press must never count as a click-out:
       // opening shifts the camera, so the node slides out from under the
       // cursor and this click's target is no longer the node.
@@ -397,8 +401,7 @@
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); inlineSend(); }
     });
     inp.addEventListener("input", () => {
-      inp.style.height = "38px";
-      inp.style.height = Math.min(120, Math.max(38, inp.scrollHeight)) + "px";
+      autosize(inp);
       L.draft = inp.value; // persist the in-progress draft across re-renders
     });
     q7(".br7-mic").addEventListener("click", () => {
@@ -924,6 +927,21 @@
     return d;
   }
 
+  /* One sizing rule for every way text can land in the field: typing,
+   * dictation (which dispatches `input`), and draft restore. Grows to 40% of
+   * the stage, then the field scrolls internally. */
+  function autosize(inp) {
+    inp = inp || q7(".br7-input");
+    if (!inp) return;
+    const cap = Math.round(((J.stage && J.stage.clientHeight) || 640) * 0.4);
+    inp.style.height = "38px";
+    const h = Math.min(cap, Math.max(38, inp.scrollHeight));
+    inp.style.height = h + "px";
+    // The transcript floor rides up with the growing field — the two must
+    // never superimpose on the transparent stage.
+    if (J.stage) J.stage.style.setProperty("--br7-grow", (h - 38) + "px");
+  }
+
   function inlineCompose(on, placeholder) {
     const inp = q7(".br7-input");
     if (!inp) return;
@@ -932,6 +950,7 @@
     if (placeholder) { inp.placeholder = placeholder; L.placeholder = placeholder; }
     if (on) {
       if (!inp.value && L.draft) inp.value = L.draft; // restore a draft after re-render
+      autosize(inp);
       // Auto-focus once the camera has settled, so the accent caret draws the eye.
       setTimeout(() => { if (L.open) inp.focus({ preventScroll: true }); }, 480);
     }
@@ -974,13 +993,38 @@
     if (!L.ctx.wsSend(payload)) return inlineConnLost();
     inp.value = "";
     L.draft = "";
-    inp.style.height = "38px";
+    autosize(inp);
     inlineCompose(false);
     inlineMsg("user", text);
+    // An amend note opens a conversation now — the counselor talks the change
+    // through and asks for confirmation before anything is revised, so no
+    // eager "revising…" whisper; the server sends it when it actually revises.
     if (L.composerMode === "amend") {
       L.composerMode = "answer";
-      inlineStatus(L.ctx.t("status_revising"));
+      // The engine stops listening for review actions until the conversation
+      // settles — freeze the card's buttons so an Authorize click can't be
+      // silently swallowed. The next review payload rebuilds them fresh.
+      q7(".br7-msgs")?.querySelector("[data-review]")
+        ?.querySelectorAll("button").forEach((b) => { b.disabled = true; });
     } else pushKnot(false);
+    showThink(); // the counselor is reading — cleared by whatever arrives next
+  }
+
+  /* Three pulsing dots in the counselor's spot while the model reads or
+   * composes; any arriving surface event clears them. */
+  function showThink() {
+    const box = q7(".br7-msgs");
+    if (!box || box.querySelector("[data-think]")) return;
+    const d = document.createElement("div");
+    d.className = "br7-think";
+    d.dataset.think = "1";
+    d.innerHTML = "<span></span><span></span><span></span>";
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+  function clearThink() {
+    const box = q7(".br7-msgs");
+    box?.querySelector("[data-think]")?.remove();
   }
 
   function toggleInlineTransparency() {
@@ -1015,7 +1059,7 @@
     } else if (candidates) {
       parts.push(`<div class="br7-review-body">${edited ? ctx.esc(currentText) : ctx.markVerbatim(currentText, payload.verified_quotes)}</div>`);
     } else {
-      parts.push(`<div class="br7-review-body">${ctx.renderFields(payload.draft, payload.verified_quotes)}</div>`);
+      parts.push(`<div class="br7-review-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [])}</div>`);
     }
     if (payload.existing && L.node.status === "stale") parts.push(`<div class="br7-stale">${ctx.esc(t("stale_note"))}</div>`);
     if (edited) parts.push(`<div class="br7-verify"><span class="tick">✓</span> ${ctx.esc(t("edited_by_you"))}</div>`);
@@ -1109,7 +1153,18 @@
     const w = document.createElement("div");
     w.dataset.hist = "1";
     w.className = "br7-hist";
+    // The full session log, amends included — each amend conversation gets
+    // its own caps-whisper divider.
+    let inAmend = false;
     for (const turn of L.record ?? []) {
+      if (turn.phase === "amend" && !inAmend) {
+        const n = document.createElement("div");
+        n.className = "br7-note";
+        n.style.animation = "none";
+        n.textContent = ctx.t("braid_amend_divider");
+        w.appendChild(n);
+      }
+      inAmend = turn.phase === "amend";
       const d = document.createElement("div");
       d.className = turn.speaker === "user" ? "br7-user" : "br7-say";
       d.style.animation = "none";
@@ -1141,7 +1196,7 @@
     const quotes = payload.verified_quotes ?? [];
     const story = candidates
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes);
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? []);
     const frags = quotes.length
       ? `<div class="br7-fragments">${quotes
         .map((qt) => `<div class="br7-fragment">«<span>${ctx.esc(qt)}</span>»</div>`)
@@ -1205,18 +1260,24 @@
 
   const inlineSurface = {
     say(text, anchor) {
+      clearThink();
       if (anchor) inlineMsg("note", L.ctx.t("anchor_label"));
       inlineMsg("say", text);
     },
     note(text) {
+      clearThink();
       const localized = L.ctx.localizeNote(text);
       // Process notes during induction or revision collapse onto one line;
       // conversation notes (topics) stay part of the transcript.
       if (L.review || L.chatless) inlineStatus(localized);
       else inlineMsg("note", localized);
+      // A process note means the model is still working — keep the pulse alive
+      // under the whisper so the latency reads as thought, not silence.
+      if (L.review || L.chatless) showThink();
     },
-    error(text) { inlineMsg("error", text); },
+    error(text) { clearThink(); inlineMsg("error", text); },
     ask(prompt) {
+      clearThink();
       L.composerMode = "answer";
       const t = L.ctx.t;
       const ph = prompt && prompt.includes("esume") ? t("placeholder_resume")
@@ -1224,10 +1285,12 @@
       inlineCompose(true, ph);
     },
     review(payload) {
-      // A woven bead's own authored record reads back as the passage; an
-      // amended re-draft (any later payload) falls through to the editable
-      // card so it can be re-authorized.
-      if (L.reviewing && payload.existing && L.firstReview) {
+      clearThink();
+      // A woven bead's own authored record reads back as the passage —
+      // including a re-present after a withdrawn amend (existing stays true
+      // until a real revision). Only an actual re-draft (existing false)
+      // falls through to the editable card for re-authorization.
+      if (L.reviewing && payload.existing) {
         L.firstReview = false;
         buildInlinePassage(payload);
         return;
@@ -1245,6 +1308,7 @@
     },
     closed() {
       if (!L.open || L.closing) return;
+      clearThink(); // a drop mid-LLM-turn must not leave the dots pulsing
       inlineCompose(false);
       inlineMsg("note", L.ctx.t("conn_closed"));
     },
@@ -1669,7 +1733,7 @@
     } else if (candidates) {
       parts.push(`<div class="t5-draft-body">${edited ? ctx.esc(currentText) : ctx.markVerbatim(currentText, payload.verified_quotes)}</div>`);
     } else {
-      parts.push(`<div class="t5-draft-body">${ctx.renderFields(payload.draft, payload.verified_quotes)}</div>`);
+      parts.push(`<div class="t5-draft-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [])}</div>`);
     }
     if (stale) parts.push(`<div class="t5-stale">${ctx.esc(t("stale_note"))}</div>`);
     if (edited) parts.push(`<div class="t5-verify"><span class="tick">✓</span> ${ctx.esc(t("edited_by_you"))}</div>`);

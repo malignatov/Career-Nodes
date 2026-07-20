@@ -231,7 +231,8 @@
 /* The session shell lives on the same centered 900px canvas as the strip. */
 .br7-canvas { position: absolute; left: 50%; top: 0; bottom: 0; width: 900px; margin-left: -450px; pointer-events: none; }
 .br7-chat {
-  position: absolute; left: 430px; right: 56px; top: 88px; bottom: 116px; z-index: 60;
+  position: absolute; left: 430px; right: 56px; top: 88px; z-index: 60;
+  bottom: calc(116px + var(--br7-grow, 0px)); /* rides up with the composer */
   opacity: 0; pointer-events: none;
   transition: opacity .8s ease .45s;
   display: flex; flex-direction: column;
@@ -252,11 +253,28 @@
   flex: 1; background: none; border: none; resize: none;
   font: 400 14px/1.5 Karla, Manrope, sans-serif; color: var(--t4ink);
   outline: none; padding: 8px 0; height: 38px;
-  box-sizing: border-box; max-height: 120px; overflow-y: hidden;
+  box-sizing: border-box;
+  /* JS caps growth at 40% of the stage; past that the field scrolls
+   * internally — never overflow:hidden, that clips dictated text. */
+  overflow-y: auto; scrollbar-width: none;
   transition: opacity .3s ease;
   caret-color: var(--acc); /* the accent caret draws the eye to the borderless field */
 }
+.br7-input::-webkit-scrollbar { display: none; }
 .br7-input::placeholder { color: var(--t4cnt2); }
+
+/* The counselor is reading/composing — three pulsing dots in the say spot. */
+.br7-think { display: flex; gap: 5px; padding: 6px 2px; align-items: center; animation: floatIn .5s both; }
+.br7-think span {
+  width: 5px; height: 5px; border-radius: 99px; background: var(--t4cnt);
+  animation: brdots 1.2s ease-in-out infinite;
+}
+.br7-think span:nth-child(2) { animation-delay: .18s; }
+.br7-think span:nth-child(3) { animation-delay: .36s; }
+@keyframes brdots {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40% { opacity: .95; transform: translateY(-2px); }
+}
 
 /* ← Journey exit — session chrome, top-left (with Esc and click-out). */
 .br7-exit {

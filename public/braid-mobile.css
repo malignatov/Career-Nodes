@@ -133,7 +133,7 @@
 .bm-chat {
   position: absolute; z-index: 18; left: 0; right: 0;
   top: calc(208px + env(safe-area-inset-top, 0px));
-  bottom: calc(74px + max(var(--kb, 0px), env(safe-area-inset-bottom, 0px)));
+  bottom: calc(74px + var(--bm-grow, 0px) + max(var(--kb, 0px), env(safe-area-inset-bottom, 0px)));
   opacity: 0; pointer-events: none;
   transition: opacity .6s ease .3s, bottom .25s ease;
 }
@@ -186,12 +186,28 @@
 .bm-mic.listening { border-color: var(--acc); color: var(--acc); animation: breatheGlow 2s ease-in-out infinite; }
 .bm-mic.err { border-color: var(--bm-err); color: var(--bm-err); }
 .bm-input {
-  flex: 1; height: 42px; max-height: 120px; box-sizing: border-box; resize: none;
+  flex: 1; height: 42px; box-sizing: border-box; resize: none;
   background: var(--bm-btnBg); border: 1px solid var(--bm-swBd); border-radius: 20px;
   padding: 10px 14px; font: 400 14px/1.5 Karla, Manrope, sans-serif; color: var(--bm-inp);
-  outline: none; overflow-y: hidden; caret-color: var(--acc);
+  /* JS caps growth at 40% of the viewport; past that the field scrolls
+   * internally — never overflow:hidden, that clips dictated text. */
+  outline: none; overflow-y: auto; scrollbar-width: none; caret-color: var(--acc);
 }
+.bm-input::-webkit-scrollbar { display: none; }
 .bm-input::placeholder { color: var(--bm-note); }
+
+/* The counselor is reading/composing — three pulsing dots in the say spot. */
+.bm-think { align-self: flex-start; display: flex; gap: 5px; padding: 6px 2px; align-items: center; animation: mfloatIn .5s both; }
+.bm-think span {
+  width: 5px; height: 5px; border-radius: 99px; background: var(--bm-cnt);
+  animation: bmdots 1.2s ease-in-out infinite;
+}
+.bm-think span:nth-child(2) { animation-delay: .18s; }
+.bm-think span:nth-child(3) { animation-delay: .36s; }
+@keyframes bmdots {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40% { opacity: .95; transform: translateY(-2px); }
+}
 /* WKWebView: a parent's user-select:none blocks text-input focus — the
    composer must opt back in, and manipulation keeps taps crisp. */
 .bm-comp { touch-action: manipulation; }
