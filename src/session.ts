@@ -69,8 +69,8 @@ export async function runReviewSession(
 
   const authorized = await runConfirm(
     pb, draft, io,
-    (feedback) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang),
-    { existingFirst: true },
+    (feedback, prior) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang, prior),
+    { existingFirst: true, llm, lang: opts.lang, exchange },
   );
 
   await saveArtifact(pb, authorized, exchange, store);
@@ -162,8 +162,10 @@ export async function runPlaybookSession(
   }
 
   const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.lang);
-  const authorized = await runConfirm(pb, draft, io, (feedback) =>
-    runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang),
+  const authorized = await runConfirm(
+    pb, draft, io,
+    (feedback, prior) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang, prior),
+    { llm, lang: opts.lang, exchange },
   );
 
   await saveArtifact(pb, authorized, exchange, store);

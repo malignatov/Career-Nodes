@@ -58,10 +58,12 @@ export interface ResumeState {
   stageIndex: number;
 }
 
-const MAX_TURNS_PER_STAGE = 12;
-
 export const CHECKER_SYSTEM =
-  "You audit an interview transcript against a checklist. Judge only from what the user actually said. Return JSON only.";
+  "You audit an interview transcript against a checklist. Judge only from what the user actually said, and default to unsatisfied when evidence is missing or ambiguous. " +
+  "For every checklist item, list the entities it ranges over (the named models, stories, favorites — whatever the item counts or quantifies with 'each' or 'every'), judge each entity separately with a short supporting quote from the transcript, and set required_count to the minimum number of satisfied entities the item demands (null when the item names no count and no 'each'). " +
+  "An 'each X' item demands every X the checklist expects, not every X mentioned so far — 'each of the three models' means three. " +
+  "A statement the user explicitly applies to several entities at once ('all of them', 'I am like them…') is evidence for each of those entities; a statement about one entity is evidence for that entity alone. " +
+  "Never mark an item satisfied on the strength of one single-entity example when it quantifies over several. Return JSON only.";
 
 export function interviewerSystem(
   pb: Playbook,
@@ -91,7 +93,26 @@ export function interviewerSystem(
   ].filter(Boolean).join("\n\n");
 }
 
-async function checkStageDone(
+interface CheckerItem {
+  index: number;
+  satisfied: boolean;
+  required_count: number | null;
+  entities: { name: string; evidence: string; satisfied: boolean }[];
+}
+
+/* The small tier pattern-matches "similarities were discussed → satisfied"
+ * on items that quantify over entities ("each of the three models"), which
+ * once ended a stage after one comparison of three. The schema now forces a
+ * per-entity tally with quoted evidence, and the arithmetic lives HERE — the
+ * model enumerates, the code counts. */
+function checkerItemOk(r: CheckerItem): boolean {
+  const ents = r.entities ?? [];
+  if (r.required_count != null) return ents.filter((e) => e.satisfied).length >= r.required_count;
+  if (ents.length > 0) return r.satisfied && ents.every((e) => e.satisfied);
+  return r.satisfied;
+}
+
+export async function checkStageDone(
   llm: LlmAdapter,
   stage: Stage,
   exchange: ExchangeEntry[],
@@ -105,7 +126,7 @@ async function checkStageDone(
     messages: [
       {
         role: "user",
-        content: `Transcript:\n${transcript}\n\nChecklist:\n${checklist}\n\nFor each item, is it satisfied?`,
+        content: `Transcript:\n${transcript}\n\nChecklist:\n${checklist}\n\nFor each item: which entities does it range over, is each satisfied (with a supporting quote), how many satisfied entities does it require, and is the item satisfied?`,
       },
     ],
     jsonSchema: {
@@ -116,10 +137,23 @@ async function checkStageDone(
           type: "array",
           items: {
             type: "object",
-            required: ["index", "satisfied"],
+            required: ["index", "satisfied", "required_count", "entities"],
             properties: {
               index: { type: "integer" },
               satisfied: { type: "boolean" },
+              required_count: { type: ["integer", "null"] },
+              entities: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["name", "evidence", "satisfied"],
+                  properties: {
+                    name: { type: "string" },
+                    evidence: { type: "string" },
+                    satisfied: { type: "boolean" },
+                  },
+                },
+              },
             },
           },
         },
@@ -127,8 +161,10 @@ async function checkStageDone(
     },
   });
   try {
-    const parsed = JSON.parse(raw) as { results: { satisfied: boolean }[] };
-    return parsed.results.length > 0 && parsed.results.every((r) => r.satisfied);
+    const parsed = JSON.parse(raw) as { results: CheckerItem[] };
+    // Every checklist item must be covered and pass — a shorter answer fails.
+    return stage.done_when.every((_, i) =>
+      parsed.results.some((r) => r.index === i && checkerItemOk(r)));
   } catch {
     return false;
   }
@@ -186,8 +222,10 @@ export async function runElicit(
       resuming = false;
     }
 
-    let turns = 0;
-    while (turns < MAX_TURNS_PER_STAGE) {
+    // No turn cap: the checklist alone ends a topic. The user can always
+    // /skip a topic or leave (progress is saved), so a strict checker can't
+    // trap anyone.
+    for (;;) {
       if (!skipGenerate) {
         const question = await llm.complete({ tier: "small", system, messages });
         messages.push({ role: "assistant", content: question });
@@ -209,12 +247,8 @@ export async function runElicit(
       messages.push({ role: "user", content: answer });
       exchange.push({ speaker: "user", text: answer });
       io.onTurn?.(exchange, i);
-      turns++;
 
       if (await checkStageDone(llm, stage, exchange)) break;
-    }
-    if (turns >= MAX_TURNS_PER_STAGE) {
-      io.note(`(topic "${stage.id}" reached its turn limit; moving on)`);
     }
   }
 
@@ -341,6 +375,98 @@ export async function runInduce(
   return draft;
 }
 
+/* ── the amend conversation ─────────────────────────────────────────────
+ * A change request is talked through before anything is rewritten: the
+ * counselor clarifies, plays the planned change back, and only a clear
+ * user confirmation triggers the recompose. */
+
+const MAX_AMEND_TURNS = 8;
+
+const AMEND_TURN_SCHEMA = {
+  type: "object",
+  properties: {
+    action: { type: "string", enum: ["reply", "revise", "drop"] },
+    say: { type: "string" },
+    directive: { type: "string" },
+  },
+  required: ["action", "say", "directive"],
+  additionalProperties: false,
+};
+
+export function amendChatSystem(pb: Playbook, lang?: SessionLang): string {
+  return [
+    `You are the counselor for the "${pb.title}" step of a career construction session. The user is reviewing a drafted artifact and has asked for a change. Your job is to settle WHAT should change through a short conversation — the rewrite itself happens later, by a separate engine.`,
+    [
+      "Each turn, return JSON with:",
+      '- action "reply" — keep talking: `say` is your next message, asking exactly one question. Clarify when the request is ambiguous or could be applied more than one way; once the change is clear, play back in one or two sentences exactly what will change and ask the user to confirm. Leave `directive` empty.',
+      '- action "revise" — the user has clearly confirmed (yes / go ahead / exactly). `directive` compiles every agreed change into one compact instruction for the rewrite engine; `say` is a brief acknowledgment, or empty.',
+      '- action "drop" — the user withdrew the request or wants the draft kept as it is. `say` acknowledges briefly; the draft stays. Leave `directive` empty.',
+    ].join("\n"),
+    "The user's first request alone is never a confirmation — always reply at least once before revising. Never rewrite the draft yourself inside `say`, and never put changes into `directive` that the user did not agree to.",
+    lang ? `Write \`say\` in ${lang.instruction}.` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+/** Returns the agreed change directive, or null when the user drops the
+ * request. The dialogue is appended to `exchange` (marked `phase:"amend"`)
+ * so the recompose can quote the user's new words and the saved transcript
+ * carries the full session log. */
+export async function runAmendChat(
+  pb: Playbook,
+  llm: LlmAdapter,
+  draft: Record<string, unknown>,
+  firstComment: string,
+  io: SessionIO,
+  lang: SessionLang | undefined,
+  exchange: ExchangeEntry[],
+): Promise<string | null> {
+  const start = exchange.length;
+  exchange.push({ speaker: "user", text: firstComment, phase: "amend" });
+  const userAsks = () =>
+    exchange.slice(start).filter((e) => e.speaker === "user").map((e) => e.text).join("\n");
+
+  for (let turn = 0; turn < MAX_AMEND_TURNS; turn++) {
+    const convo = exchange
+      .slice(start)
+      .map((e) => `${e.speaker === "user" ? "user" : "counselor"}: ${e.text}`)
+      .join("\n");
+    let out: { action?: string; say?: string; directive?: string };
+    try {
+      const raw = await llm.complete({
+        tier: "small",
+        system: amendChatSystem(pb, lang),
+        messages: [{
+          role: "user",
+          content: `The draft under review:\n${JSON.stringify(draft, null, 2)}\n\nThe amend conversation so far:\n${convo}`,
+        }],
+        jsonSchema: AMEND_TURN_SCHEMA,
+        temperature: 0.4,
+      });
+      out = JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as typeof out;
+    } catch {
+      // A failed chat turn must never strand the request — fall back to the
+      // old immediate behavior with everything the user has asked so far.
+      return userAsks();
+    }
+    const say = out.say?.trim() || (out.action === "reply" ? "…" : "");
+    if (say) {
+      io.say(say);
+      exchange.push({ speaker: "interviewer", text: say, phase: "amend" });
+    }
+    if (out.action === "revise") return out.directive?.trim() || userAsks();
+    if (out.action === "drop") {
+      // Withdrawn: scrub the conversation from the exchange so the abandoned
+      // request can never steer a later recompose (the transcript feeds the
+      // composer verbatim). The on-screen chat keeps what was said.
+      exchange.length = start;
+      return null;
+    }
+    const answer = await io.ask("you");
+    exchange.push({ speaker: "user", text: answer, phase: "amend" });
+  }
+  return userAsks(); // cap reached — revise with everything the user asked
+}
+
 function collectVerbatim(pb: Playbook, draft: Record<string, unknown>): { verified_quotes: string[]; warnings: string[] } {
   const warnings = (draft._verbatim_warnings ?? []) as string[];
   const all = (pb.induce?.steps ?? []).flatMap((step) => gatherMarked(draft, step.output_schema));
@@ -352,8 +478,8 @@ export async function runConfirm(
   pb: Playbook,
   draft: Record<string, unknown>,
   io: SessionIO,
-  reinduce: (feedback?: string) => Promise<Record<string, unknown>>,
-  opts: { existingFirst?: boolean } = {},
+  reinduce: (feedback?: string, prior?: Record<string, unknown>) => Promise<Record<string, unknown>>,
+  opts: { existingFirst?: boolean; llm?: LlmAdapter; lang?: SessionLang; exchange?: ExchangeEntry[] } = {},
 ): Promise<Record<string, unknown>> {
   const confirm = pb.confirm!;
   let current = draft;
@@ -372,8 +498,20 @@ export async function runConfirm(
         ...collectVerbatim(pb, current),
       });
       if (act.action === "feedback" || act.action === "reprocess") {
+        let feedback = act.action === "feedback" ? act.text : undefined;
+        if (act.action === "feedback" && opts.llm) {
+          // Talk the change through first; only a confirmed request revises.
+          const settled = await runAmendChat(pb, opts.llm, current, act.text, io, opts.lang, opts.exchange ?? []);
+          if (settled === null) continue; // withdrawn — the draft stands
+          feedback = settled;
+        }
         io.note("(revising…)");
-        current = await reinduce(act.action === "feedback" ? act.text : undefined);
+        // A feedback revision hands the current draft over as `prior` so the
+        // recomposer keeps everything that was not discussed — the amend
+        // conversation promises "only this changes", and a from-scratch
+        // recompose is free to drop fields (it silently emptied guides in
+        // testing). Reprocess deliberately recomposes from sources alone.
+        current = await reinduce(feedback, act.action === "feedback" ? current : undefined);
         existing = false;
         continue;
       }
@@ -414,7 +552,7 @@ export async function runConfirm(
       return current;
     }
     io.note("(revising…)");
-    current = await reinduce(answer);
+    current = await reinduce(answer, current);
   }
 }
 

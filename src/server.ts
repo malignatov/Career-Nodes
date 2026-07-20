@@ -435,6 +435,13 @@ wss.on("connection", (ws, req) => {
     };
     if (msg.type === "answer") pendingAsks.shift()?.resolve(msg.text ?? "");
     else if (msg.type === "review_action") {
+      // Mid-amend-conversation the engine awaits an *answer*; a surface that
+      // still sends its notes as feedback (the modal's amend box) must keep
+      // working, so a pending ask absorbs feedback text.
+      if (msg.action === "feedback" && pendingAsks.length > 0) {
+        pendingAsks.shift()?.resolve(msg.text ?? "");
+        return;
+      }
       const act: ReviewAction =
         msg.action === "feedback"
           ? { action: "feedback", text: msg.text ?? "" }

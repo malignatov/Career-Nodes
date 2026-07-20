@@ -342,6 +342,12 @@ function makeSessionWS(urlStr: string): ShimSocket {
       const msg = JSON.parse(String(data)) as { type: string; text?: string; action?: string; value?: string };
       if (msg.type === "answer") pendingAsks.shift()?.(msg.text ?? "");
       else if (msg.type === "review_action") {
+        // Mirrors the server's ws router: mid-amend-conversation the engine
+        // awaits an *answer*, so a pending ask absorbs feedback text.
+        if (msg.action === "feedback" && pendingAsks.length > 0) {
+          pendingAsks.shift()?.(msg.text ?? "");
+          return;
+        }
         const act: ReviewAction =
           msg.action === "feedback"
             ? { action: "feedback", text: msg.text ?? "" }

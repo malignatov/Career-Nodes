@@ -66,6 +66,9 @@ export interface Playbook {
 export interface ExchangeEntry {
   speaker: "interviewer" | "user";
   text: string;
+  /** Turns from an amend conversation over a presented draft, as opposed to
+   * the original interview. Lets transcripts render the amend divider. */
+  phase?: "amend";
 }
 
 export interface Artifact {
