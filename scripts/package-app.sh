@@ -36,15 +36,15 @@ fi
 (cd "$STAGE/server" && npm ci --omit=dev --silent)
 
 EL_VER=$(node -p "require('$ROOT/node_modules/electron/package.json').version")
-BUILT="$OUT/Career Counseling-$PLATFORM-$ARCH"
-ZIP="$ROOT/dist-app/Career-Counseling-$PLATFORM-$ARCH.zip"
+BUILT="$OUT/Career Nodes-$PLATFORM-$ARCH"
+ZIP="$ROOT/dist-app/Career-Nodes-$PLATFORM-$ARCH.zip"
 rm -f "$ZIP"
 
 if [ "$PLATFORM" = "darwin" ]; then
-  npx electron-packager "$STAGE" "Career Counseling" \
+  npx electron-packager "$STAGE" "Career Nodes" \
     --platform="$PLATFORM" --arch="$ARCH" --out="$OUT" --overwrite \
     --electron-version="$EL_VER" --icon="$ROOT/app/icon.icns"
-  APP="$BUILT/Career Counseling.app"
+  APP="$BUILT/Career Nodes.app"
   codesign --force --deep -s - "$APP" 2>/dev/null || true
   ditto -c -k --keepParent "$APP" "$ZIP"
 else
@@ -57,15 +57,15 @@ else
   ditto -x -k "$EZIP" "$BUILT"
   cp -R "$STAGE" "$BUILT/resources/app"
   if [ "$PLATFORM" = "win32" ]; then
-    mv "$BUILT/electron.exe" "$BUILT/Career Counseling.exe"
+    mv "$BUILT/electron.exe" "$BUILT/Career Nodes.exe"
     ditto -c -k --keepParent "$BUILT" "$ZIP"
   else
-    mv "$BUILT/electron" "$BUILT/career-counseling"
-    chmod +x "$BUILT/career-counseling" "$BUILT/chrome-sandbox" 2>/dev/null || true
+    mv "$BUILT/electron" "$BUILT/career-nodes"
+    chmod +x "$BUILT/career-nodes" "$BUILT/chrome-sandbox" 2>/dev/null || true
     # tar.gz for Linux — reliably preserves the executable bit.
-    ZIP="$ROOT/dist-app/Career-Counseling-$PLATFORM-$ARCH.tar.gz"
+    ZIP="$ROOT/dist-app/Career-Nodes-$PLATFORM-$ARCH.tar.gz"
     rm -f "$ZIP"
-    tar -czf "$ZIP" -C "$OUT" "Career Counseling-$PLATFORM-$ARCH"
+    tar -czf "$ZIP" -C "$OUT" "Career Nodes-$PLATFORM-$ARCH"
   fi
 fi
 

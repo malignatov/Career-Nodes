@@ -68,7 +68,7 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 1180,
     height: 940,
-    title: "Career Counseling",
+    title: "Career Nodes",
     backgroundColor: "#EFE9E0",
     // Window/taskbar icon on Windows and Linux (macOS uses the bundle's icns).
     icon: path.join(__dirname, "icon.png"),
