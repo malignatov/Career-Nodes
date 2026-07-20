@@ -518,6 +518,9 @@ function disableComposer() {
 const modalSurface = {
   say(text, anchor) {
     if (modal?.chatless) return setStatusLine(text);
+    // Mid-review the chat column is hidden; the amend conversation's replies
+    // surface on the status line instead.
+    if (modal?.view === "review") return setStatusLine(text);
     if (anchor) addMsg("note anchor", t("anchor_label"));
     addMsg("say", text);
   },
@@ -531,6 +534,9 @@ const modalSurface = {
     else addMsg("error", text);
   },
   ask(prompt) {
+    // An ask during review is the amend conversation waiting for the next
+    // note — reopen the amend box (its feedback resolves the ask server-side).
+    if (modal?.view === "review") return $("amendBox").classList.remove("busy");
     enableComposer(prompt);
   },
   review(payload) {
@@ -627,28 +633,104 @@ const HIDDEN_KEYS = new Set([
   "named_order", "spoken_order", "first_mentioned_rank", "order",
 ]);
 
-function renderValue(value, quotes) {
+/* Verbatim trichotomy: <mark> = verified user words; "assumed" = a string
+ * the composer offered as a quote that verification could not find in the
+ * user's words or their authorized artifacts; plain = connective tissue. */
+function flagged(value, quotes, warnings) {
+  const marked = markVerbatim(value, quotes);
+  if (warnings?.includes(value)) {
+    return `<span class="assumed">${marked}</span><span class="assumed-tag">${esc(t("assumed_tag"))}</span>`;
+  }
+  return marked;
+}
+
+function renderValue(value, quotes, warnings) {
   if (value === null || value === undefined || value === "") return "";
-  if (typeof value === "string") return `<div class="field-value">${markVerbatim(value, quotes)}</div>`;
+  if (typeof value === "string") return `<div class="field-value">${flagged(value, quotes, warnings)}</div>`;
   if (typeof value === "number" || typeof value === "boolean") {
     return `<div class="field-value">${esc(String(value))}</div>`;
   }
   if (Array.isArray(value)) {
     if (value.length === 0) return "";
+    if (isEntityList(value)) return renderEntityBlocks(value, quotes, warnings);
     if (value.every((v) => typeof v === "string")) {
-      return `<ul>${value.map((v) => `<li>${markVerbatim(v, quotes)}</li>`).join("")}</ul>`;
+      return `<ul>${value.map((v) => `<li>${flagged(v, quotes, warnings)}</li>`).join("")}</ul>`;
     }
-    return value.map((v) => `<div class="sub-card">${renderValue(v, quotes)}</div>`).join("");
+    return value.map((v) => `<div class="sub-card">${renderValue(v, quotes, warnings)}</div>`).join("");
   }
-  if (typeof value === "object") return renderFields(value, quotes);
+  if (typeof value === "object") return renderFields(value, quotes, warnings);
   return "";
 }
 
-function renderFields(obj, quotes) {
+/* Any list of titled things — role models, media, stories, recollections,
+ * portrait movements, plan directions — reads as one block per entity: big
+ * serif title, then its material. Titles must never get lost in a field dump. */
+const TITLE_KEYS = ["name", "title", "headline"];
+const ENTITY_SECTIONS = [
+  ["similarities", "rm_similarities"],
+  ["differences", "rm_differences"],
+  ["descriptors", "rm_descriptors"],
+];
+
+function entityTitle(v) {
+  for (const k of TITLE_KEYS) {
+    if (typeof v[k] === "string" && v[k].trim()) return k;
+  }
+  return null;
+}
+
+function isEntityList(value) {
+  return Array.isArray(value) && value.length > 0
+    && value.every((v) => v && typeof v === "object" && !Array.isArray(v))
+    && value.some((v) => entityTitle(v) !== null);
+}
+
+function renderEntityBlocks(list, quotes, warnings) {
+  return list.map((m) => {
+    const titleKey = entityTitle(m);
+    let h = titleKey ? `<div class="rm-name">${flagged(m[titleKey], quotes, warnings)}</div>` : "";
+    // Short scalar facts (a guide's relationship, a headline's verb) sit
+    // under the title; long prose falls through to the body renderer below.
+    // Nothing the user authorizes may vanish from the review.
+    const rest = [];
+    for (const [k, v] of Object.entries(m)) {
+      if (k === titleKey || HIDDEN_KEYS.has(k)) continue;
+      if (typeof v === "string" && v.trim() && v.length <= 90) {
+        h += `<div class="rm-rel">${flagged(v, quotes, warnings)}</div>`;
+      } else rest.push([k, v]);
+    }
+    for (const [field, key] of ENTITY_SECTIONS) {
+      const items = (m[field] ?? [])
+        .map((it) => (typeof it === "string" ? it : it?.text))
+        .filter(Boolean);
+      if (!items.length) continue;
+      h += `<div class="rm-sec">${esc(t(key))}</div>`
+        + items.map((it) => `<div class="rm-item">«<span>${flagged(it, quotes, warnings)}</span>»</div>`).join("");
+    }
+    for (const [k, v] of rest) {
+      if (ENTITY_SECTIONS.some(([f]) => f === k)) continue;
+      if (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "string")) {
+        h += `<div class="rm-sec">${esc(k.replaceAll("_", " "))}</div>`
+          + v.map((it) => `<div class="rm-item">«<span>${flagged(it, quotes, warnings)}</span>»</div>`).join("");
+        continue;
+      }
+      const rendered = renderValue(v, quotes, warnings);
+      if (!rendered) continue;
+      h += `<div class="rm-sec">${esc(k.replaceAll("_", " "))}</div>${rendered}`;
+    }
+    return `<div class="rm-block">${h}</div>`;
+  }).join("");
+}
+
+function renderFields(obj, quotes, warnings) {
   const parts = [];
   for (const [key, value] of Object.entries(obj)) {
     if (HIDDEN_KEYS.has(key)) continue;
-    const rendered = renderValue(value, quotes);
+    if (isEntityList(value)) {
+      parts.push(renderEntityBlocks(value, quotes, warnings)); // no field label — the titles carry it
+      continue;
+    }
+    const rendered = renderValue(value, quotes, warnings);
     if (!rendered) continue;
     parts.push(`<div class="field-label">${esc(key.replaceAll("_", " "))}</div>`);
     parts.push(rendered);
@@ -680,7 +762,7 @@ function renderDraftBody() {
     }
   } else {
     $("altList").hidden = true;
-    body.innerHTML = renderFields(payload.draft, payload.verified_quotes);
+    body.innerHTML = renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? []);
   }
 
   const verify = $("verifyLine");
@@ -701,6 +783,9 @@ function showReview(payload) {
   setStatusLine(null);
   $("reviewBody").hidden = false;
   $("amendBox").classList.remove("busy");
+  // A fresh payload ends any amend conversation — thaw the actions.
+  ["authorizeBtn", "changesBtn", "reprocessBtn", "editBtn", "restartBtn"]
+    .forEach((id) => { $(id).disabled = false; });
   const stale = modal.node.status === "stale";
   setChip(payload.existing ? "authorized" : "drafted");
   setStaleChip(payload.existing && stale);
@@ -756,12 +841,20 @@ $("changesBtn").addEventListener("click", () => {
 
 $("amendBox").addEventListener("submit", (e) => {
   e.preventDefault();
+  // .busy only blocks the pointer — Enter mid-turn must not eat the note.
+  if ($("amendBox").classList.contains("busy")) return;
   const text = $("amendInput").value.trim();
   if (!text || !ws) return;
   ws.send(JSON.stringify({ type: "review_action", action: "feedback", text }));
   $("amendInput").value = "";
   $("amendBox").classList.add("busy");
-  setStatusLine(t("status_revising"));
+  // The note opens a conversation; the counselor's reply lands on the status
+  // line, and "revising…" comes from the server when it actually revises.
+  setStatusLine("…");
+  // The engine stops listening for review actions until the conversation
+  // settles — freeze them so an Authorize click can't be silently swallowed.
+  ["authorizeBtn", "changesBtn", "reprocessBtn", "editBtn", "restartBtn"]
+    .forEach((id) => { $(id).disabled = true; });
 });
 
 $("amendInput").addEventListener("keydown", (e) => {

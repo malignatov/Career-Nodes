@@ -511,6 +511,31 @@ body:has(#scrim:not([hidden])) {
 
 #verifyLine { display: flex; align-items: center; gap: 7px; font: 500 11.5px Karla, Manrope, sans-serif; color: var(--sage); }
 
+/* Role-model entity blocks — one per person, on every review surface (modal,
+ * braid, mobile). Colors ride the surrounding surface: currentColor + opacity
+ * for muting, the accent var for the verbatim marks it inherits. */
+.rm-block {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 0 4px; margin-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
+}
+.rm-block:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.rm-name { font: 600 21px/1.15 Lora, serif; }
+.rm-rel { font: italic 400 12.5px/1.4 Lora, serif; opacity: .6; }
+
+/* Composer-offered quotes that verification could not find in the user's
+ * words or authorized artifacts: dashed, and honestly labeled. */
+.assumed { border-bottom: 1px dashed color-mix(in srgb, currentColor 45%, transparent); }
+.assumed-tag {
+  font: 600 8px Karla, Manrope, sans-serif; letter-spacing: .09em;
+  text-transform: uppercase; opacity: .5; margin-left: 4px; vertical-align: super;
+}
+.rm-sec {
+  font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em;
+  text-transform: uppercase; opacity: .55; margin-top: 9px;
+}
+.rm-item { font: 400 13.5px/1.6 Karla, Manrope, sans-serif; opacity: .85; margin-bottom: 5px; }
+
 #editArea { display: flex; flex-direction: column; gap: 8px; }
 #draftTextarea {
   width: 100%;
