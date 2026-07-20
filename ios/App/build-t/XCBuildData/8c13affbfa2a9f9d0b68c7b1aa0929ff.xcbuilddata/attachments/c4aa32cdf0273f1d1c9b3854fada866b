@@ -1,4 +1,0 @@
-module IONFilesystemLib {
-header "IONFilesystemLib-Swift.h"
-export *
-}

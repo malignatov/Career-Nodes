@@ -1,4 +1,0 @@
-module PreferencesPlugin {
-header "PreferencesPlugin-Swift.h"
-export *
-}
