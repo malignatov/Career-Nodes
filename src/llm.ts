@@ -161,8 +161,13 @@ export class OpenAICompatAdapter implements LlmAdapter {
     }
     if (ep.baseUrl.startsWith(OPENROUTER_BASE)) {
       if (this.zdr) body.zdr = true;
-      // Cheapest endpoint that satisfies the constraints wins.
-      const provider: Record<string, unknown> = { sort: "price" };
+      // Fastest endpoint that satisfies the constraints wins. Price sort is a
+      // trap here: it ignores prompt-cache discounts and routes to whoever
+      // undercuts the pool, even at single-digit tok/s (DigitalOcean, Jul '26).
+      // Within the vetted allowlist the price spread is cents per Mtok, so
+      // throughput is the better default; LLM_SORT=price restores the old
+      // behavior if cost ever dominates.
+      const provider: Record<string, unknown> = { sort: cfg("LLM_SORT") ?? "throughput" };
       if (this.zdr) provider.data_collection = "deny";
       // Only route to endpoints that actually honor response_format.
       if (opts.jsonSchema) provider.require_parameters = true;
