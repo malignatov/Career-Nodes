@@ -156,6 +156,76 @@
 /* Later phases recede into the paper — depth instead of signposts.
  * (Placed before the [data-sess] recession rules so those still win.) */
 .br-node.br-future { opacity: .5; }
+
+/* ── α: the overture — copy as material on the virgin field ── */
+.br-alpha {
+  /* top 280 clears the goal sphere AND its nimbus glow (which reaches ~90px
+   * past the node) now that the camera holds the first node higher. */
+  position: absolute; left: 56px; top: 280px; width: 312px;
+  display: flex; flex-direction: column; gap: 18px; z-index: 26;
+  transition: opacity 1.4s ease;
+}
+.br-alpha[hidden] { display: none; }
+.br-ao-lead {
+  font: 600 24px/1.25 Lora, serif; color: var(--t4ink2); text-wrap: pretty;
+  text-shadow: 0 1px 12px var(--t4ts1), 0 0 24px var(--t4ts1);
+}
+.br-ao-body {
+  font: 400 13px/1.62 Karla, Manrope, sans-serif; color: var(--t4body); text-wrap: pretty;
+  text-shadow: 0 1px 6px var(--t4ts2), 0 0 18px var(--t4ts2);
+}
+.br-ao-begin {
+  font: italic 500 15.5px Lora, serif; color: var(--acc); cursor: pointer;
+  text-shadow: 0 1px 8px var(--t4ts1);
+}
+.br-stage[data-sess] .br-alpha { opacity: 0 !important; pointer-events: none !important; }
+
+/* ── Ω: always-active omega + the reading + the terminal state ── */
+.br-omega-glow {
+  position: absolute; inset: 11%; border-radius: 99px;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--acc) 60%, transparent) 0%,
+    color-mix(in srgb, var(--acc) 24%, transparent) 44%, transparent 70%);
+}
+@keyframes brOmSway {
+  0%, 100% { transform: translateX(-9px); }
+  50% { transform: translateX(9px); }
+}
+.br-omread {
+  position: absolute; left: 150px; top: 1972px; width: 600px;
+  display: flex; flex-direction: column; align-items: center; gap: 13px;
+  text-align: center; z-index: 26; pointer-events: none;
+}
+.br-omread[hidden] { display: none; }
+.br-om-whisper {
+  font: 700 9.5px Karla, Manrope, sans-serif; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--t4note);
+  animation: floatIn 1.2s .1s both;
+}
+.br-om-note {
+  font: 400 13px/1.62 Karla, Manrope, sans-serif; color: var(--t4body); text-wrap: pretty;
+  max-width: 440px;
+  text-shadow: 0 1px 6px var(--t4ts2), 0 0 18px var(--t4ts2);
+  animation: floatIn 1.2s .6s both;
+}
+.br-om-reading {
+  font: italic 500 19px/1.55 Lora, serif; color: var(--t4ink2); text-wrap: pretty;
+  text-shadow: 0 1px 12px var(--t4ts1), 0 0 24px var(--t4ts1);
+  animation: floatIn 1.2s 1.15s both;
+}
+.br-om-actions { display: flex; gap: 26px; align-items: center; justify-content: center; margin-top: 3px; animation: floatIn 1.2s 2s both; }
+.br-om-export { font: 600 12.5px Karla, Manrope, sans-serif; color: var(--acc); cursor: pointer; pointer-events: auto; }
+.br-om-rest {
+  font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--t4note); opacity: .8;
+  animation: floatIn 1.2s 2.8s both;
+}
+/* Terminal chrome recession: the field's text steps aside for the omega. */
+.br-stage[data-omg] .br-label,
+.br-stage[data-omg] .br-plaque,
+.br-stage[data-omg] .br-nimbus,
+.br-stage[data-omg] .br-alpha { opacity: 0 !important; pointer-events: none !important; }
+.br-stage[data-omg] [data-ping] { display: none !important; }
 .br-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .br-pill {
   background: var(--t4btnBg);
@@ -226,7 +296,8 @@
   margin-top: 2px; font: 600 9px Karla, Manrope, sans-serif;
   letter-spacing: .05em; text-transform: uppercase; opacity: .6; color: var(--t4lab3);
 }
-.br-omega { position: absolute; left: 240px; top: 1540px; width: 420px; height: 420px; opacity: .6; pointer-events: none; }
+/* The always-active node: full presence, side-drift on the field rhythm. */
+.br-omega { position: absolute; left: 240px; top: 1540px; width: 420px; height: 420px; opacity: 1; pointer-events: none; animation: brOmSway 6.5s ease-in-out infinite; }
 
 /* ── inline session (the field recedes; the talk happens beside the node) ── */
 
@@ -278,7 +349,8 @@
 .br7-input::-webkit-scrollbar { display: none; }
 .br7-input::placeholder { color: var(--t4cnt2); }
 
-/* The counselor is reading/composing — three pulsing dots in the say spot. */
+/* The counselor is reading/composing — three pulsing dots in the say spot,
+ * with a rotating phrase to their right. */
 .br7-think { display: flex; gap: 5px; padding: 6px 2px; align-items: center; animation: floatIn .5s both; }
 .br7-think span {
   width: 5px; height: 5px; border-radius: 99px; background: var(--t4cnt);
@@ -286,9 +358,44 @@
 }
 .br7-think span:nth-child(2) { animation-delay: .18s; }
 .br7-think span:nth-child(3) { animation-delay: .36s; }
+.br7-think-phrase {
+  margin-left: 9px; font: italic 500 13.5px Lora, serif; color: var(--t4note);
+  transition: opacity .3s ease, transform .3s ease;
+}
 @keyframes brdots {
   0%, 80%, 100% { opacity: .25; transform: translateY(0); }
   40% { opacity: .95; transform: translateY(-2px); }
+}
+
+/* Saturn rings — the long-wait loader orbiting the current node. Sizes are
+ * pre-scale: the wrapper inherits the node's focus scale. */
+.br-sat { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; transition: opacity .7s ease; pointer-events: none; }
+.br-sat-ring, .br-sat-track { position: absolute; border-radius: 99px; --st: -14deg; animation: satSpin 4.2s linear infinite; }
+.br-sat-a {
+  left: -33px; top: -33px; width: 66px; height: 66px;
+  border: 1.3px dashed color-mix(in srgb, var(--acc) 55%, transparent);
+}
+.br-sat-b {
+  left: -44px; top: -44px; width: 88px; height: 88px;
+  border: 1.3px dashed color-mix(in srgb, var(--acc) 30%, transparent);
+  animation-duration: 7.5s; animation-direction: reverse;
+}
+.br-sat-track {
+  left: -38px; top: -38px; width: 76px; height: 76px;
+  border: 1px solid color-mix(in srgb, var(--acc) 15%, transparent);
+  animation-duration: 2.7s;
+}
+.br-sat-mote {
+  position: absolute; left: -2px; top: 50%; width: 4px; height: 4px;
+  border-radius: 99px; background: #fff;
+  box-shadow: 0 0 9px var(--acc), 0 0 3px #fff;
+}
+@keyframes satSpin {
+  from { transform: rotate(var(--st, 0deg)) rotateX(76deg) rotateZ(0deg); }
+  to { transform: rotate(var(--st, 0deg)) rotateX(76deg) rotateZ(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .br-sat { display: none; }
 }
 
 /* ← Journey exit — session chrome, top-left (with Esc and click-out). */

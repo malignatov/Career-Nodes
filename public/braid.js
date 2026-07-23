@@ -181,7 +181,9 @@
     return quadPath(pts);
   }
 
-  const stripY = () => Math.max(-900, Math.min(180, 320 - NY(J.focus)));
+  // Top clamp 90 (was 180): only the first node ever hits it, and 180 left a
+  // dead band between the header and the goal sphere.
+  const stripY = () => Math.max(-900, Math.min(90, 320 - NY(J.focus)));
 
   function threadStyle(status, focused) {
     if (status === "done") return { stroke: "var(--acc)", width: "1.4", opacity: (0.2 + 0.24 * J.vp).toFixed(2) };
@@ -291,7 +293,20 @@
         <div class="br-stage">
           <div class="br-strip">
             <svg width="900" height="1760" viewBox="0 0 900 1760" aria-hidden="true">${paths.join("")}</svg>
-            <div class="br-omega"><svg width="420" height="420" viewBox="-105 -105 210 210">${sphereSVG(100, 0.8, 0.3, "wire")}</svg></div>
+            <div class="br-omega"><div class="br-omega-glow"></div><svg data-omw width="420" height="420" viewBox="-105 -105 210 210">${sphereSVG(100, 0.6, 0.35, "wire")}</svg></div>
+            <div class="br-alpha" hidden>
+              <div class="br-ao-lead" data-ao="lead"></div>
+              <div class="br-ao-body" data-ao="what"></div>
+              <div class="br-ao-body" data-ao="seven"></div>
+              <div class="br-ao-begin" data-ao="begin"></div>
+            </div>
+            <div class="br-omread" hidden>
+              <div class="br-om-whisper"></div>
+              <div class="br-om-note"></div>
+              <div class="br-om-reading"></div>
+              <div class="br-om-actions"><span class="br-om-export"></span></div>
+              <div class="br-om-rest"></div>
+            </div>
             ${nodes.join("")}
             <div class="br-nimbus">
               <div class="br-nimbus-glow"></div>
@@ -355,6 +370,7 @@
       el.addEventListener("pointerdown", (e) => { J.__pd = Date.now(); onPick(e); });
       el.addEventListener("click", (e) => { if (Date.now() - (J.__pd || 0) < 700) return; onPick(e); });
     });
+    J.strip.querySelector('.br-alpha [data-ao="begin"]')?.addEventListener("click", aoBegin);
 
     let acc = 0;
     J.stage.addEventListener("wheel", (e) => {
@@ -365,10 +381,23 @@
         return;
       }
       e.preventDefault();
+      if (J.omega) {
+        // Terminal state: up returns to the field; the ceremony itself
+        // swallows everything.
+        if (J.omega !== "rest") return;
+        acc += e.deltaY;
+        if (acc < -34) { acc = 0; omegaExit(); }
+        else if (acc > 0) acc = 0;
+        return;
+      }
       if (J.merge) return; // no scrolling away mid-weave
       acc += e.deltaY;
-      if (acc > 34) { acc = 0; setFocus(J.focus + 1); }
-      else if (acc < -34) { acc = 0; setFocus(J.focus - 1); }
+      if (acc > 34) {
+        acc = 0;
+        // One more notch below the last woven bead re-enters the Ω rest.
+        if (J.focus === J.nodes.length - 1 && J.omDone && J.status[J.focus] === "done") omegaEnter();
+        else setFocus(J.focus + 1);
+      } else if (acc < -34) { acc = 0; setFocus(J.focus - 1); }
     }, { passive: false });
 
     // Third exit (with Esc and the node-as-button): click empty field to leave —
@@ -490,6 +519,13 @@
 
   function updateTexts() {
     const { t, esc } = J.ctx;
+    // α copy in the current language (the layer lives across re-renders).
+    const alpha = J.strip.querySelector(".br-alpha");
+    if (alpha) {
+      alpha.querySelectorAll("[data-ao]").forEach((el) => {
+        el.textContent = t(`braid_alpha_${el.dataset.ao}`);
+      });
+    }
     J.strip.querySelectorAll(".br-label").forEach((el) => {
       const j = Number(el.dataset.i);
       const node = J.nodes[j];
@@ -547,6 +583,9 @@
 
   function layout(instant = false) {
     if (!J.stage || !J.stage.isConnected) return;
+    // The Ω owns the camera and thread styling while it lives; resyncs and
+    // stray layout calls must not pull the field back up mid-ceremony.
+    if (J.omega) { omegaLayout(); return; }
     const tm = instant ? { dur: "0s", ease: "linear", op: "0s" } : timing();
     const anchor = anchorFor(J.focus);
     const n = J.nodes.length;
@@ -569,7 +608,9 @@
         const st = threadStyle(J.status[j], j === J.focus);
         p.setAttribute("stroke", st.stroke);
         p.setAttribute("stroke-width", st.width);
-        p.style.opacity = st.opacity;
+        // α: planned threads lift to .16 while the overture lives — the
+        // field shows all fifteen strays instead of near-invisible ones.
+        p.style.opacity = J.ov && J.status[j] !== "next" ? ".16" : st.opacity;
       }
       const nd = J.strip.querySelector(`.br-node[data-i="${j}"]`);
       if (nd) {
@@ -587,8 +628,11 @@
         l.style.transform = `translate(${lp.x.toFixed(1)}px, ${lp.y.toFixed(1)}px)`;
         l.style.textAlign = lp.right ? "left" : "right";
         // Future phases recede: their labels dim further — the field's
-        // stage structure is carried by depth, not by signposts.
-        l.style.opacity = (lp.opacity * (J.nodes[j].sector > curSector ? 0.45 : 1)).toFixed(2);
+        // stage structure is carried by depth, not by signposts. During the
+        // overture every label steps back so the copy can speak.
+        l.style.opacity = (lp.opacity
+          * (J.nodes[j].sector > curSector ? 0.45 : 1)
+          * (J.ov && !J.ovWake ? 0.3 : 1)).toFixed(2);
         const st = J.status[j];
         l.style.color = st === "done" ? "var(--t4lab1)" : st === "next" ? "var(--t4lab2)" : "var(--t4lab3)";
       }
@@ -637,6 +681,20 @@
     }
     nimbus.style.opacity = fst === "next" ? "1" : fst === "done" ? ".4" : "0";
     nimbus.querySelector("[data-ping]").style.display = fst === "next" ? "" : "none";
+    // α: the plaque, nimbus and ping are withheld while the overture speaks;
+    // the wake blooms them in on the slow ceremony easing.
+    if (J.ov && !J.ovWake) {
+      plaque.style.opacity = "0";
+      nimbus.style.opacity = "0";
+      nimbus.querySelector("[data-ping]").style.display = "none";
+    } else {
+      if (J.ovPend) {
+        J.ovPend = false;
+        plaque.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
+        nimbus.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
+      }
+      plaque.style.opacity = "";
+    }
     // Caption dip-and-return on every relayout.
     if (!instant) {
       plaque.style.opacity = "0";
@@ -688,6 +746,13 @@
       const stage = J.stage, strip = J.strip;
       if (!stage || !stage.isConnected) { stopTick(); return; }
       if (S.open) return; // the page-style review overlay owns the screen
+      // The omega is the always-active node — it spins at a stately third of
+      // the waking sphere's rate, before, during and after its ceremony.
+      const ow = strip.querySelector("[data-omw]");
+      if (ow) {
+        J.omSpin = (J.omSpin || 0.6) + 0.002;
+        ow.innerHTML = sphereSVG(100, J.omSpin, 0.35, "wire");
+      }
       const j = J.status.indexOf("next");
       const anchor = anchorFor(J.focus);
       if (j < 0) { renderKnots(strip, j, anchor, 0); return; }
@@ -800,6 +865,8 @@
 
   function startWeave(i) {
     if (i < 0 || i >= J.nodes.length) return;
+    clearThink(); // no loader may outlive its wait into the ceremony
+    if (J.ov && !J.ovDone) aoDismiss(); // the first weave ends the overture
     J.status = J.status.slice();
     J.status[i] = "done";
     // The step that wakes: mirror currentNodeId()'s ordering over the
@@ -840,6 +907,14 @@
     }, 1750);
     J.timers.advance = setTimeout(() => {
       J.merge = null;
+      // The braid is whole: the Ω ceremony takes the advance's place, and
+      // the resync waits until the rest state so it can't fight the descent.
+      if (i === J.nodes.length - 1 && J.status.every((s) => s === "done")) {
+        omegaCeremony();
+        clearTimeout(J.timers.reload);
+        J.timers.reload = setTimeout(() => J.ctx.reload(), 6100);
+        return;
+      }
       setFocus(J.pendingNext ?? Math.min(J.nodes.length - 1, i + 1));
       // ALWAYS resync after a weave: the authorize changed server state even
       // when no already-known step wakes — the step this one just unlocked
@@ -853,11 +928,11 @@
   /* Damped shake of every woven thread, bell-centered on the join. The
    * beads ride their strings (joining bead full amplitude, braid ×.45),
    * then hand back to the .7s settle transition. */
-  function shakeBraid(j) {
+  function shakeBraid(j, originY) {
     const strip = J.strip;
     if (!strip) return;
     const anchor = anchorFor(J.focus);
-    const ny = NY(j), t0 = performance.now(), dur = 950;
+    const ny = originY ?? NY(j), t0 = performance.now(), dur = 950;
     const ks = [];
     for (let k = 0; k < J.nodes.length; k++) if (J.status[k] === "done") ks.push(k);
     const paths = ks.map((k) => [k, strip.querySelector(`[data-s="${k}"]`)]).filter((e) => e[1]);
@@ -901,6 +976,168 @@
     requestAnimationFrame(step);
   }
 
+  /* ══ α / Ω — the overture and the closing ceremony ════════ */
+
+  function alphaOpen() {
+    J.ov = true;
+    J.ovWake = false;
+    const a = J.strip && J.strip.querySelector(".br-alpha");
+    if (!a) return;
+    a.hidden = false;
+    a.style.opacity = "1";
+    const dl = { lead: 0.3, what: 1.3, seven: 2.3, begin: 3.4 };
+    a.querySelectorAll("[data-ao]").forEach((el) => {
+      el.style.animation = "none";
+      void el.offsetWidth;
+      el.style.animation = `floatIn 1.1s ${dl[el.dataset.ao] || 0.3}s both`;
+    });
+    clearTimeout(J.timers.aoWake);
+    J.timers.aoWake = setTimeout(aoWake, 5200);
+    layout();
+  }
+
+  function aoWake() {
+    if (!J.ov || J.ovDone || J.ovWake || J.sess) return;
+    J.ovWake = true;
+    J.ovPend = true; // next layout blooms the plaque/nimbus in on 1.9s
+    J.slowUntil = Date.now() + 1900;
+    layout();
+  }
+
+  function aoBegin(e) {
+    if (e) e.stopPropagation();
+    if (J.sess || J.ovDone) return;
+    const first = !J.ovWake;
+    J.ovWake = true;
+    if (first) J.ovPend = true;
+    J.slowUntil = Date.now() + 1900;
+    if (J.focus !== 0) setFocus(0);
+    else layout();
+    const core = J.strip && J.strip.querySelector('.br-node[data-i="0"] [data-core]');
+    if (core && core.animate) {
+      core.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
+        { duration: 700, easing: "ease-in-out" },
+      );
+    }
+  }
+
+  /* The overture leaves on the first authorize and never returns. */
+  function aoDismiss() {
+    if (J.ovDone) return;
+    J.ovDone = true;
+    J.ov = false;
+    clearTimeout(J.timers.aoWake);
+    const a = J.strip && J.strip.querySelector(".br-alpha");
+    if (a) {
+      a.style.opacity = "0";
+      setTimeout(() => { a.hidden = true; }, 1500);
+    }
+    J.ctx?.setFlag?.("overture_done");
+  }
+
+  /* Terminal camera + the pour styling — idempotent, called by layout()
+   * whenever J.omega is set so resyncs can't fight the ceremony. */
+  function omegaLayout() {
+    const strip = J.strip;
+    if (!strip) return;
+    strip.style.transition = J.omega === "descend"
+      ? "transform 2.6s cubic-bezier(.3,.7,.15,1)"
+      : "transform 1.05s cubic-bezier(.32,.72,.16,1)";
+    strip.style.transform = "translate(0px, -1330px)";
+    strip.querySelectorAll("path[data-s]").forEach((p) => {
+      p.style.transition = "opacity 2.2s ease";
+      p.style.opacity = ".5";
+      p.setAttribute("stroke-width", "1.5");
+    });
+  }
+
+  /* The reading: the identity statement, verbatim, then Export. */
+  function omegaReading() {
+    const rd = J.strip && J.strip.querySelector(".br-omread");
+    if (!rd) return;
+    const t = J.ctx.t;
+    const idn = J.nodes.find((n) => n.id === "identity_statement");
+    const lp = J.nodes.find((n) => n.id === "life_portrait");
+    const text = idn?.distilled?.[0]?.text || lp?.distilled?.[0]?.text || "";
+    rd.querySelector(".br-om-whisper").textContent = t("braid_omega_whisper");
+    rd.querySelector(".br-om-note").textContent = t("braid_omega_note");
+    rd.querySelector(".br-om-reading").textContent = text ? `«${text}»` : "";
+    rd.querySelector(".br-om-rest").textContent = t("braid_omega_rest");
+    const ex = rd.querySelector(".br-om-export");
+    ex.textContent = t("braid_omega_export");
+    if (!ex.__bound) {
+      ex.__bound = true;
+      ex.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (ex.__busy) return;
+        ex.__busy = 1;
+        ex.textContent = J.ctx.t("braid_omega_exporting");
+        try { await J.ctx.exportPdf(); } catch { /* canceled */ }
+        ex.textContent = J.ctx.t("braid_omega_export");
+        ex.__busy = 0;
+      });
+    }
+    rd.hidden = false; // re-display restarts the staggered floatIns
+  }
+
+  /* Fifteenth authorization: descent → pour → reading → rest. */
+  function omegaCeremony() {
+    const last = J.nodes.length - 1;
+    J.omega = "descend";
+    J.focus = last;
+    if (J.stage) J.stage.dataset.omg = "1";
+    omegaLayout();
+    clearTimeout(J.timers.omT1);
+    clearTimeout(J.timers.omT2);
+    clearTimeout(J.timers.omT3);
+    J.timers.omT1 = setTimeout(() => {
+      J.omega = "pour";
+      J.merge = { j: last, phase: "omega" }; // lets the rope shake run
+      shakeBraid(last, 1650);
+      const stage = J.stage;
+      if (stage) {
+        stage.style.transition = "filter .6s ease";
+        J.flashOn = true;
+        stage.style.filter = "saturate(1.9) contrast(1.08) brightness(1.16)";
+        clearTimeout(J.timers.flash);
+        J.timers.flash = setTimeout(() => {
+          stage.style.transition = "filter 2.6s ease";
+          J.flashOn = false;
+          stage.style.filter = "none";
+        }, 950);
+      }
+    }, 2750);
+    J.timers.omT2 = setTimeout(() => {
+      J.merge = null;
+      omegaReading();
+    }, 4400);
+    J.timers.omT3 = setTimeout(() => {
+      J.omega = "rest";
+      J.omDone = true;
+      J.ctx?.setFlag?.("omega_done");
+    }, 5700);
+  }
+
+  /* The terminal state is permanent and re-enterable — from the last bead,
+   * one more scroll down descends again; up (or Esc) returns to the field. */
+  function omegaEnter() {
+    if (J.omega || !J.omDone) return;
+    J.omega = "rest";
+    if (J.stage) J.stage.dataset.omg = "1";
+    omegaReading();
+    omegaLayout();
+  }
+
+  function omegaExit() {
+    if (!J.omega) return;
+    J.omega = null;
+    if (J.stage) delete J.stage.dataset.omg;
+    const rd = J.strip && J.strip.querySelector(".br-omread");
+    if (rd) rd.hidden = true;
+    layout();
+  }
+
   /* ── entry: render (or refresh) the journey home ────────── */
 
   function renderJourney(root, ctx) {
@@ -926,6 +1163,13 @@
     }
     updateHeader();
     startTick();
+    // α/Ω boot: a virgin journey opens on the overture (once, ever); a
+    // completed one remembers the ceremony already played.
+    const flags = ctx.journey.flags ?? {};
+    J.omDone = Boolean(flags.omega_done);
+    if (!flags.overture_done && ctx.journey.authorized === 0 && !J.ovDone && !J.ov) alphaOpen();
+    else if (J.ov && ctx.journey.authorized > 0) aoDismiss(); // authorized elsewhere
+    if (rebuild && J.omega) omegaLayout(); // a rebuild mid-rest re-applies the terminal camera
   }
 
   /* ══ inline session: the talk happens beside the node ═════ */
@@ -1032,24 +1276,67 @@
       q7(".br7-msgs")?.querySelector("[data-review]")
         ?.querySelectorAll("button").forEach((b) => { b.disabled = true; });
     } else pushKnot(false);
-    showThink(); // the counselor is reading — cleared by whatever arrives next
+    showThink(1); // the counselor is reading — cleared by whatever arrives next
   }
 
-  /* Three pulsing dots in the counselor's spot while the model reads or
-   * composes; any arriving surface event clears them. */
-  function showThink() {
+  /* The wait loader: three pulsing dots + a rotating phrase in the
+   * counselor's spot, and Saturn rings around the current node. Any arriving
+   * surface event clears both. `start` picks the opening phrase (1 right
+   * after a user message, 0 otherwise). */
+  function showThink(start = 0) {
     const box = q7(".br7-msgs");
     if (!box || box.querySelector("[data-think]")) return;
     const d = document.createElement("div");
     d.className = "br7-think";
     d.dataset.think = "1";
-    d.innerHTML = "<span></span><span></span><span></span>";
+    d.innerHTML = '<span></span><span></span><span></span><em class="br7-think-phrase"></em>';
+    const ph = d.querySelector(".br7-think-phrase");
+    const pool = () => J.ctx.t("braid_think_pool");
+    let i = start % pool().length;
+    ph.textContent = pool()[i];
+    // Re-read the pool every swap so a mid-wait language switch takes.
+    d.__rot = setInterval(() => {
+      ph.style.opacity = "0";
+      ph.style.transform = "translateY(3px)";
+      setTimeout(() => {
+        i = (i + 1) % pool().length;
+        ph.textContent = pool()[i];
+        ph.style.opacity = "";
+        ph.style.transform = "";
+      }, 300);
+    }, 2000);
     box.appendChild(d);
     box.scrollTop = box.scrollHeight;
+    satOn();
   }
   function clearThink() {
-    const box = q7(".br7-msgs");
-    box?.querySelector("[data-think]")?.remove();
+    const el = q7(".br7-msgs")?.querySelector("[data-think]");
+    if (el) { clearInterval(el.__rot); el.remove(); }
+    satOff();
+  }
+
+  /* Saturn rings — three tilted orbits around the waiting node. A separate
+   * overlay: the sphere's own material is untouched, and the wrapper
+   * inherits the node's focus scale. */
+  function satOn() {
+    const nd = J.strip && J.strip.querySelector(`.br-node[data-i="${J.focus}"]`);
+    if (!nd || nd.querySelector("[data-sat]")) return;
+    const w = document.createElement("div");
+    w.dataset.sat = "1";
+    w.className = "br-sat";
+    w.innerHTML = '<div class="br-sat-ring br-sat-a"></div>'
+      + '<div class="br-sat-ring br-sat-b"></div>'
+      + '<div class="br-sat-track"><div class="br-sat-mote"></div></div>';
+    nd.appendChild(w);
+    // Not rAF: a hidden tab suspends frames entirely and the rings would
+    // stay invisible after a tab switch; a clamped timeout still fires.
+    setTimeout(() => { w.style.opacity = "1"; }, 30);
+  }
+  function satOff() {
+    J.strip?.querySelectorAll("[data-sat]").forEach((w) => {
+      w.style.opacity = "0";
+      setTimeout(() => w.remove(), 700);
+    });
   }
 
   function toggleInlineTransparency() {
@@ -1455,6 +1742,7 @@
   /* Reverse of inlineOpen: restore the field, clear the shell. */
   function inlineClose() {
     if (!L.open) return;
+    clearThink(); // stop the loader (and its interval) with the session
     L.gen++;
     L.timers.forEach(clearTimeout);
     L.timers = [];
@@ -1488,6 +1776,7 @@
 
   /* A DOM rebuild strands the session without touching the old DOM. */
   function inlineAbort() {
+    clearThink(); // the interval must not outlive the stranded session
     L.gen++;
     L.timers.forEach(clearTimeout);
     L.timers = [];
@@ -1521,6 +1810,7 @@
   // Inert when the braid is showing the card field (app.js owns Escape there).
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (J.omega === "rest") { omegaExit(); return; }
     const tp = q7(".br7-tpanel");
     if (tp && !tp.hidden) { tp.hidden = true; return; }
     if (L.open && !L.closing) {

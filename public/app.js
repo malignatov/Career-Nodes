@@ -119,6 +119,11 @@ function braidCtx() {
     currentNodeId, isSettled, markVerbatim, localizeNote, exportPdf,
     renderFields, compiledHtml,
     wsLive: () => Boolean(ws),
+    /** One-shot UI milestones (α seen, Ω played) — persisted per profile. */
+    setFlag(name) {
+      journey.flags = { ...(journey.flags ?? {}), [name]: true };
+      fetch(api(`/api/flag?name=${encodeURIComponent(name)}`), { method: "POST" }).catch(() => {});
+    },
     stopDictation() {
       stopVoice(true);
       micBtn.hidden = true;

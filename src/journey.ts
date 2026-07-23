@@ -166,5 +166,12 @@ export async function buildJourney(
         : MAP_EDGES.filter(([, to]) => to === n.id).map(([from]) => from).filter((f) => f !== "counseling_goal"),
     });
   }
-  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length, ai: caps.ai, voice: caps.voice };
+  // One-shot UI milestones (the α overture, the Ω ceremony) — per profile,
+  // beside the journey state they cap.
+  let flags: Record<string, boolean> = {};
+  const flagsRaw = await store.read("flags.json");
+  if (flagsRaw !== null) {
+    try { flags = JSON.parse(flagsRaw) as Record<string, boolean>; } catch { /* corrupt — treat as unset */ }
+  }
+  return { sectors: MAP_SECTORS, nodes, authorized, total: MAP_NODES.length, ai: caps.ai, voice: caps.voice, flags };
 }
