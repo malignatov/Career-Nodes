@@ -6,6 +6,8 @@ export interface MapNode {
   desc: string;
   hint?: string;
   skippable?: boolean;
+  /** Honest expectation-setter: rough minutes of the user's own time. */
+  minutes: number;
 }
 
 export interface MapSector {
@@ -23,66 +25,66 @@ export const MAP_SECTORS: MapSector[] = [
 
 export const MAP_NODES: MapNode[] = [
   {
-    id: "counseling_goal", title: "Goal setting", sector: 1, kind: "conversation",
+    id: "counseling_goal", minutes: 5, title: "Goal setting", sector: 1, kind: "conversation",
     desc: "State what you want from this process — it guides everything that follows.",
     hint: "↳ guides every derived step · never your recorded interviews",
   },
   {
-    id: "role_models", title: "Role models", sector: 2, kind: "conversation",
+    id: "role_models", minutes: 10, title: "Role models", sector: 2, kind: "conversation",
     desc: "Three figures you admired as a child — the blueprint you built yourself from.",
   },
   {
-    id: "favorite_media", title: "Favorite media", sector: 2, kind: "conversation",
+    id: "favorite_media", minutes: 5, title: "Favorite media", sector: 2, kind: "conversation",
     desc: "Two or three shows, sites, or magazines you keep returning to — your preferred settings.",
   },
   {
-    id: "favorite_story", title: "Favorite story", sector: 2, kind: "conversation",
+    id: "favorite_story", minutes: 5, title: "Favorite story", sector: 2, kind: "conversation",
     desc: "One story — your current favorite, retold in your words — the script for your next chapter.",
   },
   {
-    id: "motto", title: "Motto", sector: 2, kind: "conversation",
+    id: "motto", minutes: 2, title: "Motto", sector: 2, kind: "conversation",
     desc: "Your favorite saying — the best advice you have for yourself.",
   },
   {
-    id: "early_recollections", title: "Early recollections", sector: 2, kind: "conversation",
+    id: "early_recollections", minutes: 10, title: "Early recollections", sector: 2, kind: "conversation",
     desc: "Three early memories with feelings and headlines — your perspective on today.",
     skippable: true,
   },
   {
-    id: "perspective", title: "Perspective", sector: 3, kind: "derived",
+    id: "perspective", minutes: 2, title: "Perspective", sector: 3, kind: "derived",
     desc: "The vantage point your early stories reveal about the current transition.",
   },
   {
-    id: "character_sketch", title: "Character sketch", sector: 3, kind: "derived",
+    id: "character_sketch", minutes: 2, title: "Character sketch", sector: 3, kind: "derived",
     desc: "Who you are, in your own admired words — the self as a constructed solution.",
   },
   {
-    id: "preferred_settings", title: "Preferred settings", sector: 3, kind: "derived",
+    id: "preferred_settings", minutes: 2, title: "Preferred settings", sector: 3, kind: "derived",
     desc: "The places, people, and problems you gravitate toward.",
   },
   {
-    id: "script", title: "Script", sector: 3, kind: "derived",
+    id: "script", minutes: 2, title: "Script", sector: 3, kind: "derived",
     desc: "How your self meets your setting — the storyline you are drawn to enact.",
   },
   {
-    id: "advice_to_self", title: "Advice to self", sector: 3, kind: "derived",
+    id: "advice_to_self", minutes: 2, title: "Advice to self", sector: 3, kind: "derived",
     desc: "Your motto unpacked into the call to action it already contains.",
   },
   {
-    id: "life_portrait", title: "Life portrait", sector: 4, kind: "derived",
+    id: "life_portrait", minutes: 3, title: "Life portrait", sector: 4, kind: "derived",
     desc: "The six-part identity narrative assembled from everything you authorized.",
     hint: "· uses all inductions + goal",
   },
   {
-    id: "identity_statement", title: "Identity statement", sector: 4, kind: "derived",
+    id: "identity_statement", minutes: 2, title: "Identity statement", sector: 4, kind: "derived",
     desc: "Your success formula, in one sentence of your own words.",
   },
   {
-    id: "action_recipe", title: "Action recipe", sector: 5, kind: "derived",
+    id: "action_recipe", minutes: 3, title: "Action recipe", sector: 5, kind: "derived",
     desc: "Concrete exploration steps that carry your intention into the world.",
   },
   {
-    id: "closing_check", title: "Closing check", sector: 5, kind: "conversation",
+    id: "closing_check", minutes: 5, title: "Closing check", sector: 5, kind: "conversation",
     desc: "Did we get there? Your goal is read back, and your motto is returned to you.",
     hint: "· reads your goal back, verbatim",
   },

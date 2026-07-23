@@ -63,7 +63,22 @@
 }
 .bm-htitle { font: 600 22px Lora, serif; color: var(--bm-ink); }
 .bm-hsub { font: 400 11.5px Karla, Manrope, sans-serif; color: var(--bm-sub); margin-top: 2px; }
-.bm-count { font: 600 12px Karla, Manrope, sans-serif; color: var(--bm-cnt); white-space: nowrap; }
+.bm-count { text-align: right; white-space: nowrap; }
+.bm-cnt-ph { font: 600 11.5px Karla, Manrope, sans-serif; color: var(--bm-cnt); }
+.bm-cnt-tot { font: 500 9.5px Karla, Manrope, sans-serif; color: var(--bm-note); margin-top: 1px; }
+
+/* The focused node's time — only the active node carries its cost. */
+.bm-time {
+  position: absolute; left: 0; top: 0; width: 200px; pointer-events: none;
+  text-align: center; font: 600 10px Karla, Manrope, sans-serif;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--bm-note);
+  opacity: .85; transition: opacity .4s ease;
+}
+.bm-root[data-sess] .bm-time { opacity: 0 !important; }
+
+/* Later phases recede into the paper — depth instead of signposts.
+ * (Before the [data-sess] recession rules so those still win.) */
+.bm-node.bm-future { opacity: .5; }
 .bm-count span { color: var(--bm-note); }
 .bm-root[data-sess] .bm-head { opacity: 0; pointer-events: none; }
 

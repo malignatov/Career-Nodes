@@ -139,8 +139,23 @@
 .br-title { font: 600 26px Lora, serif; color: var(--t4ink); }
 .br-sub { font: 400 12.5px Karla, Manrope, sans-serif; color: var(--t4sub); margin-top: 3px; }
 .br-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.br-count { font: 600 12px Karla, Manrope, sans-serif; color: var(--t4cnt); white-space: nowrap; }
-.br-count span { color: var(--t4cnt2); }
+.br-count { text-align: right; white-space: nowrap; }
+.br-count-phase { font: 600 12px Karla, Manrope, sans-serif; color: var(--t4cnt); }
+.br-count-total { font: 500 10.5px Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 1px; }
+
+/* The focused node's time — on the sphere's upper shoulder, opposite the
+ * caption, riding the plaque through the oscillation. Only the active node
+ * carries its cost. */
+.br-plaque-time {
+  position: absolute; left: 34px; top: -46px; width: 200px;
+  font: 600 11px Karla, Manrope, sans-serif; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--t4lab3); opacity: .9;
+}
+.br-stage[data-sess] .br-plaque-time { opacity: 0 !important; }
+
+/* Later phases recede into the paper — depth instead of signposts.
+ * (Placed before the [data-sess] recession rules so those still win.) */
+.br-node.br-future { opacity: .5; }
 .br-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .br-pill {
   background: var(--t4btnBg);

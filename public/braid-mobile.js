@@ -225,6 +225,7 @@ window.BraidM = (() => {
             <svg width="390" height="1640" viewBox="0 0 390 1640" aria-hidden="true">${paths.join("")}<g data-mknots></g></svg>
             ${nodes.join("")}
             <div class="bm-title"></div>
+            <div class="bm-time"></div>
             <div class="bm-prompt"></div>
           </div>
         </div>
@@ -392,7 +393,16 @@ window.BraidM = (() => {
     q(".bm-htitle").textContent = t("journey_title");
     q(".bm-hsub").textContent = t("braid_journey_sub");
     const done = M.status.filter((s) => s === "done").length;
-    q(".bm-count").innerHTML = `${done} <span>/ ${M.nodes.length}</span>`;
+    // Stage progress leads; the total stays small underneath.
+    const nextIdx = M.status.indexOf("next");
+    const curSector = nextIdx >= 0 ? M.nodes[nextIdx].sector : M.nodes[M.nodes.length - 1].sector;
+    const inSector = M.nodes.map((n, j) => [n, j]).filter(([n]) => n.sector === curSector);
+    const doneIn = inSector.filter(([, j]) => M.status[j] === "done").length;
+    const sec = M.ctx.journey.sectors.find((s) => s.n === curSector);
+    const phName = sec ? (M.ctx.phaseLabel(sec) || sec.label).split("·").pop().trim() : "";
+    q(".bm-count").innerHTML =
+      `<div class="bm-cnt-ph">${esc(t("braid_stage_of", phName, doneIn, inSector.length))}</div>`
+      + `<div class="bm-cnt-tot">${done} / ${M.nodes.length}</div>`;
     q(".bm-exit").textContent = t("braid_m_back");
     q(".bm-info").title = t("transparency");
     q(".bm-authorize").textContent = t("braid_m_authorize");
@@ -409,6 +419,9 @@ window.BraidM = (() => {
     const dur = instant ? "0s" : (M.glideDur || (Date.now() < M.slowUntil ? "1.8s" : ".75s"));
     const eas = "cubic-bezier(.2,.8,.3,1)";
     const f = M.focus;
+    // Later phases recede further into the paper (extra node dim).
+    const nextIdx = M.status.indexOf("next");
+    const curSector = nextIdx >= 0 ? M.nodes[nextIdx].sector : Infinity;
 
     M.vp = Math.min(1, M.status.filter((s) => s === "done").length / 13);
     M.root.style.setProperty("--vacc", `color-mix(in srgb, var(--acc) ${Math.round(8 + 92 * M.vp)}%, var(--bm-mut))`);
@@ -439,6 +452,7 @@ window.BraidM = (() => {
         nd.style.transition = `transform ${dur} ${eas}, opacity .45s ease`;
         nd.style.transform = `translate(${nx.toFixed(1)}px, ${ny.toFixed(1)}px)${j === f ? " scale(1.5)" : ""}`;
         nd.classList.toggle("focus", j === f);
+        nd.classList.toggle("bm-future", M.nodes[j].sector > curSector);
         core(nd.querySelector("[data-core]"), st, j, Boolean(M.merge && M.merge.j === j && M.merge.phase === "solid"));
         nd.querySelector("[data-mping]").classList.toggle("on", st === "next" && !M.sess);
       }
@@ -460,10 +474,21 @@ window.BraidM = (() => {
         ? t("braid_woven_in")
         : M.ctx.nodeDesc(focused);
     }
+    // The time whisper — its own small object between the sphere and the
+    // caption; the caption steps down to make room while it shows.
+    const timeEl = q(".bm-time");
+    const mins = fst !== "done" && !M.merge && focused.minutes
+      ? t("braid_minutes", focused.minutes) : "";
+    if (timeEl) {
+      timeEl.textContent = mins;
+      timeEl.style.transition = `transform ${dur} ${eas}, opacity .4s ease`;
+      timeEl.style.transform = `translate(${clx(200).toFixed(1)}px, ${(fny + gap - 2).toFixed(1)}px)`;
+      timeEl.style.opacity = mins ? "" : "0";
+    }
     title.style.transition = `transform ${dur} ${eas}, opacity .4s ease`;
     prompt.style.transition = `transform ${dur} ${eas}, opacity .4s ease`;
     title.style.transform = `translate(${clx(300).toFixed(1)}px, ${(fny - gap - (title.offsetHeight || 28)).toFixed(1)}px)`;
-    prompt.style.transform = `translate(${clx(312).toFixed(1)}px, ${(fny + gap).toFixed(1)}px)`;
+    prompt.style.transform = `translate(${clx(312).toFixed(1)}px, ${(fny + gap + (mins ? 18 : 0)).toFixed(1)}px)`;
 
     updateHeader();
   }

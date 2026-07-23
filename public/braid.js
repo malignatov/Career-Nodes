@@ -299,6 +299,7 @@
             </div>
             <div class="br-plaque">
               <div class="br-plaque-title"></div>
+              <div class="br-plaque-time"></div>
               <div class="br-plaque-line"></div>
             </div>
           </div>
@@ -428,16 +429,22 @@
     const done = J.status.filter((s) => s === "done").length;
     const count = J.frame.querySelector(".br-count");
     count.innerHTML = "";
-    const wovenText = t("braid_woven_of", done, J.nodes.length);
-    // "N of 15 woven": the number stays bright, the rest muted.
-    const numMatch = wovenText.match(/\d+/);
-    if (numMatch) {
-      const i = wovenText.indexOf(numMatch[0]);
-      count.append(wovenText.slice(0, i + numMatch[0].length));
-      const rest = document.createElement("span");
-      rest.textContent = wovenText.slice(i + numMatch[0].length);
-      count.append(rest);
-    } else count.textContent = wovenText;
+    // The stage you're in leads — "Interview · 2 of 5" answers how much of
+    // THIS is left, so fifteen nodes never read as fifteen interviews. The
+    // overall count stays underneath, muted, and never lies.
+    const nextIdx = J.status.indexOf("next");
+    const curSector = nextIdx >= 0 ? J.nodes[nextIdx].sector : J.nodes[J.nodes.length - 1].sector;
+    const inSector = J.nodes.map((n, j) => [n, j]).filter(([n]) => n.sector === curSector);
+    const doneIn = inSector.filter(([, j]) => J.status[j] === "done").length;
+    const sec = journey.sectors.find((s) => s.n === curSector);
+    const phaseName = (J.ctx.phaseLabel(sec) || sec.label).split("·").pop().trim();
+    const phase = document.createElement("div");
+    phase.className = "br-count-phase";
+    phase.textContent = t("braid_stage_of", phaseName, doneIn, inSector.length);
+    const total = document.createElement("div");
+    total.className = "br-count-total";
+    total.textContent = t("braid_woven_of", done, J.nodes.length);
+    count.append(phase, total);
 
     const tools = J.frame.querySelector(".br-tools");
     tools.innerHTML = "";
@@ -485,11 +492,14 @@
     const { t, esc } = J.ctx;
     J.strip.querySelectorAll(".br-label").forEach((el) => {
       const j = Number(el.dataset.i);
-      const nm = J.ctx.nodeTitle(J.nodes[j]);
-      // Locked steps carry an "Unlocks after {previous step}" sub-line.
-      if (J.nodes[j].status === "planned" && j > 0) { // server truth, not paint state
-        const prev = J.ctx.nodeTitle(J.nodes[j - 1]);
-        el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(t("unlocks_after", prev))}</div>`;
+      const node = J.nodes[j];
+      const nm = J.ctx.nodeTitle(node);
+      // Unwoven steps carry a caption: the honest time it asks of you, and —
+      // when locked — what it IS (derived steps compose from what's already
+      // woven; conversations say what unlocks them). Server truth, not paint.
+      if (node.status === "planned" && j > 0) {
+        const sub = node.kind === "derived" ? t("derived_sub") : t("unlocks_after", J.ctx.nodeTitle(J.nodes[j - 1]));
+        el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(sub)}</div>`;
       } else if (el.textContent !== nm || el.querySelector(".br-label-sub")) {
         el.textContent = nm;
       }
@@ -540,6 +550,10 @@
     const tm = instant ? { dur: "0s", ease: "linear", op: "0s" } : timing();
     const anchor = anchorFor(J.focus);
     const n = J.nodes.length;
+    // The phase the journey is in right now; everything in LATER phases
+    // recedes further into the paper (extra dim on nodes and labels).
+    const nextIdx = J.status.indexOf("next");
+    const curSector = nextIdx >= 0 ? J.nodes[nextIdx].sector : Infinity;
 
     J.vp = Math.min(1, J.status.filter((s) => s === "done").length / 13);
     J.stage.style.setProperty("--vacc", `color-mix(in srgb, var(--acc) ${Math.round(8 + 92 * J.vp)}%, var(--t4mut))`);
@@ -563,6 +577,7 @@
         const nx = withGrav(baseX(j, ny), ny, anchor);
         nd.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .45s ease`;
         nd.style.transform = `translate(${nx.toFixed(1)}px, ${ny.toFixed(1)}px)${j === J.focus ? " scale(1.6)" : ""}`;
+        nd.classList.toggle("br-future", J.nodes[j].sector > curSector);
         renderCore(nd.querySelector("[data-core]"), J.status[j], j);
       }
       const l = J.strip.querySelector(`.br-label[data-i="${j}"]`);
@@ -571,7 +586,9 @@
         l.style.transition = instant ? "none" : "transform .7s cubic-bezier(.2,.9,.25,1), opacity .45s ease";
         l.style.transform = `translate(${lp.x.toFixed(1)}px, ${lp.y.toFixed(1)}px)`;
         l.style.textAlign = lp.right ? "left" : "right";
-        l.style.opacity = lp.opacity;
+        // Future phases recede: their labels dim further — the field's
+        // stage structure is carried by depth, not by signposts.
+        l.style.opacity = (lp.opacity * (J.nodes[j].sector > curSector ? 0.45 : 1)).toFixed(2);
         const st = J.status[j];
         l.style.color = st === "done" ? "var(--t4lab1)" : st === "next" ? "var(--t4lab2)" : "var(--t4lab3)";
       }
@@ -589,6 +606,14 @@
     titleEl.style.right = "auto";
     titleEl.style.left = flip ? "20px" : "-356px";
     titleEl.style.textAlign = flip ? "left" : "right";
+    // The time sits on the sphere's upper shoulder, opposite the caption —
+    // and swaps shoulders with the title when the title flips.
+    const timeEl = plaque.querySelector(".br-plaque-time");
+    timeEl.style.left = flip ? "-234px" : "34px";
+    timeEl.style.textAlign = flip ? "right" : "left";
+    plaque.querySelector(".br-plaque-time").textContent =
+      !J.merge && fst !== "done" && focused.minutes
+        ? J.ctx.t("braid_minutes", focused.minutes) : "";
     plaque.querySelector(".br-plaque-line").textContent =
       J.merge && J.merge.j === J.focus && J.merge.phase === "solid"
         ? J.ctx.t("braid_woven_in")
