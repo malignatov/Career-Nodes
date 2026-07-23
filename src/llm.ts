@@ -161,6 +161,10 @@ export class OpenAICompatAdapter implements LlmAdapter {
     }
     if (ep.baseUrl.startsWith(OPENROUTER_BASE)) {
       if (this.zdr) body.zdr = true;
+      // Reasoning-off must be EXPLICIT: providers default differently, and a
+      // host that reasons by default (AtlasCloud, Jul '26) burns ~1k hidden
+      // tokens per call — 20s turns — while the visible answer stays tiny.
+      if (!effort) body.reasoning = { enabled: false };
       // Fastest endpoint that satisfies the constraints wins. Price sort is a
       // trap here: it ignores prompt-cache discounts and routes to whoever
       // undercuts the pool, even at single-digit tok/s (DigitalOcean, Jul '26).

@@ -60,7 +60,7 @@ export interface ResumeState {
 
 export const CHECKER_SYSTEM =
   "You audit an interview transcript against a checklist. Judge only from what the user actually said, and default to unsatisfied when evidence is missing or ambiguous. " +
-  "For every checklist item, list the entities it ranges over (the named models, stories, favorites — whatever the item counts or quantifies with 'each' or 'every'), judge each entity separately with a short supporting quote from the transcript, and set required_count to the minimum number of satisfied entities the item demands (null when the item names no count and no 'each'). " +
+  "For every checklist item, list the entities it ranges over (the named models, stories, favorites — whatever the item counts or quantifies with 'each' or 'every'), judge each entity separately with a supporting quote from the transcript (truncate quotes to at most eight words), and set required_count to the minimum number of satisfied entities the item demands (null when the item names no count and no 'each'). " +
   "An 'each X' item demands every X the checklist expects, not every X mentioned so far — 'each of the three models' means three. " +
   "A statement the user explicitly applies to several entities at once ('all of them', 'I am like them…') is evidence for each of those entities; a statement about one entity is evidence for that entity alone. " +
   "Never mark an item satisfied on the strength of one single-entity example when it quantifies over several. Return JSON only.";
@@ -222,22 +222,24 @@ export async function runElicit(
       resuming = false;
     }
 
+    // The stage's first question: the topic-transition or welcome-back turn.
+    // Follow-ups within the topic are generated inside the loop, concurrently
+    // with the checker.
+    if (!skipGenerate) {
+      const question = await llm.complete({ tier: "small", system, messages });
+      messages.push({ role: "assistant", content: question });
+      exchange.push({ speaker: "interviewer", text: question });
+      io.say(question);
+      // Persist interviewer turns too, so resuming never regenerates a question
+      // the user already saw. The baked opener alone is deliberately not
+      // persisted — merely opening a node must not mark it in-progress.
+      if (exchange.some((e) => e.speaker === "user")) io.onTurn?.(exchange, i);
+    }
+
     // No turn cap: the checklist alone ends a topic. The user can always
     // /skip a topic or leave (progress is saved), so a strict checker can't
     // trap anyone.
     for (;;) {
-      if (!skipGenerate) {
-        const question = await llm.complete({ tier: "small", system, messages });
-        messages.push({ role: "assistant", content: question });
-        exchange.push({ speaker: "interviewer", text: question });
-        io.say(question);
-        // Persist interviewer turns too, so resuming never regenerates a question
-        // the user already saw. The baked opener alone is deliberately not
-        // persisted — merely opening a node must not mark it in-progress.
-        if (exchange.some((e) => e.speaker === "user")) io.onTurn?.(exchange, i);
-      }
-      skipGenerate = false;
-
       const answer = await io.ask("you");
       if (answer.trim() === "/quit") return { exchange, userWords: userWords(exchange), aborted: true };
       if (answer.trim() === "/skip") {
@@ -248,7 +250,19 @@ export async function runElicit(
       exchange.push({ speaker: "user", text: answer });
       io.onTurn?.(exchange, i);
 
-      if (await checkStageDone(llm, stage, exchange)) break;
+      // The follow-up question is generated speculatively while the checker
+      // runs — continuing the topic is the common case, so this halves turn
+      // latency. When the checker ends the topic instead, the follow-up is
+      // discarded unseen and the next stage opens as before.
+      const [done, followUp] = await Promise.all([
+        checkStageDone(llm, stage, exchange),
+        llm.complete({ tier: "small", system, messages }),
+      ]);
+      if (done) break;
+      messages.push({ role: "assistant", content: followUp });
+      exchange.push({ speaker: "interviewer", text: followUp });
+      io.say(followUp);
+      io.onTurn?.(exchange, i);
     }
   }
 
