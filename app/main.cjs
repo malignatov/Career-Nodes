@@ -109,4 +109,23 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 app.on("window-all-closed", () => app.quit());
+
+// A spawned server dies with us (see "quit"); a REUSED one is asked to stop
+// over localhost so closing the app never strands a server. before-quit is
+// the one hook both exits hit (Cmd+Q skips window-all-closed). Set
+// CC_KEEP_SERVER=1 to opt out (e.g. keeping a dev server for the browser).
+let stoppingReused = false;
+app.on("before-quit", (e) => {
+  if (serverProc || process.env.CC_KEEP_SERVER === "1" || stoppingReused) return;
+  stoppingReused = true;
+  e.preventDefault();
+  const done = () => app.quit();
+  const req = http.request(
+    { host: "localhost", port: PORT, path: "/api/shutdown", method: "POST", headers: { "x-cc-shutdown": "1" }, timeout: 800 },
+    (res) => { res.resume(); done(); },
+  );
+  req.on("error", done);
+  req.on("timeout", () => { req.destroy(); done(); });
+  req.end();
+});
 app.on("quit", () => serverProc?.kill());

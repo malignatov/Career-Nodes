@@ -117,6 +117,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   // Reset the whole journey, or a single node with ?node=<id>: the node's
   // files go (artifact, session, draft, transcript); the profile entry stays.
   // Surgical by construction — only known node ids and suffixes.
+  // The app shell stops a REUSED server on quit through this (a spawned one
+  // it kills directly). The custom header keeps cross-origin pages out: they
+  // can't send it without a CORS preflight this server never approves.
+  if (path === "/api/shutdown" && req.method === "POST") {
+    if (req.headers["x-cc-shutdown"] !== "1") return json(res, 403, { error: "forbidden" });
+    json(res, 200, { ok: true });
+    setTimeout(() => process.exit(0), 50);
+    return;
+  }
+
   if (path === "/api/reset" && req.method === "POST") {
     const nodeParam = url.searchParams.get("node");
     const targets = nodeParam ? MAP_NODES.filter((n) => n.id === nodeParam) : MAP_NODES;
