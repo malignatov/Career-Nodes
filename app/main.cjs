@@ -4,7 +4,7 @@
  * live project directory — so the API key stays in the project's .env, the
  * artifacts stay in the repo, and code changes apply without rebuilding.
  */
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const path = require("node:path");
@@ -72,7 +72,7 @@ async function createWindow() {
     backgroundColor: "#EFE9E0",
     // Window/taskbar icon on Windows and Linux (macOS uses the bundle's icns).
     icon: path.join(__dirname, "icon.png"),
-    webPreferences: { contextIsolation: true },
+    webPreferences: { contextIsolation: true, preload: path.join(__dirname, "preload.cjs") },
   });
   win.loadURL(URL);
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -81,6 +81,24 @@ async function createWindow() {
   });
   console.log("app: window created");
 }
+
+/* PDF export with a real text layer: window.print() would hand the OS
+ * rasterized pages (image-only PDFs, malformed on some Windows drivers);
+ * printToPDF renders selectable text with embedded fonts. The renderer has
+ * already laid out #printDoc and the print stylesheet does the rest. */
+ipcMain.handle("cc-export-pdf", async (event, suggestedName) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return null;
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    defaultPath: path.join(app.getPath("documents"), `${suggestedName || "Career Nodes"}.pdf`),
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (canceled || !filePath) return null;
+  const data = await event.sender.printToPDF({ printBackground: true, pageSize: "A4" });
+  await fs.promises.writeFile(filePath, data);
+  shell.showItemInFolder(filePath);
+  return filePath;
+});
 
 app.whenReady().then(createWindow).catch((err) => {
   console.error("app: failed to start —", err.message);

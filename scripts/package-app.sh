@@ -19,7 +19,7 @@ OUT="$ROOT/dist-app/share"
 
 mkdir -p "$STAGE/server"
 
-cp "$ROOT/app/main.cjs" "$ROOT/app/package.json" "$ROOT/app/icon.png" "$STAGE/"
+cp "$ROOT/app/main.cjs" "$ROOT/app/preload.cjs" "$ROOT/app/package.json" "$ROOT/app/icon.png" "$STAGE/"
 cp -R "$ROOT/src" "$ROOT/playbooks" "$ROOT/public" "$STAGE/server/"
 cp "$ROOT/package.json" "$ROOT/package-lock.json" "$STAGE/server/"
 

@@ -1367,9 +1367,17 @@ async function exportPdf() {
   }
   $("printDoc").innerHTML = parts.join("");
 
-  // The print dialog's suggested file name comes from the page title.
+  const name = `Career Nodes — ${who} — ${new Date().toISOString().slice(0, 10)}`;
+  // Electron: printToPDF via the bridge — real selectable text with embedded
+  // fonts. window.print() would route through the OS print pipeline, which
+  // rasterizes the pages (no text layer).
+  if (window.careerNodes?.exportPdf) {
+    await window.careerNodes.exportPdf(name);
+    return;
+  }
+  // Plain browser: the print dialog's suggested file name is the page title.
   const prev = document.title;
-  document.title = `Career Counseling — ${who} — ${new Date().toISOString().slice(0, 10)}`;
+  document.title = name;
   window.print();
   document.title = prev;
 }

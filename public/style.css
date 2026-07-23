@@ -997,8 +997,11 @@ body:has(#scrim:not([hidden])) {
 
 @media print {
   body > *:not(#printDoc) { display: none !important; }
-  html, body { background: #fff; }
-  /* Fixed colors: a dark-theme user still gets a printable document. */
+  /* The app's paper tone, edge to edge — html paints the page canvas
+   * (margins included), body the content box; both must match or the
+   * document prints as a white slab in a cream frame. Fixed colors: a
+   * dark-theme user still gets the paper document. */
+  html, body { background: #EFE9E0; }
   #printDoc { display: block; color: #201b14; font: 400 12pt/1.6 Lora, Georgia, serif; }
   .pd-head h1 { font: 600 23pt Lora, Georgia, serif; margin: 0 0 4pt; }
   .pd-meta { font: 500 10pt Karla, Manrope, sans-serif; color: #8a7f6e; }
