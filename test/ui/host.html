@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Braid UI tests</title>
+  <!-- Real field styles: material classes, recession rules, loader keyframes. -->
+  <link rel="stylesheet" href="../../public/braid.css" />
+  <style>html, body { margin: 0; } #journey { width: 1280px; height: 800px; position: relative; }</style>
+</head>
+<body>
+  <main id="journey"></main>
+  <script>
+    // Deterministic network: the braid's playbook/session fetches resolve
+    // fast and empty instead of touching anything.
+    window.fetch = async () => ({ ok: false, json: async () => ({}) });
+  </script>
+  <script src="../../public/braid.js"></script>
+  <script type="module" src="./driver.mjs"></script>
+</body>
+</html>

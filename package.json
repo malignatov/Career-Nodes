@@ -4,7 +4,8 @@
   "description": "A local-first app that guides a person through Mark Savickas's career construction counseling (*Career Counseling*, 2nd ed., APA 2019) as a journey across a map of artifacts, with an LLM playing the interviewer under narrow, fully visible instructions.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test 'test/*.test.ts'",
+    "test:ui": "electron test/ui/runner.cjs",
     "interview": "node --env-file-if-exists=.env src/cli.ts",
     "smoke": "node --env-file-if-exists=.env scripts/smoke.ts",
     "typecheck": "tsc --noEmit",

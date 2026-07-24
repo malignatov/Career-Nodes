@@ -685,23 +685,24 @@
     nimbus.style.opacity = fst === "next" ? "1" : fst === "done" ? ".4" : "0";
     nimbus.querySelector("[data-ping]").style.display = fst === "next" ? "" : "none";
     // α: the plaque, nimbus and ping are withheld while the overture speaks;
-    // the wake blooms them in on the slow ceremony easing.
+    // the wake blooms them in on the slow ceremony easing. The dip-and-return
+    // must not run in either state — it would clobber the withhold (opacity
+    // forced back to 1 a frame later) and cut the 1.9s bloom short.
     if (J.ov && !J.ovWake) {
       plaque.style.opacity = "0";
       nimbus.style.opacity = "0";
       nimbus.querySelector("[data-ping]").style.display = "none";
-    } else {
-      if (J.ovPend) {
-        J.ovPend = false;
-        plaque.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
-        nimbus.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
-      }
-      plaque.style.opacity = "";
-    }
-    // Caption dip-and-return on every relayout.
-    if (!instant) {
+    } else if (J.ovPend) {
+      J.ovPend = false;
+      plaque.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
+      nimbus.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
+      plaque.style.opacity = "1";
+    } else if (!instant) {
+      // Caption dip-and-return on every relayout.
       plaque.style.opacity = "0";
-      requestAnimationFrame(() => { plaque.style.opacity = "1"; });
+      requestAnimationFrame(() => {
+        if (!(J.ov && !J.ovWake)) plaque.style.opacity = "1";
+      });
     } else plaque.style.opacity = "1";
   }
 

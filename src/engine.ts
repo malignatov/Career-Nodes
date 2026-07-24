@@ -105,7 +105,7 @@ interface CheckerItem {
  * once ended a stage after one comparison of three. The schema now forces a
  * per-entity tally with quoted evidence, and the arithmetic lives HERE — the
  * model enumerates, the code counts. */
-function checkerItemOk(r: CheckerItem): boolean {
+export function checkerItemOk(r: CheckerItem): boolean {
   const ents = r.entities ?? [];
   if (r.required_count != null) return ents.filter((e) => e.satisfied).length >= r.required_count;
   if (ents.length > 0) return r.satisfied && ents.every((e) => e.satisfied);
