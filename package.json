@@ -41,7 +41,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.1.0",
     "@types/ws": "^8.18.1",
-    "electron": "^43.0.0",
+    "electron": "^43.2.0",
     "electron-packager": "^17.1.2",
     "esbuild": "^0.28.1",
     "tsx": "^4.22.5",
