@@ -1207,13 +1207,13 @@ window.BraidM = (() => {
       msgEl("say", text);
     },
     note(text) {
-      clearThink();
       const localized = M.ctx.localizeNote(text);
-      if (M.reviewing || M.chatless || M.scriptDone) {
-        statusMsg(localized);
-        // A process note means the model is still working — keep the pulse.
-        showThink();
-      } else msgEl("note", localized);
+      if (M.reviewing || M.chatless || M.scriptDone) statusMsg(localized);
+      else msgEl("note", localized);
+      // Model-work notes keep or start the loader without resetting the
+      // phrase rotation; arriving words (say/review) clear it.
+      if (M.reviewing || M.chatless || M.scriptDone
+        || /^\((inducing|revising|the conversation is complete)/.test(text)) showThink();
     },
     error(text) { clearThink(); msgEl("error", text); },
     ask(prompt) {

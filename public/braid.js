@@ -1577,15 +1577,15 @@
       inlineMsg("say", text);
     },
     note(text) {
-      clearThink();
       const localized = L.ctx.localizeNote(text);
       // Process notes during induction or revision collapse onto one line;
       // conversation notes (topics) stay part of the transcript.
       if (L.review || L.chatless) inlineStatus(localized);
       else inlineMsg("note", localized);
-      // A process note means the model is still working — keep the pulse alive
-      // under the whisper so the latency reads as thought, not silence.
-      if (L.review || L.chatless) showThink();
+      // Model-work notes (solidifying, inducing, revising) carry a wait
+      // behind them — keep or start the loader, rings included, without
+      // resetting a rotation already underway. Words (say/review) clear it.
+      if (L.review || L.chatless || /^\((inducing|revising|the conversation is complete)/.test(text)) showThink();
     },
     error(text) { clearThink(); inlineMsg("error", text); },
     ask(prompt) {

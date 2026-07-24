@@ -11,13 +11,13 @@
       "name": "ui-sandbox",
       "runtimeExecutable": "env",
       "runtimeArgs": [
-        "PORT=4791",
-        "CC_ARTIFACTS_DIR=/private/tmp/claude-501/-Users-michael-Claude-Code-Career-Counseling/53e98b4c-7a1c-40ac-b26a-d597954cce76/scratchpad/artifacts-sandbox",
+        "PORT=4792",
+        "CC_ARTIFACTS_DIR=/private/tmp/claude-501/-Users-michael-Claude-Code-Career-Counseling/123c997f-96bb-48d4-b5f5-9fe7ba490f96/scratchpad/artifacts-sandbox",
         "node",
         "--env-file-if-exists=.env",
         "src/server.ts"
       ],
-      "port": 4791
+      "port": 4792
     }
   ]
 }
