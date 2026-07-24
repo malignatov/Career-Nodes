@@ -78,7 +78,11 @@ elicit:
 induce:
   steps:
     - id: extract
-      task: Structure the story exactly as the user told it.
+      task: >
+        Structure the story exactly as the user told it. similarity_to_self
+        records only what the user answered to the bridge question — null when
+        they declined or it was never asked. Never infer the similarity
+        yourself.
       model_tier: small
       temperature: 0.2
       output_schema:

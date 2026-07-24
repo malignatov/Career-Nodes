@@ -692,8 +692,9 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "version": "0.1.0",
       "kind": "conversation",
       "sector": "interview",
+      "skippable": true,
       "title": "Early recollections",
-      "purpose": "You'll share three early memories from roughly ages three to six, name the feeling in each, and give each one a headline — like a newspaper headline, with a verb in it. The premise, from career construction theory: early memories are not history, they are the present — the stories you reach for today reveal the perspective from which you view your current transition. This is the most personal step of the whole interview. You can skip it entirely (type /skip in each topic): the perspective artifact can be inferred from your role models instead. Memories do not need to be verified facts; whatever comes to mind counts. This step only records your stories and your approved headlines; the perspective artifact is derived at the next node.\n",
+      "purpose": "You'll share three early memories from roughly ages three to six, name the feeling in each, and give each one a headline — like a newspaper headline, with a verb in it. The premise, from career construction theory: early memories are not history, they are the present — the stories you reach for today reveal the perspective from which you view your current transition. This is the most personal step of the whole interview. You can skip it entirely (say /skip before sharing anything and the step closes gracefully): the perspective artifact can be inferred from your role models instead. Memories do not need to be verified facts; whatever comes to mind counts. This step only records your stories and your approved headlines; the perspective artifact is derived at the next node.\n",
       "consumes": [
         "counseling_goal"
       ],
@@ -780,7 +781,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
               "properties": {
                 "recollections": {
                   "type": "array",
-                  "minItems": 3,
+                  "minItems": 0,
                   "maxItems": 5,
                   "items": {
                     "type": "object",
@@ -817,7 +818,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                           "string",
                           "null"
                         ],
-                        "description": "The wording the user approved in conversation (it may have been co-authored, so it is not checked against the user's turns alone). Null when the story never received an approved headline."
+                        "description": "The wording the user approved in conversation (it may have been co-authored, so it is not checked against the user's turns alone)."
                       },
                       "headline_verb": {
                         "type": [
@@ -890,7 +891,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "interview",
       "title": "Favorite media",
-      "purpose": "You'll talk about two or three shows, sites, or magazines you keep returning to. The premise, from career construction theory: your favorite media are vicarious environments — they reveal the kinds of places, people, and problems you like to be around, which is far more trustworthy than any interest inventory. This step records your favorites and what attracts you to them, in your words. The preferred-settings artifact is derived at the next node.\n",
+      "purpose": "You'll talk about two or three shows, series, games, YouTube channels, sites, magazines, journals, or newsletters you keep returning to. The premise, from career construction theory: your favorite media are vicarious environments — they reveal the kinds of places, people, and problems you like to be around, which is far more trustworthy than any interest inventory. This step records your favorites and what attracts you to them, in your words. The preferred-settings artifact is derived at the next node.\n",
       "consumes": [
         "counseling_goal"
       ],
@@ -908,18 +909,18 @@ export const PLAYBOOKS: Record<string, Playbook> =
           {
             "id": "collect",
             "goal": "Two or three favorite media the user returns to regularly.",
-            "opening": "Do you watch any television programs regularly? Which ones?\n",
+            "opening": "What do you keep returning to — series or shows, games, YouTube channels? Which ones?\n",
             "opening_i18n": {
-              "ru": "Есть ли передачи или сериалы, которые ты регулярно смотришь? Какие?\n"
+              "ru": "К чему ты регулярно возвращаешься — сериалы или передачи, игры, YouTube-каналы? Что именно?\n"
             },
             "probes": [
               {
-                "when": "the user rarely watches television",
+                "when": "the user doesn't watch or play much",
                 "then": "Ask which websites they visit again and again."
               },
               {
                 "when": "websites also draw a blank",
-                "then": "Ask about magazines or podcasts they follow."
+                "then": "Ask about magazines, journals, newsletters, or podcasts they follow."
               },
               {
                 "when": "only one favorite has been named",
@@ -946,6 +947,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
               {
                 "when": "the user only summarizes the plot",
                 "then": "Ask what it is about the world of that show they enjoy spending time in."
+              },
+              {
+                "when": "the stated attraction is social — friends play or watch it, being part of the community",
+                "then": "Honor that, then ask what about the thing itself draws them — the world, the activity, the stories — or whether it truly is the people alone."
               }
             ],
             "done_when": [
@@ -958,7 +963,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the favorites with their attractions in the order named. Attractions come only from what the user actually said about that favorite — anywhere in the transcript, parentheticals included; when the user never stated an attraction for a favorite, leave its attractions as an empty array. Never infer one, and never reuse another favorite's attraction.",
+            "task": "Structure the favorites with their attractions in the order named. Attractions come only from what the user actually said about that favorite — anywhere in the transcript, parentheticals included; when the user never stated an attraction for a favorite, leave its attractions as an empty array. Never infer one, and never reuse another favorite's attraction. Keep social pulls ('my friends play it') distinct from attraction to the thing itself — record each exactly as stated, never converting one into the other.\n",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -986,8 +991,13 @@ export const PLAYBOOKS: Record<string, Playbook> =
                         "type": "string",
                         "enum": [
                           "tv",
+                          "series",
+                          "game",
+                          "youtube",
                           "website",
                           "magazine",
+                          "journal",
+                          "newsletter",
                           "podcast",
                           "other"
                         ]
@@ -1184,7 +1194,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the story exactly as the user told it. similarity_to_self records only what the user answered to the bridge question — null when they declined or it was never asked. Never infer the similarity yourself.",
+            "task": "Structure the story exactly as the user told it. similarity_to_self records only what the user answered to the bridge question — null when they declined or it was never asked. Never infer the similarity yourself.\n",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -1698,7 +1708,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "analyze",
-            "task": "From the favorite_media artifact, describe the user's preferred occupational settings along the book's four dimensions — the places they want to be in, the people they want around them, the problems they prefer to address, and the procedures they like to use. Ground every dimension in the user's stated attractions and quote their words where they carry the meaning. Confirm or refine the RIASEC codes from the media artifact, basing each code on the stated attraction rather than the title. Assign only the one or two dominant codes the attractions clearly express: never infer an additional code from intellectual tone, from analysis-flavored language in your own descriptions, or from the user's current studies, abilities, or achievements — attraction is the only evidence that counts. Account for every attraction present in the media artifact: each one either contributes to a dimension or a code, or is set aside for a reason that is true — never assert an attraction was not stated when it was. Close with a short second-person niche statement — the kind of stage on which this user can perform themselves.\n",
+            "task": "From the favorite_media artifact, describe the user's preferred occupational settings along the book's four dimensions — the places they want to be in, the people they want around them, the problems they prefer to address, and the procedures they like to use. Ground every dimension in the user's stated attractions and quote their words where they carry the meaning. Confirm or refine the RIASEC codes from the media artifact, basing each code on the stated attraction rather than the title. Assign only the one or two dominant codes the attractions clearly express: never infer an additional code from intellectual tone, from analysis-flavored language in your own descriptions, or from the user's current studies, abilities, or achievements — attraction is the only evidence that counts. Treat social-company attractions ('my friends play it', 'we watch together') as evidence about the people the user wants around them — never as attraction to the activity's own content. Account for every attraction present in the media artifact: each one either contributes to a dimension or a code, or is set aside for a reason that is true — never assert an attraction was not stated when it was. Close with a short second-person niche statement — the kind of stage on which this user can perform themselves.\n",
             "model_tier": "small",
             "output_schema": {
               "type": "object",
@@ -1907,7 +1917,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the models and guides with descriptors in the order spoken. Similarities and differences come only from the user's explicit comparison statements; when a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.",
+            "task": "Structure the models and guides with descriptors in the order spoken. Similarities and differences come only from the user's explicit comparison statements; when a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.\n",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {

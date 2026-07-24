@@ -63,7 +63,10 @@ export const CHECKER_SYSTEM =
   "For every checklist item, list the entities it ranges over (the named models, stories, favorites — whatever the item counts or quantifies with 'each' or 'every'), judge each entity separately with a supporting quote from the transcript (truncate quotes to at most eight words), and set required_count to the minimum number of satisfied entities the item demands (null when the item names no count and no 'each'). " +
   "An 'each X' item demands every X the checklist expects, not every X mentioned so far — 'each of the three models' means three. " +
   "A statement the user explicitly applies to several entities at once ('all of them', 'I am like them…') is evidence for each of those entities; a statement about one entity is evidence for that entity alone. " +
-  "Never mark an item satisfied on the strength of one single-entity example when it quantifies over several. Return JSON only.";
+  "Never mark an item satisfied on the strength of one single-entity example when it quantifies over several. " +
+  "Separately, set skip_requested true ONLY when the user's latest turn addresses the interviewer to ask that this topic be skipped or passed over (in any language), and copy the exact user words that make the request into skip_quote. " +
+  "Words like 'skip' inside a story, a memory, or something another person said ('my mama said let's skip it') are shared CONTENT, not a request — skip_requested stays false. When in doubt, false. " +
+  "A skip request is never evidence: items stay unsatisfied unless the transcript satisfies them. Return JSON only.";
 
 export function interviewerSystem(
   pb: Playbook,
@@ -112,11 +115,19 @@ export function checkerItemOk(r: CheckerItem): boolean {
   return r.satisfied;
 }
 
+export interface StageCheck {
+  done: boolean;
+  /** The user asked (in any wording/language) to skip this topic. */
+  skip: boolean;
+  /** The transcript satisfied at least one item or entity — real material exists. */
+  evidence: boolean;
+}
+
 export async function checkStageDone(
   llm: LlmAdapter,
   stage: Stage,
   exchange: ExchangeEntry[],
-): Promise<boolean> {
+): Promise<StageCheck> {
   const transcript = exchange.map((e) => `${e.speaker}: ${e.text}`).join("\n");
   const checklist = stage.done_when.map((d, i) => `${i}. ${d}`).join("\n");
   const raw = await llm.complete({
@@ -131,8 +142,10 @@ export async function checkStageDone(
     ],
     jsonSchema: {
       type: "object",
-      required: ["results"],
+      required: ["results", "skip_requested", "skip_quote"],
       properties: {
+        skip_requested: { type: "boolean" },
+        skip_quote: { type: "string" },
         results: {
           type: "array",
           items: {
@@ -161,12 +174,27 @@ export async function checkStageDone(
     },
   });
   try {
-    const parsed = JSON.parse(raw) as { results: CheckerItem[] };
+    const parsed = JSON.parse(raw) as { results: CheckerItem[]; skip_requested?: boolean; skip_quote?: string };
     // Every checklist item must be covered and pass — a shorter answer fails.
-    return stage.done_when.every((_, i) =>
+    const done = stage.done_when.every((_, i) =>
       parsed.results.some((r) => r.index === i && checkerItemOk(r)));
+    const evidence = parsed.results.some((r) =>
+      r.satisfied || (r.entities ?? []).some((e) => e.satisfied));
+    // Quote-gate against skip false-positives: the model must cite the words
+    // that make the request, they must come from the LATEST user turn, and
+    // they must BE that turn (not a fragment quoted inside a memory — "my
+    // mama said 'let's skip it'" is content, not a request).
+    let skip = false;
+    if (parsed.skip_requested === true && !done) {
+      const lastUser = [...exchange].reverse().find((e) => e.speaker === "user")?.text.trim() ?? "";
+      const quote = (parsed.skip_quote ?? "").trim();
+      skip = quote.length > 0
+        && lastUser.toLowerCase().includes(quote.toLowerCase())
+        && quote.length >= lastUser.length * 0.6;
+    }
+    return { done, skip, evidence };
   } catch {
-    return false;
+    return { done: false, skip: false, evidence: false };
   }
 }
 
@@ -174,6 +202,22 @@ export interface ElicitResult {
   exchange: ExchangeEntry[];
   userWords: string;
   aborted: boolean;
+  /** The user skipped with nothing shared — the step closes gracefully. */
+  skipped?: boolean;
+}
+
+/** Schema-shaped empty content for a step the user chose to skip: every
+ * required field present, every field honest about holding nothing. */
+export function skipContent(pb: Playbook): Record<string, unknown> {
+  const schema = pb.artifact?.schema as
+    | { required?: string[]; properties?: Record<string, { type?: string }> }
+    | undefined;
+  const out: Record<string, unknown> = {};
+  for (const key of schema?.required ?? []) {
+    const t = schema?.properties?.[key]?.type;
+    out[key] = t === "array" ? [] : t === "object" ? {} : t === "string" ? "" : null;
+  }
+  return out;
 }
 
 export async function runElicit(
@@ -185,6 +229,11 @@ export async function runElicit(
   upstream?: Record<string, unknown>,
 ): Promise<ElicitResult> {
   const exchange: ExchangeEntry[] = resume ? [...resume.exchange] : [];
+  // Graceful-skip bookkeeping: a session where no stage ever completed and
+  // the checker never saw a satisfied item holds no material — it closes as
+  // skipped rather than running induction over nothing.
+  let anyDone = false;
+  let materialSeen = false;
   const messages: ChatTurn[] = exchange.map((e) => ({
     role: e.speaker === "user" ? ("user" as const) : ("assistant" as const),
     content: e.text,
@@ -243,6 +292,15 @@ export async function runElicit(
       const answer = await io.ask("you");
       if (answer.trim() === "/quit") return { exchange, userWords: userWords(exchange), aborted: true };
       if (answer.trim() === "/skip") {
+        // A skip before anything was shared ends the WHOLE interview — the
+        // remaining topics would probe material that does not exist. The
+        // session closes gracefully instead of leaving the node half-open.
+        if (!userWords(exchange).trim()) {
+          io.note(lang?.code === "ru"
+            ? "(шаг пропущен — ничего не рассказано)"
+            : "(skipped — nothing was shared for this step)");
+          return { exchange, userWords: "", aborted: false, skipped: true };
+        }
         io.note(`(skipped remaining checks for topic "${stage.id}")`);
         break;
       }
@@ -254,11 +312,25 @@ export async function runElicit(
       // runs — continuing the topic is the common case, so this halves turn
       // latency. When the checker ends the topic instead, the follow-up is
       // discarded unseen and the next stage opens as before.
-      const [done, followUp] = await Promise.all([
+      const [check, followUp] = await Promise.all([
         checkStageDone(llm, stage, exchange),
         llm.complete({ tier: "small", system, messages }),
       ]);
-      if (done) break;
+      materialSeen ||= check.evidence;
+      if (check.skip) {
+        // "Let's skip", «пропустим» — the spoken skip works like /skip: with
+        // no material anywhere the whole step closes gracefully, otherwise
+        // only this topic ends and what was shared moves on to induction.
+        if (!anyDone && !materialSeen) {
+          io.note(lang?.code === "ru"
+            ? "(шаг пропущен — ничего не рассказано)"
+            : "(skipped — nothing was shared for this step)");
+          return { exchange, userWords: userWords(exchange), aborted: false, skipped: true };
+        }
+        io.note(`(skipped remaining checks for topic "${stage.id}")`);
+        break;
+      }
+      if (check.done) { anyDone = true; break; }
       messages.push({ role: "assistant", content: followUp });
       exchange.push({ speaker: "interviewer", text: followUp });
       io.say(followUp);
@@ -266,7 +338,7 @@ export async function runElicit(
     }
   }
 
-  return { exchange, userWords: userWords(exchange), aborted: false };
+  return { exchange, userWords: userWords(exchange), aborted: false, skipped: !anyDone && !materialSeen };
 }
 
 function userWords(exchange: ExchangeEntry[]): string {
@@ -493,21 +565,27 @@ export async function runConfirm(
   draft: Record<string, unknown>,
   io: SessionIO,
   reinduce: (feedback?: string, prior?: Record<string, unknown>) => Promise<Record<string, unknown>>,
-  opts: { existingFirst?: boolean; llm?: LlmAdapter; lang?: SessionLang; exchange?: ExchangeEntry[] } = {},
+  opts: { existingFirst?: boolean; llm?: LlmAdapter; lang?: SessionLang; exchange?: ExchangeEntry[]; skipMode?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   const confirm = pb.confirm!;
   let current = draft;
   let existing = opts.existingFirst ?? false;
+  // A skipped step reviews as plain fields (nothing to choose between) and
+  // the authorize action says what it really does: skip this step.
+  const authLang = opts.skipMode
+    ? (opts.lang?.code === "ru" ? "Пропустить этот шаг" : "Skip this step")
+    : confirm.authorize_language.trim();
+  const present = opts.skipMode ? "structured_review" : confirm.present;
 
   if (io.review) {
     for (;;) {
       const candidates = (current.candidates ?? []) as string[];
       const act = await io.review({
-        mode: confirm.present,
+        mode: present,
         draft: current,
         candidates,
         choice_field: confirm.choice_field,
-        authorize_language: confirm.authorize_language.trim(),
+        authorize_language: authLang,
         existing,
         ...collectVerbatim(pb, current),
       });
@@ -529,7 +607,7 @@ export async function runConfirm(
         existing = false;
         continue;
       }
-      if (confirm.present === "candidates") {
+      if (present === "candidates") {
         const field = confirm.choice_field ?? "chosen";
         const { candidates: _dropped, ...rest } = current;
         return { ...rest, [field]: act.value ?? candidates[0] ?? "" };

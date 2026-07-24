@@ -96,7 +96,12 @@ elicit:
 induce:
   steps:
     - id: extract
-      task: Structure the models and guides with descriptors in the order spoken.
+      task: >
+        Structure the models and guides with descriptors in the order spoken.
+        Similarities and differences come only from the user's explicit
+        comparison statements; when a model was never compared in the
+        transcript, leave its similarities and differences as empty arrays —
+        never infer or paraphrase them from descriptors or other material.
       model_tier: small
       temperature: 0.2
       output_schema:

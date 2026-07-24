@@ -28,7 +28,7 @@ const cases = [
 
 let fail = 0;
 for (const [label, stage, exchange, expect] of cases) {
-  const got = await checkStageDone(llm, stage, exchange);
+  const got = (await checkStageDone(llm, stage, exchange)).done;
   const ok = got === expect;
   if (!ok) fail++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${label}  → ${got}`);

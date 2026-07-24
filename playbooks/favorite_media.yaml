@@ -5,8 +5,8 @@ sector: interview
 title: Favorite media
 
 purpose: >
-  You'll talk about two or three shows, sites, or magazines you keep
-  returning to. The
+  You'll talk about two or three shows, series, games, YouTube channels,
+  sites, magazines, journals, or newsletters you keep returning to. The
   premise, from career construction theory: your favorite media are vicarious
   environments — they reveal the kinds of places, people, and problems you like
   to be around, which is far more trustworthy than any interest inventory. This
@@ -34,15 +34,17 @@ elicit:
     - id: collect
       goal: Two or three favorite media the user returns to regularly.
       opening: >
-        Do you watch any television programs regularly? Which ones?
+        What do you keep returning to — series or shows, games, YouTube
+        channels? Which ones?
       opening_i18n:
         ru: >
-          Есть ли передачи или сериалы, которые ты регулярно смотришь? Какие?
+          К чему ты регулярно возвращаешься — сериалы или передачи, игры,
+          YouTube-каналы? Что именно?
       probes:
-        - when: the user rarely watches television
+        - when: the user doesn't watch or play much
           then: Ask which websites they visit again and again.
         - when: websites also draw a blank
-          then: Ask about magazines or podcasts they follow.
+          then: Ask about magazines, journals, newsletters, or podcasts they follow.
         - when: only one favorite has been named
           then: Ask for one or two more.
       done_when:
@@ -59,6 +61,11 @@ elicit:
         - when: the user only summarizes the plot
           then: Ask what it is about the world of that show they enjoy spending
             time in.
+        - when: the stated attraction is social — friends play or watch it,
+            being part of the community
+          then: Honor that, then ask what about the thing itself draws them —
+            the world, the activity, the stories — or whether it truly is the
+            people alone.
       done_when:
         - Each named favorite has at least one attraction stated in the user's
           own words.
@@ -66,7 +73,15 @@ elicit:
 induce:
   steps:
     - id: extract
-      task: Structure the favorites with their attractions in the order named.
+      task: >
+        Structure the favorites with their attractions in the order named.
+        Attractions come only from what the user actually said about that
+        favorite — anywhere in the transcript, parentheticals included; when
+        the user never stated an attraction for a favorite, leave its
+        attractions as an empty array. Never infer one, and never reuse
+        another favorite's attraction. Keep social pulls ('my friends play
+        it') distinct from attraction to the thing itself — record each
+        exactly as stated, never converting one into the other.
       model_tier: small
       temperature: 0.2
       output_schema:
@@ -83,7 +98,7 @@ induce:
                 title: { type: string }
                 medium:
                   type: string
-                  enum: [tv, website, magazine, podcast, other]
+                  enum: [tv, series, game, youtube, website, magazine, journal, newsletter, podcast, other]
                 attractions:
                   type: array
                   minItems: 1

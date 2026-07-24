@@ -160,6 +160,7 @@ export async function buildJourney(
       status,
       distilled,
       origin,
+      skippable: pb?.skippable === true,
       feeds: n.id === "counseling_goal" ? [] : MAP_EDGES.filter(([from]) => from === n.id).map(([, to]) => to),
       uses: n.id === "counseling_goal"
         ? []

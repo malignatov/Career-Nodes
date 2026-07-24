@@ -47,15 +47,15 @@ test("checkStageDone: every checklist item must be covered — a short answer fa
   const oneItem = JSON.stringify({ results: [
     { index: 0, satisfied: true, required_count: null, entities: [] },
   ] });
-  assert.equal(await checkStageDone(fakeLlm(oneItem), STAGE, []), false);
+  assert.equal((await checkStageDone(fakeLlm(oneItem), STAGE, [])).done, false);
 
   const both = JSON.stringify({ results: [
     { index: 0, satisfied: true, required_count: null, entities: [] },
     { index: 1, satisfied: true, required_count: null, entities: [] },
   ] });
-  assert.equal(await checkStageDone(fakeLlm(both), STAGE, []), true);
+  assert.equal((await checkStageDone(fakeLlm(both), STAGE, [])).done, true);
 });
 
 test("checkStageDone: malformed model output fails closed", async () => {
-  assert.equal(await checkStageDone(fakeLlm("not json at all"), STAGE, []), false);
+  assert.deepEqual(await checkStageDone(fakeLlm("not json at all"), STAGE, []), { done: false, skip: false, evidence: false });
 });

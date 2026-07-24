@@ -2,6 +2,7 @@ id: early_recollections
 version: 0.1.0
 kind: conversation
 sector: interview
+skippable: true
 title: Early recollections
 
 purpose: >
@@ -11,8 +12,8 @@ purpose: >
   memories are not history, they are the present — the stories you reach for
   today reveal the perspective from which you view your current transition.
   This is the most personal step of the whole interview. You can skip it
-  entirely (type /skip in each topic): the perspective artifact can be inferred
-  from your role models instead. Memories do not need to be verified facts;
+  entirely (say /skip before sharing anything and the step closes gracefully):
+  the perspective artifact can be inferred from your role models instead. Memories do not need to be verified facts;
   whatever comes to mind counts. This step only records your stories and your
   approved headlines; the perspective artifact is derived at the next node.
 
@@ -89,8 +90,14 @@ induce:
   steps:
     - id: extract
       task: >
-        Structure the three recollections in the order told, with the feeling,
-        the approved headline, and the headline's main verb for each.
+        Structure the recollections in the order told — the three asked for,
+        plus any extra story the user offered and asked to keep. For each: the
+        feeling, the approved headline, and the headline's main verb. Feelings
+        and headlines come only from the transcript: the feeling must be one
+        the user actually named (null when none was named — never substitute a
+        scene phrase or a thought), and the headline must be wording the user
+        approved in conversation (null when a story never received one — never
+        compose one yourself).
       model_tier: small
       temperature: 0.2
       output_schema:
@@ -99,8 +106,8 @@ induce:
         properties:
           recollections:
             type: array
-            minItems: 3
-            maxItems: 3
+            minItems: 0
+            maxItems: 5
             items:
               type: object
               required: [order, scene_phrases, feeling, headline, headline_verb]
@@ -111,16 +118,19 @@ induce:
                   minItems: 1
                   items: { type: string, x-verbatim: true }
                   description: The load-bearing phrases of the story as told.
-                feeling: { type: string, x-verbatim: true }
+                feeling:
+                  type: [string, "null"]
+                  x-verbatim: true
+                  description: Null when the user never named a feeling for this story.
                 headline:
-                  type: string
+                  type: [string, "null"]
                   description: The wording the user approved in conversation
                     (it may have been co-authored, so it is not checked against
                     the user's turns alone).
-                headline_verb: { type: string }
+                headline_verb: { type: [string, "null"] }
       validation:
-        - Each headline must be exactly the wording the user approved, and must
-          contain a verb.
+        - Each non-null headline must be exactly the wording the user approved,
+          and must contain a verb.
     - id: salience
       task: >
         Record the first verb of the first recollection as told, and note in

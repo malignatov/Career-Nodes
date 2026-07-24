@@ -26,22 +26,24 @@ induce:
     - id: analyze
       task: >
         From the favorite_media artifact, describe the user's preferred
-        occupational settings along the book's four dimensions — the places
-        they want to be in, the people they want around them, the problems
-        they prefer to address, and the procedures they like to use. Ground
-        every dimension in the user's stated attractions and quote their words
-        where they carry the meaning. Confirm or refine the RIASEC codes from
-        the media artifact, basing each code on the stated attraction rather
-        than the title. Assign only the one or two dominant codes the
-        attractions clearly express: never infer an additional code from
-        intellectual tone, from analysis-flavored language in your own
-        descriptions, or from the user's current studies, abilities, or
-        achievements — attraction is the only evidence that counts. Account
-        for every attraction present in the media artifact: each one either
-        contributes to a dimension or a code, or is set aside for a reason
-        that is true — never assert an attraction was not stated when it was.
-        Close with a short second-person niche statement — the kind of stage
-        on which this user can perform themselves.
+        occupational settings along the book's four dimensions — the places they
+        want to be in, the people they want around them, the problems they
+        prefer to address, and the procedures they like to use. Ground every
+        dimension in the user's stated attractions and quote their words where
+        they carry the meaning. Confirm or refine the RIASEC codes from the
+        media artifact, basing each code on the stated attraction rather than
+        the title. Assign only the one or two dominant codes the attractions
+        clearly express: never infer an additional code from intellectual tone,
+        from analysis-flavored language in your own descriptions, or from the
+        user's current studies, abilities, or achievements — attraction is the
+        only evidence that counts. Treat social-company attractions ('my friends
+        play it', 'we watch together') as evidence about the people the user
+        wants around them — never as attraction to the activity's own content.
+        Account for every attraction present in the media artifact: each one
+        either contributes to a dimension or a code, or is set aside for a
+        reason that is true — never assert an attraction was not stated when it
+        was. Close with a short second-person niche statement — the kind of
+        stage on which this user can perform themselves.
       model_tier: small
       output_schema:
         type: object

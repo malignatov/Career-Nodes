@@ -1,7 +1,7 @@
 import type { Artifact, ExchangeEntry, Playbook } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
 import type { Storage } from "./storage.ts";
-import { runElicit, runInduce, runConfirm, toArtifact, type SessionIO, type SessionLang } from "./engine.ts";
+import { runElicit, runInduce, runConfirm, skipContent, toArtifact, type SessionIO, type SessionLang } from "./engine.ts";
 
 interface SessionState {
   exchange: ExchangeEntry[];
@@ -110,6 +110,7 @@ export async function runPlaybookSession(
   const upstream = await loadUpstream(pb, io, store);
 
   let exchange: ExchangeEntry[] = [];
+  let interviewSkipped = false;
 
   if (pb.elicit) {
     let resume: SessionState | undefined;
@@ -143,6 +144,7 @@ export async function runPlaybookSession(
         return "aborted";
       }
       exchange = elicited.exchange;
+      interviewSkipped = elicited.skipped === true;
       await store.write(
         sessionPath,
         JSON.stringify(
@@ -159,6 +161,28 @@ export async function runPlaybookSession(
       return "blocked";
     }
     io.note("(derived step — no interview; drafting from your authorized artifacts)");
+  }
+
+  // A skipped interview closes gracefully: no induction over an empty
+  // transcript (its schemas demand material that doesn't exist) — a
+  // schema-shaped empty artifact is offered for authorization, and the
+  // button says what it does: skip this step. The elicit run signals it
+  // (checker-verified: no stage done, no satisfied evidence); the fallback
+  // covers resumed sessions that were saved before this signal existed.
+  const skipped = interviewSkipped || (pb.elicit &&
+    !exchange.some((e) => e.speaker === "user" && e.text.trim() && !e.text.trim().startsWith("/")));
+  if (skipped) {
+    io.note(opts.lang?.code === "ru"
+      ? "(шаг закрывается пустым — подтверди, чтобы продолжить путь)"
+      : "(this step closes empty — confirm to keep going)");
+    const empty = skipContent(pb);
+    const authorized = await runConfirm(pb, empty, io, async () => empty, {
+      lang: opts.lang, exchange, skipMode: true,
+    });
+    await saveArtifact(pb, authorized, exchange, store, "skipped");
+    await store.remove(sessionPath);
+    io.say(`Step skipped and closed (${pb.id}).`);
+    return "authorized";
   }
 
   const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.lang);

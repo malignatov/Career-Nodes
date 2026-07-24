@@ -42,6 +42,9 @@ export interface Playbook {
   amendable_after?: string;
   /** Unlock rule: "any" (default for derived) or "all" (default for conversation). */
   gate?: "all" | "any";
+  /** The step is designed to be declinable — surfaces a visible "Skip this
+   * step" affordance (the typed /skip escape works everywhere regardless). */
+  skippable?: boolean;
   elicit?: {
     persona: string;
     guardrails: string[];
@@ -75,7 +78,8 @@ export interface Artifact {
   playbook_id: string;
   playbook_version: string;
   authorized_at: string;
-  /** How the content was produced. Absent on artifacts predating the field — treat as "generated". */
-  origin?: "manual" | "generated" | "mixed";
+  /** How the content was produced. Absent on artifacts predating the field — treat as "generated".
+   * "skipped": the user chose to close the step without material; content is schema-shaped and empty. */
+  origin?: "manual" | "generated" | "mixed" | "skipped";
   content: Record<string, unknown>;
 }
