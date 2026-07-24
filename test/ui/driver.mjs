@@ -240,6 +240,8 @@ test("the α overture: withheld field, wake on invitation, dismissal on first we
   expect(alpha && !alpha.hidden, "overture layer should show on a virgin journey");
   expect($('[data-ao="lead"]').textContent === t("braid_alpha_lead"), "lead copy wrong");
   expect($(".br-plaque").style.opacity === "0", "plaque must be withheld pre-wake");
+  expect($(".br-nimbus").style.opacity === "0", "nimbus must be withheld pre-wake");
+  expect($("[data-ping]").style.display === "none", "ping must be withheld pre-wake");
   expect(parseFloat($('path[data-s="5"]').style.opacity) === 0.16, "planned threads must lift to .16");
   $('[data-ao="begin"]').dispatchEvent(new MouseEvent("click", { bubbles: true }));
   await sleep(300);
