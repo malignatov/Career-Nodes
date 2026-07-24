@@ -143,7 +143,9 @@ window.BraidM = (() => {
   /* Node cores: ghost wireframe → waking wire sphere → pigment bead. */
   function core(el, st, j, big) {
     if (st === "next" || (M.merge && M.merge.j === j && M.merge.phase === "travel")) {
-      el.style.cssText = "position:absolute;left:-26px;top:-26px;width:52px;height:52px";
+      // Box transition: a just-promoted bead grows out of its ghost.
+      el.style.cssText = "position:absolute;left:-26px;top:-26px;width:52px;height:52px;"
+        + "transition:left .8s cubic-bezier(.3,.7,.2,1), top .8s cubic-bezier(.3,.7,.2,1), width .8s cubic-bezier(.3,.7,.2,1), height .8s cubic-bezier(.3,.7,.2,1)";
       if (el.__c !== "wire2") {
         el.__c = "wire2";
         el.innerHTML =

@@ -218,7 +218,10 @@
   }
 
   function renderNextCore(el) {
-    el.style.cssText = "position:absolute;left:-25px;top:-25px;width:50px;height:50px;transition:filter .35s ease";
+    // The box transition lets a just-promoted bead GROW out of its planned
+    // ghost (18→50px) instead of snapping — it wakes small, then enlarges.
+    el.style.cssText = "position:absolute;left:-25px;top:-25px;width:50px;height:50px;"
+      + "transition:filter .35s ease, left .8s cubic-bezier(.3,.7,.2,1), top .8s cubic-bezier(.3,.7,.2,1), width .8s cubic-bezier(.3,.7,.2,1), height .8s cubic-bezier(.3,.7,.2,1)";
     if (el.__c !== "wire2") {
       el.__c = "wire2";
       el.innerHTML =
@@ -915,7 +918,13 @@
         J.timers.reload = setTimeout(() => J.ctx.reload(), 6100);
         return;
       }
-      setFocus(J.pendingNext ?? Math.min(J.nodes.length - 1, i + 1));
+      // The advance target wakes NOW, not after the resync: funneling it
+      // through pendingNext lets setFocus promote a still-planned bead to
+      // its waking material before the camera arrives — it appears
+      // activated small and enlarges on focus (per the ceremony spec). The
+      // linear map makes the optimism safe; the resync confirms it.
+      J.pendingNext = J.pendingNext ?? Math.min(J.nodes.length - 1, i + 1);
+      setFocus(J.pendingNext);
       // ALWAYS resync after a weave: the authorize changed server state even
       // when no already-known step wakes — the step this one just unlocked
       // only exists server-side. (Sequential unlocks otherwise paint stale
