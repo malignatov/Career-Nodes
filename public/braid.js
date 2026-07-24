@@ -50,6 +50,70 @@
   /* Wireframe sphere as SVG inner markup. rotY(ry) then rotX(rx); mild
    * perspective s = R / (1 − z·0.16); edges split front/back by mean z;
    * vertex dots are zero-length round-cap segments on the front hemisphere. */
+  const DPR = Math.min(2, window.devicePixelRatio || 1);
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* Canvas twin of sphereSVG — the idle spin must not touch the DOM (per-frame
+   * innerHTML/style writes feed the macOS cursor race; see .br-live in css). */
+  function sphereDraw(g, R, ry, rx, colors, unit) {
+    const { verts, edges } = geoSphere(2);
+    const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
+    const P = verts.map(([x, y, z]) => {
+      const X = x * cy + z * sy, Z0 = z * cy - x * sy;
+      const Y = y * cx - Z0 * sx, Z = y * sx + Z0 * cx;
+      const s = R / (1 - Z * 0.16);
+      return [X * s, Y * s, Z];
+    });
+    const seg = (pass) => {
+      g.beginPath();
+      edges.forEach(([a, b]) => {
+        if ((P[a][2] + P[b][2] > 0) === pass) { g.moveTo(P[a][0], P[a][1]); g.lineTo(P[b][0], P[b][1]); }
+      });
+      g.stroke();
+    };
+    g.lineCap = "round";
+    g.lineWidth = 0.4 / unit; g.strokeStyle = pcss(colors.back); seg(false);
+    g.lineWidth = 0.6 / unit; g.strokeStyle = pcss(colors.front); seg(true);
+    g.lineWidth = 1.6 / unit; g.strokeStyle = pcss(colors.dot);
+    g.beginPath();
+    P.forEach((q) => { if (q[2] > 0.22) { g.moveTo(q[0], q[1]); g.lineTo(q[0] + 0.01, q[1]); } });
+    g.stroke();
+  }
+
+  /* Paint token {r,g,b,a} → css string, alpha scaled by mul. */
+  const pcss = (p, mul = 1) => p
+    ? `rgba(${p.r},${p.g},${p.b},${Math.max(0, Math.min(1, p.a * mul)).toFixed(3)})`
+    : `rgba(153,153,153,${mul})`;
+
+  /* Resolve any CSS color (vars, color-mix, color(srgb …)) to {r,g,b,a} via
+   * a 1×1 canvas — computed styles return syntaxes no regex should parse. */
+  function livePaintColor(expr) {
+    let cv = J.__pcv;
+    if (!cv) {
+      cv = J.__pcv = document.createElement("canvas");
+      cv.width = cv.height = 1;
+      cv.__g = cv.getContext("2d", { willReadFrequently: true });
+    }
+    const g = cv.__g;
+    g.clearRect(0, 0, 1, 1);
+    g.fillStyle = liveColor(expr);
+    g.fillRect(0, 0, 1, 1);
+    const d = g.getImageData(0, 0, 1, 1).data;
+    return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 };
+  }
+
+  /* Resolve a CSS color expression (vars, color-mix) against the live strip. */
+  function liveColor(expr) {
+    let s = J.__cspan;
+    if (!s || !s.isConnected) {
+      s = J.__cspan = document.createElement("span");
+      s.style.display = "none";
+      (J.strip || document.body).appendChild(s);
+    }
+    s.style.color = expr;
+    return getComputedStyle(s).color;
+  }
+
   function sphereSVG(R, ry, rx, mode) {
     const { verts, edges } = geoSphere(mode === "wireLo" ? 1 : 2);
     const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
@@ -116,7 +180,7 @@
     merge: null, pendingNext: null, slowUntil: 0,
     timers: { phase: 0, advance: 0, flash: 0, reload: 0 },
     raf: 0, lastTs: undefined, mx: undefined, my: undefined,
-    spin: 0.6, hoverScale: 1, nimX: undefined, nimY: undefined,
+    spin: 0.6, hovOn: false, hovK: 1, prevNext: null, wakeT: 0, pulseT: 0, glowT: 0,
     flashOn: false, resetTimer: 0,
     sess: false, sx: 0, // inline session: camera X shift while the field recedes
   };
@@ -149,8 +213,11 @@
         : 0;
     const sx = strayX(j, y);
     const x = sx + (braidX(j, y) - sx) * a;
+    // Gather into the Ω… then release: past its center the strings return to
+    // their own wander — loose thread ends after the knot, not a straight tail.
     const c = smoothstep((y - 1430) / 260);
-    return x + (450 - x) * c;
+    const r = smoothstep((y - 1790) / 300);
+    return x + (450 - x) * c * (1 - r);
   }
 
   /* Caption anchor: 176px to the caption side of the focused node. */
@@ -201,10 +268,10 @@
   /* ══ node cores (material states) ═════════════════════════ */
 
   function renderCore(el, st, j) {
-    if (st === "next") { renderNextCore(el); return; }
+    if (st === "next") { renderLiveCore(el); return; }
     if (st === "done") {
       const m = J.merge;
-      if (m && m.j === j && m.phase === "travel") renderNextCore(el);
+      if (m && m.j === j && m.phase === "travel") renderTravelCore(el);
       else renderDoneCore(el, j, !!(m && m.j === j));
     } else renderPlanCore(el, j);
   }
@@ -217,16 +284,27 @@
     }
   }
 
-  function renderNextCore(el) {
-    // The box transition lets a just-promoted bead GROW out of its planned
-    // ghost (18→50px) instead of snapping — it wakes small, then enlarges.
+  /* The idle waking sphere has NO DOM material: sway, spin, glow, ping and
+   * the wake growth are all painted on the strip canvas by the tick. The DOM
+   * keeps only the static [data-pad] hit surface (cursor-war rule). */
+  function renderLiveCore(el) {
+    el.style.cssText = "position:absolute;left:-25px;top:-25px;width:50px;height:50px";
+    if (el.__c !== "live") {
+      el.__c = "live";
+      el.innerHTML = "";
+    }
+  }
+
+  /* Ceremony-only DOM twin of the waking sphere: the travel leg rides nd's
+   * transform transition, which canvas cannot follow. Transient by nature. */
+  function renderTravelCore(el) {
     el.style.cssText = "position:absolute;left:-25px;top:-25px;width:50px;height:50px;"
-      + "transition:filter .35s ease, left .8s cubic-bezier(.3,.7,.2,1), top .8s cubic-bezier(.3,.7,.2,1), width .8s cubic-bezier(.3,.7,.2,1), height .8s cubic-bezier(.3,.7,.2,1)";
+      + "transition:left .8s cubic-bezier(.3,.7,.2,1), top .8s cubic-bezier(.3,.7,.2,1), width .8s cubic-bezier(.3,.7,.2,1), height .8s cubic-bezier(.3,.7,.2,1)";
     if (el.__c !== "wire2") {
       el.__c = "wire2";
       el.innerHTML =
-        '<div style="position:absolute;inset:11%;border-radius:99px;background:radial-gradient(circle, color-mix(in srgb, var(--acc) 60%, transparent) 0%, color-mix(in srgb, var(--acc) 24%, transparent) 44%, transparent 70%)"></div>' +
-        '<svg data-wire width="100%" height="100%" viewBox="-25 -25 50 50" style="position:absolute;inset:0;overflow:visible">' + sphereSVG(22, 0.6, 0.35, "wire") + "</svg>";
+        '<div style="position:absolute;inset:11%;border-radius:99px;pointer-events:none;background:radial-gradient(circle, color-mix(in srgb, var(--acc) 60%, transparent) 0%, color-mix(in srgb, var(--acc) 24%, transparent) 44%, transparent 70%)"></div>' +
+        '<svg width="100%" height="100%" viewBox="-25 -25 50 50" style="position:absolute;inset:0;overflow:visible;pointer-events:none">' + sphereSVG(22, J.spin, 0.35, "wire") + "</svg>";
     }
   }
 
@@ -277,7 +355,7 @@
     }
     const nodes = [];
     for (let j = 0; j < n; j++) {
-      nodes.push(`<div class="br-node" data-i="${j}"><div data-core></div></div>`);
+      nodes.push(`<div class="br-node" data-i="${j}"><div data-pad hidden></div><div class="br-sway"><div data-core></div></div></div>`);
       nodes.push(`<div class="br-label" data-i="${j}"></div>`);
     }
     root.innerHTML = `
@@ -295,8 +373,22 @@
         </div>
         <div class="br-stage">
           <div class="br-strip">
-            <svg width="900" height="1760" viewBox="0 0 900 1760" aria-hidden="true">${paths.join("")}</svg>
-            <div class="br-omega"><div class="br-omega-glow"></div><svg data-omw width="420" height="420" viewBox="-105 -105 210 210">${sphereSVG(100, 0.6, 0.35, "wire")}</svg></div>
+            <svg width="900" height="1760" viewBox="0 0 900 1760" aria-hidden="true">
+              <defs>
+                <!-- The released strands dissolve inside the Ω: nothing may
+                     cross the reading text below it (fade 1860 → 1968). -->
+                <linearGradient id="brTailFade" x1="0" y1="1860" x2="0" y2="1968" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#fff"></stop>
+                  <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+                </linearGradient>
+                <mask id="brTailMask" maskUnits="userSpaceOnUse" x="-600" y="-600" width="2100" height="3600">
+                  <rect x="-600" y="-600" width="2100" height="2460" fill="#fff"></rect>
+                  <rect x="-600" y="1860" width="2100" height="108" fill="url(#brTailFade)"></rect>
+                </mask>
+              </defs>
+              <g mask="url(#brTailMask)">${paths.join("")}</g></svg>
+            <canvas class="br-live" width="${900 * DPR}" height="${1760 * DPR}" style="width:900px;height:1760px"></canvas>
+            <div class="br-omega"><div class="br-omega-glow"></div><canvas data-omw width="${420 * DPR}" height="${420 * DPR}" style="width:420px;height:420px"></canvas></div>
             <div class="br-alpha" hidden>
               <div class="br-ao-lead" data-ao="lead"></div>
               <div class="br-ao-body" data-ao="what"></div>
@@ -312,18 +404,23 @@
             </div>
             ${nodes.join("")}
             <div class="br-nimbus">
-              <div class="br-nimbus-glow"></div>
-              <div class="br-ping" data-ping></div>
+              <div class="br-sway">
+                <div class="br-nimbus-glow"></div>
+                <div class="br-ping" data-ping></div>
+              </div>
             </div>
             <div class="br-plaque">
-              <div class="br-plaque-title"></div>
-              <div class="br-plaque-time"></div>
-              <div class="br-plaque-line"></div>
+              <div class="br-sway">
+                <div class="br-plaque-title"></div>
+                <div class="br-plaque-time"></div>
+                <div class="br-plaque-line"></div>
+              </div>
             </div>
           </div>
           <div class="br7-canvas">
             <div class="br7-chat"><div class="br7-msgs"></div></div>
             <div class="br7-comp">
+              <button class="br7-skip" hidden></button>
               <textarea class="br7-input" rows="1" data-own-mic="1" disabled></textarea>
               <button class="br7-mic" hidden>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
@@ -443,6 +540,14 @@
       if (!v?.enabled?.()) return;
       if (v.active()) v.stop();
       else v.start(inp);
+    });
+    q7(".br7-skip").addEventListener("click", () => {
+      // The affordance sends the literal /skip command; the engine decides
+      // whether the whole step closes gracefully or just this topic ends.
+      if (!L.open || L.closing) return;
+      if (!L.ctx.wsSend({ type: "answer", text: "/skip" })) return inlineConnLost();
+      inlineCompose(false);
+      inlineMsg("user", L.ctx.t("braid_skip_step"));
     });
     q7(".t5-tclose").addEventListener("click", () => { q7(".br7-tpanel").hidden = true; });
     J.frame.querySelector(".br7-info").addEventListener("click", toggleInlineTransparency);
@@ -600,6 +705,26 @@
     J.vp = Math.min(1, J.status.filter((s) => s === "done").length / 13);
     J.stage.style.setProperty("--vacc", `color-mix(in srgb, var(--acc) ${Math.round(8 + 92 * J.vp)}%, var(--t4mut))`);
 
+    // Canvas paint kit, resolved once per layout (theme/pigment changes all
+    // funnel through here) — the tick must never query styles per frame.
+    J.paint = {
+      back: livePaintColor("var(--t4wireB)"),
+      front: livePaintColor("color-mix(in srgb, var(--vacc, var(--acc)) 80%, var(--t4wireF))"),
+      dot: livePaintColor("var(--vacc, var(--acc))"),
+      acc: livePaintColor("var(--acc)"),
+      cnt: livePaintColor("var(--t4cnt)"),
+      note: livePaintColor("var(--t4note)"),
+      ink2: livePaintColor("var(--t4ink2)"),
+      lab3: livePaintColor("var(--t4lab3)"),
+      body: livePaintColor("var(--t4body)"),
+      ts1: livePaintColor("var(--t4ts1)"),
+      ts2: livePaintColor("var(--t4ts2)"),
+    };
+    if (nextIdx >= 0) {
+      const st = threadStyle("next", nextIdx === J.focus);
+      J.paint.thread = { c: livePaintColor(st.stroke), width: st.width, opacity: st.opacity };
+    }
+
     J.strip.style.transition = `transform ${tm.dur} ${tm.ease}`;
     J.strip.style.transform = `translate(${(J.sess ? J.sx : 0).toFixed(0)}px, ${stripY().toFixed(0)}px)`;
 
@@ -613,7 +738,8 @@
         p.setAttribute("stroke-width", st.width);
         // α: planned threads lift to .16 while the overture lives — the
         // field shows all fifteen strays instead of near-invisible ones.
-        p.style.opacity = J.ov && J.status[j] !== "next" ? ".16" : st.opacity;
+        // The waking thread is the live canvas's alone — its svg twin hides.
+        p.style.opacity = J.status[j] === "next" ? "0" : J.ov ? ".16" : st.opacity;
       }
       const nd = J.strip.querySelector(`.br-node[data-i="${j}"]`);
       if (nd) {
@@ -623,6 +749,8 @@
         nd.style.transform = `translate(${nx.toFixed(1)}px, ${ny.toFixed(1)}px)${j === J.focus ? " scale(1.6)" : ""}`;
         nd.classList.toggle("br-future", J.nodes[j].sector > curSector);
         renderCore(nd.querySelector("[data-core]"), J.status[j], j);
+        const pad = nd.querySelector("[data-pad]");
+        if (pad) pad.hidden = j !== nextIdx;
       }
       const l = J.strip.querySelector(`.br-label[data-i="${j}"]`);
       if (l) {
@@ -669,39 +797,56 @@
         : (focused.status === "planned" && J.focus > 0)
           ? J.ctx.t("locked_unlocks_after", J.ctx.nodeTitle(J.nodes[J.focus - 1]))
           : J.ctx.nodeDesc(focused);
-    // When the waking sphere is focused, the rAF loop owns plaque/nimbus
-    // position (lerp .14/frame); reset the lerp so it starts from the node.
+    // Plaque and nimbus ride the camera via inline transform. A WAKING focus
+    // hands the whole plaque (name, time, caption) to the canvas, which rides
+    // the sway with the old soft-follow — the DOM twin sleeps meanwhile.
+    plaque.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .5s ease`;
+    nimbus.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .5s ease`;
+    const tx = `translate(${anchor.nx.toFixed(1)}px, ${anchor.py.toFixed(1)}px)`;
+    plaque.style.transform = tx;
+    nimbus.style.transform = tx;
     if (fst === "next") {
-      J.nimX = J.nimY = undefined;
-      plaque.style.transition = "opacity .5s ease";
-      nimbus.style.transition = "opacity .5s ease";
-    } else {
-      plaque.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .5s ease`;
-      nimbus.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .5s ease`;
-      const tx = `translate(${anchor.nx.toFixed(1)}px, ${anchor.py.toFixed(1)}px)`;
-      plaque.style.transform = tx;
-      nimbus.style.transform = tx;
+      J.wake = {
+        title: titleEl.textContent,
+        time: J.sess ? "" : timeEl.textContent,
+        line: J.sess ? "" : plaque.querySelector(".br-plaque-line").textContent,
+        flip,
+      };
+      J.plqX = J.plqY = undefined; // follow starts from the node, not old focus
+    } else J.wake = null;
+    // A waking focus draws its whole aura (glow, ping, sway) on the canvas —
+    // the DOM nimbus serves only the settled (done) state, where it is still.
+    nimbus.style.opacity = fst === "next" ? "0" : fst === "done" ? ".4" : "0";
+    // A node that just became the waking one grows out of its planned ghost
+    // on the canvas (0.36 → 1 over .8s), mirroring the old DOM box transition.
+    if (J.prevNext !== nextIdx) {
+      J.prevNext = nextIdx;
+      J.wakeT = performance.now();
     }
-    nimbus.style.opacity = fst === "next" ? "1" : fst === "done" ? ".4" : "0";
-    nimbus.querySelector("[data-ping]").style.display = fst === "next" ? "" : "none";
-    // α: the plaque, nimbus and ping are withheld while the overture speaks;
-    // the wake blooms them in on the slow ceremony easing. The dip-and-return
-    // must not run in either state — it would clobber the withhold (opacity
-    // forced back to 1 a frame later) and cut the 1.9s bloom short.
-    if (J.ov && !J.ovWake) {
+    // α: the plaque and the canvas aura (glow/ping) are withheld while the
+    // overture speaks; the wake blooms them in on the 1.9s canvas ramp
+    // (J.glowT). The dip-and-return must not run in either state — it would
+    // clobber the withhold and cut the bloom short.
+    if (fst === "next") {
+      // Canvas-ridden plaque: the DOM twin sleeps whenever the focus wakes;
+      // the α gates apply inside the draw, but ovPend must still arm them.
       plaque.style.opacity = "0";
-      nimbus.style.opacity = "0";
-      nimbus.querySelector("[data-ping]").style.display = "none";
+      if (J.ovPend) { J.ovPend = false; J.glowT = performance.now(); }
+    } else if (J.ov && !J.ovWake) {
+      plaque.style.opacity = "0";
     } else if (J.ovPend) {
       J.ovPend = false;
+      J.glowT = performance.now();
       plaque.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
-      nimbus.style.transition = "opacity 1.9s cubic-bezier(.3,.7,.15,1)";
       plaque.style.opacity = "1";
     } else if (!instant) {
-      // Caption dip-and-return on every relayout.
+      // Caption dip-and-return on every relayout. The callback re-checks the
+      // world at fire time: a ceremony's advance can re-layout (waking focus,
+      // canvas-ridden plaque) between the dip and this frame — restoring "1"
+      // blindly painted the DOM plaque on top of its canvas twin.
       plaque.style.opacity = "0";
       requestAnimationFrame(() => {
-        if (!(J.ov && !J.ovWake)) plaque.style.opacity = "1";
+        if (!(J.ov && !J.ovWake) && J.status[J.focus] !== "next") plaque.style.opacity = "1";
       });
     } else plaque.style.opacity = "1";
   }
@@ -750,16 +895,42 @@
       const stage = J.stage, strip = J.strip;
       if (!stage || !stage.isConnected) { stopTick(); return; }
       if (S.open) return; // the page-style review overlay owns the screen
-      // The omega is the always-active node — it spins at a stately third of
-      // the waking sphere's rate, before, during and after its ceremony.
+      // IDLE FRAMES ARE PAINT-ONLY. Any per-frame style/DOM write — and any
+      // CSS animation moving near the pointer — feeds the macOS
+      // AppKit↔Chromium cursor race: a stationary pointer flips to the arrow
+      // whenever hover is re-evaluated under it. All idle motion (sway, spin,
+      // glow, ping) is canvas paint; this loop must never touch the DOM.
       const ow = strip.querySelector("[data-omw]");
-      if (ow) {
-        J.omSpin = (J.omSpin || 0.6) + 0.002;
-        ow.innerHTML = sphereSVG(100, J.omSpin, 0.35, "wire");
+      if (ow && ow.getContext) {
+        // Spin the Ω only while it can be seen — below the fold it holds.
+        // Its sway is drawn here too: the rest-state export link sits beside
+        // it, and CSS animations near a parked cursor re-arm the race.
+        const or = ow.getBoundingClientRect();
+        if (or.bottom > 0 && or.top < innerHeight) {
+          J.omSpin = (J.omSpin || 0.6) + 0.002;
+          const swx = -9 * Math.cos(ts * 2 * Math.PI / 6500);
+          const g = ow.__g || (ow.__g = ow.getContext("2d"));
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          g.clearRect(0, 0, ow.width, ow.height);
+          g.setTransform(2 * DPR, 0, 0, 2 * DPR, ow.width / 2 + swx * DPR, ow.height / 2);
+          sphereDraw(g, 100, J.omSpin, 0.35, J.paint || {}, 2);
+        }
       }
       const j = J.status.indexOf("next");
       const anchor = anchorFor(J.focus);
-      if (j < 0) { renderKnots(strip, j, anchor, 0); return; }
+      const live = strip.querySelector(".br-live");
+      const lg = live && (live.__g || (live.__g = live.getContext("2d")));
+      if (lg) {
+        lg.setTransform(DPR, 0, 0, DPR, 0, 0);
+        if (live.__drawn || j >= 0 || J.sat) lg.clearRect(0, 0, 900, 1760);
+        live.__drawn = j >= 0 || !!J.sat;
+      }
+      if (j < 0) {
+        const fny = nodeYf(J.focus);
+        drawWait(lg, ts, withGrav(baseX(J.focus, fny), fny, anchor), fny);
+        renderKnots(strip, j, anchor, 0);
+        return;
+      }
       const ny = nodeYf(j);
       const nx0 = withGrav(baseX(j, ny), ny, anchor);
       const dir = Math.sign(braidX(j, ny) - nx0) || 1;
@@ -768,9 +939,20 @@
         const bell = Math.exp(-Math.pow((y - ny) / 170, 2));
         return [withGrav(baseX(j, y), y, anchor) + amp * bell, y];
       });
-      const p = strip.querySelector(`[data-s="${j}"]`);
-      if (p) { p.style.transition = "opacity .7s ease"; setD(p, quadPath(pts)); }
-      const nd = strip.querySelector(`.br-node[data-i="${j}"]`);
+      // [data-sess] recession twin, per draw: the session's OWN thread and
+      // sphere stay full (its node is the [data-cur] peer); only a background
+      // waking ensemble recedes with the rest of the field.
+      const isCur = J.sess && L.open && L.idx === j;
+      const dim = J.sess && !isCur ? 0.055 : 1;
+      if (lg) {
+        const th = (J.paint && J.paint.thread) || { c: null, width: 1.4, opacity: 1 };
+        lg.globalAlpha = (+th.opacity || 1) * dim;
+        lg.lineWidth = +th.width || 1.4;
+        lg.lineCap = "round";
+        lg.strokeStyle = pcss(th.c);
+        lg.stroke(new Path2D(quadPath(pts)));
+        lg.globalAlpha = 1;
+      }
       const dt = Math.min(64, J.lastTs ? ts - J.lastTs : 16);
       J.lastTs = ts;
       // Mouse is stage-space; threads are strip-space (900 wide, centered).
@@ -779,83 +961,114 @@
       const hov = J.mx !== undefined
         && Math.abs(J.mx - offX - (J.sess ? J.sx : 0) - (nx0 + amp)) < 140
         && (J.my - (ny + sy)) > -105 && (J.my - (ny + sy)) < 140;
-      J.hoverScale += ((hov ? 1.09 : 1) - J.hoverScale) * 0.15;
-      if (nd) {
-        nd.style.transition = "none";
-        nd.style.transform = `translate(${(nx0 + amp).toFixed(1)}px, ${ny.toFixed(1)}px) scale(${((j === J.focus ? 1.6 : 1) * J.hoverScale).toFixed(3)})`;
-      }
+      J.hovOn = hov; // canvas state only — hover writes nothing to the DOM
+      J.hovK += ((hov ? 1.09 : 1) - J.hovK) * 0.15;
       J.spin += dt * (hov ? 0.0016 : 0.00042);
-      const wc = nd && nd.querySelector("[data-wire]");
-      if (wc) {
-        wc.innerHTML = sphereSVG(22, J.spin, 0.35, "wire");
+      if (lg && !(J.merge && J.merge.j === j)) {
+        // The waking ensemble — growth, pulse, glow, ping, wire — painted at
+        // the live position. The DOM carries none of it (cursor-war rule).
+        const paint = J.paint || {};
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const ge = 1 - Math.pow(1 - clamp01((ts - (J.wakeT || 0)) / 800), 3);
+        const pk = J.pulseT ? 1 + 0.18 * Math.sin(Math.PI * clamp01((ts - J.pulseT) / 700)) : 1;
+        const sc = (j === J.focus ? 1.6 : 1) * J.hovK * pk * (0.36 + 0.64 * ge);
+        const cx0 = nx0 + amp;
         const light = document.documentElement.dataset.theme === "light";
-        wc.parentElement.style.filter = hov ? (light ? "brightness(.68) saturate(1.25)" : "brightness(1.4)") : "none";
-      }
-      if (j === J.focus) {
-        const nim = strip.querySelector(".br-nimbus");
-        const txp = nx0 + amp;
-        J.nimX = J.nimX === undefined ? txp : J.nimX + (txp - J.nimX) * 0.14;
-        J.nimY = J.nimY === undefined ? ny : J.nimY + (ny - J.nimY) * 0.14;
-        const tx = `translate(${J.nimX.toFixed(1)}px, ${J.nimY.toFixed(1)}px)`;
-        nim.style.transform = tx;
-        const ring = nim.querySelector("[data-ping]");
-        if (ring) {
-          // Sonar ping phase-locked to the oscillation peak.
+        lg.filter = hov ? (light ? "brightness(.68) saturate(1.25)" : "brightness(1.4)") : "none";
+        lg.globalAlpha = dim;
+        if (!(J.ov && !J.ovWake)) { // α withhold: the bare sphere, no aura
+          const bloom = (J.glowT ? clamp01((ts - J.glowT) / 1900) : 1)
+            * (0.6 + 0.4 * (0.5 - 0.5 * Math.cos(ts * 2 * Math.PI / 6500))); // breatheGlow twin
+          const aura = lg.createRadialGradient(cx0, ny, 0, cx0, ny, 100);
+          aura.addColorStop(0, pcss(paint.dot, 0.4 * bloom));
+          aura.addColorStop(0.42, pcss(paint.dot, 0.15 * bloom));
+          aura.addColorStop(0.78, pcss(paint.dot, 0));
+          lg.fillStyle = aura;
+          lg.beginPath(); lg.arc(cx0, ny, 100, 0, 7); lg.fill();
+          const halo = lg.createRadialGradient(cx0, ny, 0, cx0, ny, 19.5 * sc);
+          halo.addColorStop(0, pcss(paint.acc, 0.6 * bloom));
+          halo.addColorStop(0.44, pcss(paint.acc, 0.24 * bloom));
+          halo.addColorStop(0.7, pcss(paint.acc, 0));
+          lg.fillStyle = halo;
+          lg.beginPath(); lg.arc(cx0, ny, 19.5 * sc, 0, 7); lg.fill();
+          // Sonar ping phase-locked to the sway peak (+half period).
+          // The ping sits out sessions entirely ([data-sess] [data-ping] twin).
           const ph = ((ts % 6500) / 6500 + 0.5) % 1;
-          const op = ph < 0.09 ? (ph / 0.09) * 0.75 : Math.max(0, 0.75 * (1 - (ph - 0.09) / 0.6));
-          ring.style.animation = "none";
-          ring.style.transform = `scale(${(0.42 + 0.95 * ph).toFixed(3)})`;
-          ring.style.opacity = op.toFixed(2);
+          const op = (ph < 0.09 ? (ph / 0.09) * 0.75 : Math.max(0, 0.75 * (1 - (ph - 0.09) / 0.6))) * bloom;
+          if (!J.sess && op > 0.01) {
+            lg.globalAlpha = op * 0.8 * dim;
+            lg.strokeStyle = pcss(paint.dot);
+            lg.lineWidth = 1;
+            lg.beginPath(); lg.arc(cx0, ny, 46 * (0.42 + 0.95 * ph), 0, 7); lg.stroke();
+            lg.globalAlpha = dim;
+          }
         }
-        const plq = strip.querySelector(".br-plaque");
-        plq.style.transform = tx;
+        lg.save();
+        lg.translate(cx0, ny);
+        lg.scale(sc, sc);
+        sphereDraw(lg, 22, J.spin, 0.35, paint, sc);
+        lg.restore();
+        lg.filter = "none";
+        lg.globalAlpha = 1;
       }
-      // Ride-along label when the waking node is not the focused one.
-      const l = strip.querySelector(`.br-label[data-i="${j}"]`);
-      if (l && j !== J.focus) {
-        let right = (nx0 + amp) < 450, lx;
-        const fy = NY(J.focus);
-        const vHit = (ny + 8 > fy - 88 && ny - 10 < fy - 50) || (ny + 8 > fy + 52 && ny - 10 < fy + 120);
-        if (Math.abs(j - J.focus) === 1 && vHit) {
-          const fx = anchor.nx;
-          right = (nx0 + amp) >= fx;
-          lx = right ? Math.max(nx0 + amp + 26, fx + 180) : Math.min(nx0 + amp - 206, fx - 360);
-          lx = Math.max(8, Math.min(712, lx));
-          l.style.opacity = (lx + 180 > fx - 180 && lx < fx + 180) ? ".15" : "1";
-        } else lx = right ? nx0 + amp + 26 : nx0 + amp - 206;
-        l.style.transition = "none";
-        l.style.transform = `translate(${lx.toFixed(1)}px, ${(ny - 10).toFixed(1)}px)`;
-        l.style.textAlign = right ? "left" : "right";
+      // Rings wrap the WAITING node: when the waking sphere is the focus they
+      // ride its live swayed center; otherwise they hold on the focused node's
+      // RENDERED position (withGrav — anchorFor's raw base misses by the
+      // gravity offset, which is where off-center rings came from).
+      if (j === J.focus) {
+        drawWait(lg, ts, nx0 + amp, ny);
+        drawWake(lg, ts, nx0 + amp, ny, dim);
+      } else {
+        const fny = nodeYf(J.focus);
+        drawWait(lg, ts, withGrav(baseX(J.focus, fny), fny, anchor), fny);
       }
-      renderKnots(strip, j, anchor, amp, pts);
+      renderKnots(strip, j, anchor, amp, pts, lg);
     };
     J.loop = loop;
     J.raf = requestAnimationFrame(loop);
   }
 
   /* Session knots sit exactly on the rendered string (qxAt over the same
-   * pts that drew it), riding its oscillation. Rebuilt every frame. */
-  function renderKnots(strip, nextJ, anchor, amp, livePts) {
+   * pts that drew it). Riding a waking thread they are canvas paint (per-frame
+   * svg writes feed the cursor race); on a still thread they render once. */
+  function renderKnots(strip, nextJ, anchor, amp, livePts, lg) {
     if (!J.sess || !L.open) return;
     const kg = strip.querySelector("[data-knots]");
     if (!kg) return;
     const sNy = nodeYf(L.idx);
+    const riding = !!(livePts && L.idx === nextJ);
     // The session thread's rendered pts: the live oscillating set when the
     // session node IS the waking one, else its static curve.
-    const pts = (livePts && L.idx === nextJ)
+    const pts = riding
       ? livePts
       : sampleYs(sNy).map((y) => [withGrav(baseX(L.idx, y), y, anchor), y]);
+    if (riding && lg) {
+      if (kg.__kn !== "") { kg.__kn = ""; kg.innerHTML = ""; } // svg hands over once
+      const acc = (J.paint && J.paint.acc) || null;
+      for (const [ky, big] of L.knots) {
+        const kxv = qxAt(pts, ky);
+        const bell = Math.exp(-Math.pow((ky - sNy) / 170, 2));
+        const kx = kxv == null ? withGrav(baseX(L.idx, ky), ky, anchor) + amp * bell : kxv;
+        lg.fillStyle = pcss(acc);
+        lg.strokeStyle = pcss(acc);
+        lg.beginPath(); lg.arc(kx, ky, big ? 6 : 3.6, 0, 7); lg.fill();
+        lg.globalAlpha = big ? 0.4 : 0.3;
+        lg.lineWidth = 1;
+        lg.beginPath(); lg.arc(kx, ky, big ? 12 : 8, 0, 7); lg.stroke();
+        lg.globalAlpha = 1;
+      }
+      return;
+    }
     let kn = "";
     for (const [ky, big] of L.knots) {
       const kxv = qxAt(pts, ky);
-      const bell = Math.exp(-Math.pow((ky - sNy) / 170, 2));
-      const kx = (kxv == null
-        ? withGrav(baseX(L.idx, ky), ky, anchor) + (L.idx === nextJ ? amp * bell : 0)
-        : kxv).toFixed(1);
+      const kx = (kxv == null ? withGrav(baseX(L.idx, ky), ky, anchor) : kxv).toFixed(1);
       kn += big
         ? `<circle cx="${kx}" cy="${ky}" r="6" fill="var(--acc)"></circle><circle cx="${kx}" cy="${ky}" r="12" fill="none" stroke="var(--acc)" stroke-opacity=".4"></circle>`
         : `<circle cx="${kx}" cy="${ky}" r="3.6" fill="var(--acc)"></circle><circle cx="${kx}" cy="${ky}" r="8" fill="none" stroke="var(--acc)" stroke-opacity=".3"></circle>`;
     }
+    if (kg.__kn === kn) return; // still thread → identical markup most frames
+    kg.__kn = kn;
     kg.innerHTML = kn;
   }
 
@@ -1023,13 +1236,9 @@
     J.slowUntil = Date.now() + 1900;
     if (J.focus !== 0) setFocus(0);
     else layout();
-    const core = J.strip && J.strip.querySelector('.br-node[data-i="0"] [data-core]');
-    if (core && core.animate) {
-      core.animate(
-        [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
-        { duration: 700, easing: "ease-in-out" },
-      );
-    }
+    // The acknowledging pulse lives on the canvas with the rest of the
+    // waking sphere's material (one-shot; the draw eases it over 700ms).
+    J.pulseT = performance.now();
   }
 
   /* The overture leaves on the first authorize and never returns. */
@@ -1227,6 +1436,13 @@
     inp.disabled = !on;
     inp.style.opacity = on ? "1" : ".35";
     if (placeholder) { inp.placeholder = placeholder; L.placeholder = placeholder; }
+    // The quiet skip affordance lives with the composer — only on steps the
+    // playbook declares declinable (the typed /skip works everywhere).
+    const sk = q7(".br7-skip");
+    if (sk && L.ctx) {
+      sk.textContent = L.ctx.t("braid_skip_step");
+      sk.hidden = !(on && L.composerMode !== "amend" && J.nodes[L.idx]?.skippable);
+    }
     if (on) {
       if (!inp.value && L.draft) inp.value = L.draft; // restore a draft after re-render
       autosize(inp);
@@ -1293,60 +1509,160 @@
    * counselor's spot, and Saturn rings around the current node. Any arriving
    * surface event clears both. `start` picks the opening phrase (1 right
    * after a user message, 0 otherwise). */
+  /* The wait ensemble (dots · rotating phrase · Saturn rings) is CANVAS
+   * state drawn by the tick: its old CSS animations (brdots, satSpin) and
+   * 2s phrase swaps re-armed the macOS cursor race exactly when users park
+   * the cursor — mid-wait (cursor-war rule). */
   function showThink(start = 0) {
     const box = q7(".br7-msgs");
-    if (!box || box.querySelector("[data-think]")) return;
-    const d = document.createElement("div");
-    d.className = "br7-think";
-    d.dataset.think = "1";
-    d.innerHTML = '<span></span><span></span><span></span><em class="br7-think-phrase"></em>';
-    const ph = d.querySelector(".br7-think-phrase");
-    const pool = () => J.ctx.t("braid_think_pool");
-    let i = start % pool().length;
-    ph.textContent = pool()[i];
-    // Re-read the pool every swap so a mid-wait language switch takes.
-    d.__rot = setInterval(() => {
-      ph.style.opacity = "0";
-      ph.style.transform = "translateY(3px)";
-      setTimeout(() => {
-        i = (i + 1) % pool().length;
-        ph.textContent = pool()[i];
-        ph.style.opacity = "";
-        ph.style.transform = "";
-      }, 300);
-    }, 2000);
-    box.appendChild(d);
-    box.scrollTop = box.scrollHeight;
+    if (box && !box.querySelector("[data-think]")) {
+      const d = document.createElement("div");
+      d.className = "br7-think";
+      d.dataset.think = "1";
+      d.innerHTML = `<canvas data-thinkcv width="${340 * DPR}" height="${26 * DPR}" style="width:340px;height:26px"></canvas>`;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+    // Re-entry keeps the running clock — a work note must not reset rotation.
+    if (!J.think) J.think = { t0: performance.now(), i: start };
     satOn();
   }
   function clearThink() {
+    J.think = null;
     const el = q7(".br7-msgs")?.querySelector("[data-think]");
-    if (el) { clearInterval(el.__rot); el.remove(); }
+    if (el) el.remove();
     satOff();
   }
 
-  /* Saturn rings — three tilted orbits around the waiting node. A separate
-   * overlay: the sphere's own material is untouched, and the wrapper
-   * inherits the node's focus scale. */
+  /* Saturn rings — three tilted orbits around the waiting node, canvas-drawn
+   * around the focused sphere (fade .7s in/out, spin phases as the old CSS). */
   function satOn() {
-    const nd = J.strip && J.strip.querySelector(`.br-node[data-i="${J.focus}"]`);
-    if (!nd || nd.querySelector("[data-sat]")) return;
-    const w = document.createElement("div");
-    w.dataset.sat = "1";
-    w.className = "br-sat";
-    w.innerHTML = '<div class="br-sat-ring br-sat-a"></div>'
-      + '<div class="br-sat-ring br-sat-b"></div>'
-      + '<div class="br-sat-track"><div class="br-sat-mote"></div></div>';
-    nd.appendChild(w);
-    // Not rAF: a hidden tab suspends frames entirely and the rings would
-    // stay invisible after a tab switch; a clamped timeout still fires.
-    setTimeout(() => { w.style.opacity = "1"; }, 30);
+    if (!J.sat || J.sat.offT) J.sat = { onT: performance.now(), offT: 0 };
   }
   function satOff() {
-    J.strip?.querySelectorAll("[data-sat]").forEach((w) => {
-      w.style.opacity = "0";
-      setTimeout(() => w.remove(), 700);
+    if (J.sat && !J.sat.offT) J.sat.offT = performance.now();
+  }
+
+  /* Greedy word-wrap against the current ctx font; cached by the caller. */
+  function wrapLines(g, text, maxW) {
+    const words = String(text || "").split(/\s+/).filter(Boolean);
+    const lines = [];
+    let line = "";
+    for (const w of words) {
+      const probe = line ? line + " " + w : w;
+      if (line && g.measureText(probe).width > maxW) { lines.push(line); line = w; }
+      else line = probe;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  /* Text with the plaque's double halo (canvas shadows take one pass each). */
+  function haloText(g, text, x, y, fill, sh, blurA, blurB) {
+    g.shadowColor = sh;
+    g.fillStyle = fill;
+    g.shadowBlur = blurA; g.shadowOffsetY = 0; g.fillText(text, x, y);
+    g.shadowBlur = blurB; g.shadowOffsetY = 1; g.fillText(text, x, y);
+    g.shadowBlur = 0; g.shadowOffsetY = 0;
+  }
+
+  /* The waking plaque — name, time, caption — painted riding the sway with
+   * the old soft-follow (.14 lerp), honoring the α withhold and bloom. */
+  function drawWake(lg, ts, tx, ty, dim) {
+    const w = J.wake;
+    if (!w || !lg) return;
+    if (J.ov && !J.ovWake) return; // α withhold — the copy owns the field
+    J.plqX = J.plqX === undefined ? tx : J.plqX + (tx - J.plqX) * 0.14;
+    J.plqY = J.plqY === undefined ? ty : J.plqY + (ty - J.plqY) * 0.14;
+    const p = J.paint || {};
+    const a = (J.glowT ? Math.max(0, Math.min(1, (ts - J.glowT) / 1900)) : 1) * dim;
+    if (a <= 0.01) return;
+    const x = J.plqX, y = J.plqY;
+    lg.save();
+    lg.font = "600 26px Lora, serif";
+    if (!w._t) w._t = wrapLines(lg, w.title, 340);
+    lg.textAlign = w.flip ? "left" : "right";
+    const tX = w.flip ? x + 20 : x - 16;
+    const base = y - 52;
+    w._t.forEach((ln, i) => {
+      haloText(lg, ln, tX, base - (w._t.length - 1 - i) * 28.1, pcss(p.ink2, a), pcss(p.ts1, a), 24, 12);
     });
+    if (w.time) {
+      lg.font = "600 11px Karla, Manrope, sans-serif";
+      lg.letterSpacing = "1px";
+      lg.textAlign = w.flip ? "right" : "left";
+      lg.fillStyle = pcss(p.lab3, 0.9 * a);
+      lg.fillText(w.time.toUpperCase(), w.flip ? x - 34 : x + 34, y - 38);
+      lg.letterSpacing = "0px";
+    }
+    if (w.line) {
+      lg.font = "400 13.5px Lora, serif";
+      if (!w._l) w._l = wrapLines(lg, w.line, 260);
+      lg.textAlign = "left";
+      w._l.forEach((ln, i) => {
+        haloText(lg, ln, x + 20, y + 59 + i * 21.6, pcss(p.body, a), pcss(p.ts2, a), 18, 6);
+      });
+    }
+    lg.restore();
+  }
+
+  /* Per-frame paint of the wait ensemble: rings on the strip canvas centered
+   * on the LIVE sphere position, dots and the rotating phrase on the loader's
+   * inline canvas in the chat. */
+  function drawWait(lg, ts, px, py) {
+    if (J.sat && lg && !REDUCED) {
+      let a = Math.min(1, ((J.sat.offT || ts) - J.sat.onT) / 700);
+      if (J.sat.offT) a *= Math.max(0, 1 - (ts - J.sat.offT) / 700);
+      if (J.sat.offT && a <= 0) J.sat = null;
+      else {
+        const p = J.paint || {}, sc = 1.6, tilt = -14 * Math.PI / 180, squish = Math.cos(76 * Math.PI / 180);
+        lg.save();
+        lg.translate(px, py);
+        lg.rotate(tilt);
+        lg.globalAlpha = a;
+        const ring = (r, alpha, width, dash, phase) => {
+          lg.strokeStyle = pcss(p.acc, alpha);
+          lg.lineWidth = width;
+          lg.setLineDash(dash);
+          lg.lineDashOffset = phase;
+          lg.beginPath(); lg.ellipse(0, 0, r * sc, r * sc * squish, 0, 0, 7); lg.stroke();
+        };
+        ring(33, 0.55, 1.3, [4, 4], (ts / 4200) * 33 * sc * 6.283);
+        ring(44, 0.3, 1.3, [4, 4], -(ts / 7500) * 44 * sc * 6.283);
+        ring(38, 0.15, 1, [], 0);
+        lg.setLineDash([]);
+        const mth = (ts / 2700) * 6.283;
+        const mx = Math.cos(mth) * 38 * sc, my = Math.sin(mth) * 38 * sc * squish;
+        lg.shadowBlur = 9; lg.shadowColor = pcss(p.acc, 1);
+        lg.fillStyle = "#fff";
+        lg.beginPath(); lg.arc(mx, my, 2, 0, 7); lg.fill();
+        lg.shadowBlur = 0;
+        lg.restore();
+        lg.globalAlpha = 1;
+      }
+    } else if (J.sat && J.sat.offT) J.sat = null;
+    const cv = J.frame && J.frame.querySelector("[data-thinkcv]");
+    if (cv && J.think && cv.getContext) {
+      const g = cv.__g || (cv.__g = cv.getContext("2d"));
+      const p = J.paint || {};
+      g.setTransform(DPR, 0, 0, DPR, 0, 0);
+      g.clearRect(0, 0, 340, 26);
+      for (let k = 0; k < 3; k++) {
+        const ph = REDUCED ? 0.4 : (((ts / 1200) - k * 0.15) % 1 + 1) % 1;
+        const lift = ph < 0.4 ? ph / 0.4 : ph < 0.8 ? 1 - (ph - 0.4) / 0.4 : 0;
+        g.fillStyle = pcss(p.cnt, 0.25 + 0.75 * lift);
+        g.beginPath(); g.arc(6 + k * 10, 15 - 3.5 * lift, 2.5, 0, 7); g.fill();
+      }
+      // Pool re-read every frame so a mid-wait language switch takes.
+      const pool = J.ctx.t("braid_think_pool");
+      const slot = (ts - J.think.t0) / 2000;
+      const idx = ((J.think.i + Math.floor(Math.max(0, slot))) % pool.length + pool.length) % pool.length;
+      const f = ((slot % 1) + 1) % 1;
+      const fade = REDUCED ? 1 : f < 0.15 ? f / 0.15 : f > 0.85 ? (1 - f) / 0.15 : 1;
+      g.font = "italic 500 13.5px Lora, serif";
+      g.fillStyle = pcss(p.note, fade);
+      g.fillText(pool[idx], 34, 19 - (REDUCED ? 0 : (1 - fade) * (f < 0.5 ? -2 : 2)));
+    }
   }
 
   function toggleInlineTransparency() {
@@ -2341,7 +2657,7 @@
     /** Close any live inline session (ws included) — called by the app when
      * the braid stops being the active journey surface. */
     abortSession() { if (L.open) inlineAbort(); },
-    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext }),
+    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext, hov: J.hovOn, hovK: J.hovK, ov: J.ov, ovWake: J.ovWake, wake: !!J.wake, think: !!J.think, sat: J.sat ? (J.sat.offT ? "fading" : "on") : null, thinkIdx: J.think && J.ctx ? (J.think.i + Math.floor(Math.max(0, (performance.now() - J.think.t0) / 2000))) % J.ctx.t("braid_think_pool").length : null }),
     _frame: (ts) => { if (J.loop) J.loop(ts); },
   };
 })();

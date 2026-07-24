@@ -40,9 +40,11 @@ window.BraidM = (() => {
     const a = st === "done" ? 1 : st === "next" ? 0.6 * Math.exp(-Math.pow((y - ny) / 210, 2)) : 0;
     const sx = strayX(j, y);
     const x = Math.max(24, Math.min(W - 24, sx + (braidX(j, y) - sx) * a));
-    // Endgame convergence: all threads blend toward the omega.
+    // Endgame convergence: all threads blend toward the omega — and release
+    // past its center back to their own wander (no straight tail).
     const c = sstep((y - 1560) / 240);
-    return x + (OMX - x) * c;
+    const r = sstep((y - 1990) / 220);
+    return x + (OMX - x) * c * (1 - r);
   }
 
   /* Threads sample every 52px, skipping ±26 around the node; the SAME points
@@ -229,7 +231,20 @@ window.BraidM = (() => {
       <div class="bm-root">
         <div class="bm-stage">
           <div class="bm-strip">
-            <svg width="390" height="2140" viewBox="0 0 390 2140" aria-hidden="true">${paths.join("")}<g data-mknots></g></svg>
+            <svg width="390" height="2140" viewBox="0 0 390 2140" aria-hidden="true">
+              <defs>
+                <!-- Strands dissolve inside the Ω, fully gone before the
+                     reading text at 2076 (fade 1990 → 2068). -->
+                <linearGradient id="bmTailFade" x1="0" y1="1990" x2="0" y2="2068" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#fff"></stop>
+                  <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+                </linearGradient>
+                <mask id="bmTailMask" maskUnits="userSpaceOnUse" x="-300" y="-600" width="1000" height="3600">
+                  <rect x="-300" y="-600" width="1000" height="2590" fill="#fff"></rect>
+                  <rect x="-300" y="1990" width="1000" height="78" fill="url(#bmTailFade)"></rect>
+                </mask>
+              </defs>
+              <g mask="url(#bmTailMask)">${paths.join("")}<g data-mknots></g></g></svg>
             <div class="bm-omega"><div class="bm-omega-glow"></div><svg data-momw width="100%" height="100%" viewBox="-105 -105 210 210" style="position:absolute;inset:0;overflow:visible">${sphereSVG(100, 0.6, 0.35, "wire")}</svg></div>
             ${nodes.join("")}
             <div class="bm-title"></div>
@@ -260,6 +275,7 @@ window.BraidM = (() => {
         <div class="bm-sesshead"><div class="bm-sh-title"></div><div class="bm-sh-note"></div></div>
         <div class="bm-chat"><div class="bm-msgs"></div></div>
         <div class="bm-comp">
+          <button class="bm-skip" hidden></button>
           <button class="bm-mic" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
           <textarea class="bm-input" rows="1" data-own-mic="1" disabled></textarea>
           <button class="bm-send">↑</button>
@@ -402,6 +418,14 @@ window.BraidM = (() => {
       M.draft = inp.value;
     });
     q(".bm-send").addEventListener("click", send);
+    q(".bm-skip").addEventListener("click", () => {
+      // Sends the literal /skip; the engine closes the step gracefully when
+      // nothing was shared, or ends just this topic otherwise.
+      if (!M.open || M.closing || !M.canSend) return;
+      if (!M.mock && !M.ctx.wsSend({ type: "answer", text: "/skip" })) return connLost();
+      compose(false);
+      msgEl("user", t("braid_skip_step"));
+    });
     q(".bm-mic").addEventListener("click", () => {
       if (!M.open) return;
       const v = M.ctx.voice;
@@ -563,11 +587,15 @@ window.BraidM = (() => {
     M.timers.tick = setInterval(() => {
       if (!M.root || !M.root.isConnected) { stopTick(); return; }
       const ts = Date.now();
-      // The omega is the always-active node — stately spin, always.
+      // The omega is the always-active node — stately spin, whenever visible
+      // (rebuilding its wireframe below the fold is pure churn on mobile).
       const ow = M.strip.querySelector("[data-momw]");
       if (ow) {
-        M.omSpin = (M.omSpin || 0.6) + 0.0031;
-        ow.innerHTML = sphereSVG(100, M.omSpin, 0.35, "wire");
+        const or = ow.getBoundingClientRect();
+        if (or.bottom > 0 && or.top < innerHeight) {
+          M.omSpin = (M.omSpin || 0.6) + 0.0031;
+          ow.innerHTML = sphereSVG(100, M.omSpin, 0.35, "wire");
+        }
       }
       const j = M.status.indexOf("next");
       if (j >= 0 && !M.merge) {
@@ -978,6 +1006,11 @@ window.BraidM = (() => {
     const inp = q(".bm-input");
     if (!inp) return;
     M.canSend = on;
+    const sk = q(".bm-skip");
+    if (sk) {
+      sk.textContent = t("braid_skip_step");
+      sk.hidden = !(on && M.composerMode !== "amend" && M.nodes[M.idx]?.skippable);
+    }
     if (coarse) {
       inp.disabled = false;
       inp.style.opacity = "1";

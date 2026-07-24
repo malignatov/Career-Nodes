@@ -5,6 +5,12 @@
 
 /* ── keyframes (verbatim from the design file) ───────────────── */
 @keyframes floatIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+/* THE CURSOR-WAR RULE (macOS): anything that moves near a parked pointer —
+   per-frame JS style writes, main-thread CSS animations, even compositor
+   transform animations — makes AppKit and Chromium fight over the cursor,
+   flipping a stationary palm to the arrow. All idle braid motion (sway,
+   spin, glow, ping) is therefore CANVAS PAINT, which is provably inert.
+   CSS animations are allowed only away from interactive space. */
 @keyframes t4solidify { 0% { transform: scale(1.55); } 45% { transform: scale(.93); } 75% { transform: scale(1.04); } 100% { transform: scale(1); } }
 @keyframes t4ping { 0% { transform: scale(.42); opacity: 0; } 12% { opacity: .7; } 60%, 100% { transform: scale(1.18); opacity: 0; } }
 @keyframes t4fill { 0% { transform: scale(.22); opacity: 0; } 100% { transform: scale(1); } }
@@ -249,7 +255,9 @@
   transform: translateY(-84px);
   transition: transform .7s cubic-bezier(.2, .8, .3, 1);
 }
-.br-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; }
+/* Threads and knots are décor: hit-testing must fall through them, or the
+   svg eats hovers and clicks meant for nodes/labels beneath (cursor conflicts). */
+.br-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 
 .br-node { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 20; cursor: pointer; }
 .br-label {
@@ -266,13 +274,30 @@
     color-mix(in srgb, var(--vacc, var(--acc)) 15%, transparent) 42%,
     transparent 72%);
   filter: blur(18px);
-  animation: breatheGlow 6.5s ease-in-out infinite;
+  /* No CSS breath: the waking aura breathes on the canvas; the settled
+     (done) nimbus rests still — animations near cursors re-arm the race. */
 }
 .br-ping {
+  /* Retired from DOM duty: the sonar ping is canvas paint now (cursor-war
+     rule). The element remains for layout stability but never animates. */
+  display: none;
   position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 99px;
   border: 1px solid color-mix(in srgb, var(--vacc, var(--acc)) 80%, transparent);
-  animation: t4ping 3.4s ease-out infinite;
 }
+/* Inert zero-size carriers (kept for structure); children keep their offsets. */
+.br-sway { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+/* Static hit pad for the waking node — outreaches the ±26px sway (radius ≥
+   25 + 26) so the swing never carries the sphere outside it. The pad is the
+   ONLY thing a parked cursor ever touches there: it never moves, never
+   restyles, never rebuilds. */
+.br-node > [data-pad] {
+  position: absolute; left: -54px; top: -54px; width: 108px; height: 108px;
+  border-radius: 99px;
+}
+.br-node > [data-pad][hidden] { display: none; }
+/* The live canvas draws the waking thread, riding knots and nothing else —
+   paint-only motion, invisible to the style system and to hit-testing. */
+.br-live { position: absolute; left: 0; top: 0; pointer-events: none; }
 .br-plaque { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 30; pointer-events: none; }
 /* Focused node: title sits left of the sphere (right-aligned), caption right
    (left-aligned) — each with a soft blurred halo so neither crowds the braid.
@@ -297,7 +322,9 @@
   letter-spacing: .05em; text-transform: uppercase; opacity: .6; color: var(--t4lab3);
 }
 /* The always-active node: full presence, side-drift on the field rhythm. */
-.br-omega { position: absolute; left: 240px; top: 1540px; width: 420px; height: 420px; opacity: 1; pointer-events: none; animation: brOmSway 6.5s ease-in-out infinite; }
+/* The Ω sway is drawn inside its canvas (cursor-war rule: the export link
+   and rest-state controls live beside it — nothing may animate in CSS). */
+.br-omega { position: absolute; left: 240px; top: 1540px; width: 420px; height: 420px; opacity: 1; pointer-events: none; }
 
 /* ── inline session (the field recedes; the talk happens beside the node) ── */
 
@@ -305,6 +332,8 @@
    thread/node carrying [data-cur]. Transitions come from the elements. */
 .br-stage[data-sess] [data-s]:not([data-cur]) { opacity: .05 !important; }
 .br-stage[data-sess] .br-node:not([data-cur]) { opacity: .06 !important; }
+/* No blanket rule for .br-live: in-session it draws the CURRENT node too —
+   recession is applied per-draw in the tick (background ensemble only). */
 .br-stage[data-sess] .br-label { opacity: 0 !important; pointer-events: none; }
 .br-stage[data-sess] .br-omega { opacity: .06 !important; }
 .br-stage[data-sess] .br-plaque-line { opacity: 0 !important; }
@@ -335,6 +364,16 @@
   opacity: 0; pointer-events: none;
   transition: opacity .8s ease .55s;
 }
+/* Quiet decline: a whisper above the composer's right edge. Sends /skip —
+   the engine answers with the graceful close (or ends just this topic). */
+.br7-skip {
+  position: absolute; right: 52px; top: -26px;
+  background: none; border: none; padding: 4px 6px;
+  font: 500 11.5px Karla, Manrope, sans-serif; color: var(--t4cnt2);
+  cursor: pointer; letter-spacing: .02em;
+}
+.br7-skip:hover { color: var(--t4cnt); }
+.br7-skip[hidden] { display: none; }
 .br7-input {
   flex: 1; background: none; border: none; resize: none;
   font: 400 14px/1.5 Karla, Manrope, sans-serif; color: var(--t4ink);
@@ -419,7 +458,11 @@
   pointer-events: auto;
 }
 .br-frame[data-sess] .br7-info { display: flex !important; }
+/* Small round targets get an invisible ≥44px hit halo — a wobbling pointer at
+   their rim must not flicker between palm and arrow. */
+.br7-info::after, .br7-mic::after { content: ""; position: absolute; inset: -8px; border-radius: 99px; }
 .br7-mic {
+  position: relative;
   width: 34px; height: 34px; border-radius: 99px;
   border: 1px solid var(--t5panel-bd); background: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;

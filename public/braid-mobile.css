@@ -172,11 +172,14 @@
   position: absolute; left: 50%; top: 0; margin-left: -195px;
   width: 390px; height: 1640px; will-change: transform;
 }
-.bm-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; }
+/* Threads/knots are décor — taps must fall through to nodes and the page. */
+.bm-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 
 .bm-node { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 8; }
 .bm-node[data-cur], .bm-node.focus { z-index: 12; }
-.bm-hit { position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; }
+/* Tap pad outreaches the waking sphere's sway (±13px) at focus scale, so a
+   tap aimed at the sphere's rim still lands mid-swing. */
+.bm-hit { position: absolute; left: -52px; top: -52px; width: 104px; height: 104px; border-radius: 99px; }
 .bm-ping {
   position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 99px;
   border: 1px solid color-mix(in srgb, var(--vacc, var(--acc)) 80%, transparent);
@@ -303,7 +306,14 @@
 }
 /* WKWebView: a parent's user-select:none blocks text-input focus — the
    composer must opt back in, and manipulation keeps taps crisp. */
-.bm-comp { touch-action: manipulation; }
+.bm-comp { touch-action: manipulation; position: relative; }
+/* Quiet decline above the composer — sends /skip (graceful close). */
+.bm-skip {
+  position: absolute; right: 10px; top: -24px;
+  background: none; border: none; padding: 4px 6px;
+  font: 500 11.5px Karla, Manrope, sans-serif; color: var(--t4cnt2);
+}
+.bm-skip[hidden] { display: none; }
 .bm-input { -webkit-user-select: text; user-select: text; }
 /* iOS zooms the page when focusing inputs under 16px — pin it there. */
 @supports (-webkit-touch-callout: none) {

@@ -120,7 +120,7 @@ test("node statuses paint their materials, phases recede, counter reads the stag
   render(ctx);
   await sleep(200);
   expect(core(0).__c === "solid3", `woven core is ${core(0).__c}, want solid3`);
-  expect(core(2).__c === "wire2", `up-next core is ${core(2).__c}, want wire2`);
+  expect(core(2).__c === "live", `up-next core is ${core(2).__c}, want live (canvas-drawn)`);
   expect(core(5).__c === "wlo", `planned core is ${core(5).__c}, want wlo`);
   expect($('.br-node[data-i="8"]').classList.contains("br-future"), "later-phase node lacks br-future");
   expect(!$('.br-node[data-i="4"]').classList.contains("br-future"), "current-phase node wrongly br-future");
@@ -141,22 +141,83 @@ test("hover accelerates and brightens the waking sphere", async () => {
   await sleep(300);
   const stage = $(".br-stage");
   const nd = $('.br-node[data-i="2"]');
+  const core = nd.querySelector("[data-core]");
   const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(nd.style.transform);
   const sm = /,\s*([-\d.]+)px\)/.exec($(".br-strip").style.transform);
   const offX = (stage.clientWidth - 900) / 2;
   const x = offX + parseFloat(m[1]);
   const y = parseFloat(m[2]) + parseFloat(sm[1]);
+  // Hover lives entirely in canvas state (growth eased via hovK, brightness
+  // via ctx.filter) — the DOM must stay untouched (cursor-war rule).
   stage.dispatchEvent(new MouseEvent("mousemove", { clientX: x, clientY: y, bubbles: true }));
   let ts = performance.now();
   for (let i = 0; i < 30; i++) { ts += 16; window.Braid._frame(ts); }
-  const scale = parseFloat(/scale\(([\d.]+)\)/.exec(nd.style.transform)?.[1] ?? "1");
-  expect(scale > 1.68, `hover scale ${scale}, want > 1.68 (1.6 base × grown hover)`);
-  const wire = nd.querySelector("[data-wire]");
-  expect((wire.parentElement.style.filter || "").includes("brightness"), "hover brightness filter missing");
+  expect(debug().hov === true, "proximity must set the hover state");
+  expect(debug().hovK > 1.07, `hover growth should ease toward 1.09, at ${debug().hovK}`);
+  expect(core.innerHTML === "", "waking core must carry no DOM material (canvas-drawn)");
   stage.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true }));
   for (let i = 0; i < 40; i++) { ts += 16; window.Braid._frame(ts); }
-  const back = parseFloat(/scale\(([\d.]+)\)/.exec(nd.style.transform)?.[1] ?? "1");
-  expect(back < 1.63, `hover scale should decay, still ${back}`);
+  expect(debug().hov === false, "leave must clear the hover state");
+  expect(debug().hovK < 1.02, `hover growth should decay, still ${debug().hovK}`);
+});
+
+test("the pointer field: sway never sheds the cursor, décor never owns a hit", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(300);
+  const stage = $(".br-stage");
+  const nd = $('.br-node[data-i="2"]');
+  const pad = nd.querySelector("[data-pad]");
+  expect(pad && !pad.hidden, "static hit pad missing from waking node");
+  // NOTHING may animate in the strip at idle — even compositor transform
+  // animations near a parked cursor re-arm the macOS cursor race. All idle
+  // motion must be canvas paint.
+  const anims = document.getAnimations().filter((a) => {
+    const el = a.effect && a.effect.target;
+    return el && $(".br-strip").contains(el);
+  });
+  expect(anims.length === 0, `idle strip runs ${anims.length} CSS animation(s): ${anims.map((a) => a.animationName || a.constructor.name).join(", ")}`);
+  window.Braid._frame(0); // amp = 0 — the sphere's rest position
+  const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(nd.style.transform);
+  const sm = /,\s*([-\d.]+)px\)/.exec($(".br-strip").style.transform);
+  const offX = (stage.clientWidth - 900) / 2;
+  const cx = offX + parseFloat(m[1]);
+  const cy = parseFloat(m[2]) + parseFloat(sm[1]);
+  // A cursor parked anywhere in the swing corridor stays a pointer through the
+  // whole 6.5s sway cycle — the sphere must never slip out from under it.
+  // The hit target must also be the SAME live node every frame: Chromium drops
+  // a stationary cursor to the arrow when its hovered element is destroyed
+  // (per-frame innerHTML), and only a real mouse move restores it.
+  const anchors = {};
+  for (let t = 0; t <= 6600; t += 220) {
+    window.Braid._frame(t);
+    for (const dx of [-34, 0, 34]) {
+      const el = document.elementFromPoint(cx + dx, cy);
+      expect(el && el.closest(".br-node"), `t=${t} dx=${dx}: corridor hit left the node (${el?.tagName})`);
+      expect(getComputedStyle(el).cursor === "pointer", `t=${t} dx=${dx}: cursor ${getComputedStyle(el).cursor}, want pointer`);
+      if (!(dx in anchors)) anchors[dx] = el;
+      expect(anchors[dx] === el && el.isConnected, `t=${t} dx=${dx}: hit target was rebuilt under a parked cursor`);
+    }
+  }
+  // The zero-write invariant: idle frames may only paint to canvases. Any
+  // per-frame DOM/style write feeds the macOS cursor race that flips a
+  // stationary pointer to the arrow (the sway/ping live in CSS keyframes).
+  const mo = new MutationObserver(() => {});
+  mo.observe($(".br-strip"), { attributes: true, childList: true, characterData: true, subtree: true });
+  for (let t = 7000; t <= 8600; t += 40) window.Braid._frame(t);
+  const writes = mo.takeRecords();
+  mo.disconnect();
+  expect(writes.length === 0,
+    `idle frames wrote to the DOM ${writes.length}× (first: ${writes[0] && writes[0].type} on ${writes[0] && (writes[0].target.className || writes[0].target.nodeName)})`);
+  // Threads and knots are décor: a probe across open braid must never land on
+  // svg outside a node — pointer-opaque décor eats hovers and clicks.
+  const decorHits = [];
+  for (const y of [460, 520]) for (let x = offX + 100; x <= offX + 800; x += 50) {
+    const el = document.elementFromPoint(x, y);
+    if (el && el.closest("svg") && !el.closest(".br-node")) decorHits.push(`${el.tagName}@${Math.round(x)},${y}`);
+  }
+  expect(decorHits.length === 0, `décor svg owns hits: ${decorHits.join(" ")}`);
 });
 
 test("thinking dots, rotating phrase, and Saturn rings live through a wait", async () => {
@@ -174,22 +235,23 @@ test("thinking dots, rotating phrase, and Saturn rings live through a wait", asy
   inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   await sleep(150);
   expect(spies.sent.some((x) => x.type === "answer"), "answer never sent");
-  const phrase = $(".br7-think-phrase");
-  expect(phrase, "thinking row missing after send");
-  const pool = t("braid_think_pool");
-  expect(phrase.textContent === pool[1], `phrase starts at "${phrase.textContent}", want "${pool[1]}"`);
-  expect($("[data-sat]"), "Saturn rings missing during the wait");
-  await sleep(300);
-  expect($("[data-sat]").style.opacity === "1", "rings never faded in");
+  // The wait ensemble is canvas state now (cursor-war rule): assert the
+  // loader row + its inline canvas, and the rotation/ring clocks via debug.
+  expect($("[data-think]"), "thinking row missing after send");
+  expect($("[data-thinkcv]"), "loader canvas missing (dots+phrase are paint)");
+  expect(debug().thinkIdx === 1, `phrase index starts at ${debug().thinkIdx}, want 1`);
+  expect(debug().sat === "on", `Saturn rings should be on, state: ${debug().sat}`);
   await sleep(2200);
-  expect($(".br7-think-phrase").textContent === pool[2], `phrase should rotate, reads "${$(".br7-think-phrase").textContent}"`);
+  expect(debug().thinkIdx === 2, `phrase should rotate to 2, at ${debug().thinkIdx}`);
   surface.note("(inducing: extract…)");
   await sleep(150);
-  expect($("[data-think]") && $("[data-sat]"), "induction note must keep the loader");
+  expect($("[data-think]") && debug().think && debug().sat === "on", "induction note must keep the loader");
+  expect(debug().thinkIdx !== null, "note re-entry must not reset the rotation clock");
   surface.say("Here are the counselor's words.");
   await sleep(900);
   expect(!$("[data-think]"), "thinking row must clear when words arrive");
-  expect(!$("[data-sat]"), "rings must clear when words arrive");
+  expect(!debug().think, "think state must clear when words arrive");
+  expect(debug().sat !== "on", `rings must fade when words arrive, state: ${debug().sat}`);
 });
 
 test("alternative wordings: selection replaces the original, survives the click, authorizes as chosen", async () => {
@@ -240,12 +302,17 @@ test("the α overture: withheld field, wake on invitation, dismissal on first we
   expect(alpha && !alpha.hidden, "overture layer should show on a virgin journey");
   expect($('[data-ao="lead"]').textContent === t("braid_alpha_lead"), "lead copy wrong");
   expect($(".br-plaque").style.opacity === "0", "plaque must be withheld pre-wake");
-  expect($(".br-nimbus").style.opacity === "0", "nimbus must be withheld pre-wake");
-  expect($("[data-ping]").style.display === "none", "ping must be withheld pre-wake");
+  // The aura (glow + ping) is canvas paint gated on ov && !ovWake — assert
+  // the gate itself; the DOM nimbus stays dark for any waking node now.
+  expect(debug().ov && !debug().ovWake, "canvas aura gate must hold pre-wake (ov set, ovWake unset)");
+  expect($(".br-nimbus").style.opacity === "0", "DOM nimbus must stay dark while waking");
   expect(parseFloat($('path[data-s="5"]').style.opacity) === 0.16, "planned threads must lift to .16");
   $('[data-ao="begin"]').dispatchEvent(new MouseEvent("click", { bubbles: true }));
   await sleep(300);
-  expect($(".br-plaque").style.opacity !== "0", "invitation click must wake the plaque");
+  // The waking plaque is canvas-ridden: the DOM twin stays dark; the wake
+  // must open the aura/text gates and the captured plaque strings must exist.
+  expect(debug().ovWake, "wake must open the canvas aura gate");
+  expect(debug().wake, "waking plaque strings must be captured for the canvas ride");
   // first authorize dismisses the overture forever
   const surface = await openAndCapture(ctx, "counseling_goal");
   surface.review(REVIEW);
@@ -284,7 +351,7 @@ test("the authorize ceremony: travel wireframe, solidify, promoted next bead, re
   expect(!d.merge, "merge must clear at advance");
   expect(d.focus === 3, `focus must glide to the next bead, is ${d.focus}`);
   expect(d.status.split(",")[3] === "next", "the next bead must be PROMOTED at advance, before the resync");
-  expect(core(3).__c === "wire2", `promoted bead must wear the waking material, core is ${core(3).__c}`);
+  expect(core(3).__c === "live", `promoted bead must wear the waking material (live), core is ${core(3).__c}`);
   expect(core(3).style.width === "50px", `promoted bead must grow to 50px, is ${core(3).style.width}`);
   await sleep(1600); // ≈ weave+5.85s — past advance+1.3s
   expect(spies.reload >= 1, "the always-resync never fired");
