@@ -161,6 +161,11 @@ export class OpenAICompatAdapter implements LlmAdapter {
     }
     if (ep.baseUrl.startsWith(OPENROUTER_BASE)) {
       if (this.zdr) body.zdr = true;
+      // Cache-aware affinity: a stable user id makes OpenRouter route repeat
+      // traffic to the provider already holding the prefix cache (growing
+      // interview transcripts re-send the whole prefix every turn). Opaque
+      // constant, not PII; single-user desktop app, so one id covers all.
+      body.user = cfg("LLM_STICKY_USER") ?? "career-counseling";
       // Reasoning-off must be EXPLICIT: providers default differently, and a
       // host that reasons by default (AtlasCloud, Jul '26) burns ~1k hidden
       // tokens per call — 20s turns — while the visible answer stays tiny.
