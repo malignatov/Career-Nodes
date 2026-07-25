@@ -1,7 +1,10 @@
 import type { Artifact, ExchangeEntry, Playbook } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
 import type { Storage } from "./storage.ts";
-import { runElicit, runInduce, runConfirm, skipContent, toArtifact, type SessionIO, type SessionLang } from "./engine.ts";
+import {
+  playbookPurpose, runElicit, runInduce, runConfirm, skipContent, toArtifact,
+  type SessionIO, type SessionLang,
+} from "./engine.ts";
 
 interface SessionState {
   exchange: ExchangeEntry[];
@@ -51,7 +54,7 @@ export async function runReviewSession(
   const store = opts.store;
   const artRaw = await store.read(`${pb.id}.json`);
   if (artRaw === null) {
-    io.say("There is no authorized artifact for this step yet.");
+    io.say("Nothing has been settled for this step yet.");
     return "blocked";
   }
   const upstream = await loadUpstream(pb, io, store);
@@ -104,7 +107,7 @@ export async function runPlaybookSession(
 
   if (opts.header !== false) {
     io.say(`━━━ ${pb.title} ━━━`);
-    io.say(`What happens in this step (shown in full, always):\n${pb.purpose.trim()}`);
+    io.say(`What happens in this step (shown in full, always):\n${playbookPurpose(pb, opts.lang)}`);
   }
 
   const upstream = await loadUpstream(pb, io, store);
@@ -131,7 +134,7 @@ export async function runPlaybookSession(
 
     if (resume?.elicit_done) {
       exchange = resume.exchange;
-      io.note("(the interview was already complete — moving straight to drafting)");
+      io.note("(the conversation was already finished — going straight to the draft)");
     } else {
       const elicited = await runElicit(
         pb, llm, io,
@@ -140,7 +143,7 @@ export async function runPlaybookSession(
         upstream,
       );
       if (elicited.aborted) {
-        io.note("(no artifact yet — your progress is saved; open this step again to resume)");
+        io.note("(nothing settled yet — your progress is saved; open this step again to pick up where you left off)");
         return "aborted";
       }
       exchange = elicited.exchange;
@@ -152,15 +155,16 @@ export async function runPlaybookSession(
           null, 2,
         ),
       );
-      io.note("(the conversation is complete — solidifying it into a draft…)");
+      // Prefix is load-bearing: public/app.js localizeNote() matches on it.
+      io.note("(that's everything — putting it together…)");
     }
   } else {
     const present = pb.consumes.filter((d) => d in upstream);
     if (present.length === 0 && pb.consumes.length > 0) {
-      io.say(`This derived step needs upstream artifacts (${pb.consumes.join(", ")}) and none exist yet. Author those first.`);
+      io.say(`This step builds on earlier ones (${pb.consumes.join(", ")}) and none of them are done yet. Start with those.`);
       return "blocked";
     }
-    io.note("(derived step — no interview; drafting from your authorized artifacts)");
+    io.note("(no conversation here — this one composes itself from the steps you've approved)");
   }
 
   // A skipped interview closes gracefully: no induction over an empty

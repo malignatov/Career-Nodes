@@ -5,12 +5,21 @@ sector: portrait
 title: Identity statement
 
 purpose: >
-  Distills your life portrait into one sentence you can carry — your success
-  formula. The premise, from career construction theory: the future is already
-  embedded in it. The classic template is "I will be happy and successful
-  when I…", assembled from phrases of your own portrait. Several candidate
-  formulas are drafted; you pick one, reword it, or write your own — the
-  sentence must be one you would actually say.
+  One sentence you can actually carry — your success formula. The future is
+  already sitting inside your portrait; this pulls it into a line you can say
+  out loud. It usually starts "I will be happy and successful when I…", and
+  it's built from phrases already in your own portrait. You'll see a few
+  versions — pick one, reword it, or write your own. It only works if it's a
+  sentence you'd really say.
+
+purpose_i18n:
+  ru: >
+    Одно предложение, которое реально можно носить с собой, — твоя формула
+    успеха. Будущее уже лежит внутри твоего портрета; этот шаг вытаскивает его в
+    строчку, которую можно произнести вслух. Обычно она начинается со слов «Я
+    буду счастлив и успешен, когда…» и собирается из фраз, уже звучавших в твоём
+    портрете. Ты увидишь несколько вариантов — выбери один, переформулируй или
+    напиши свой. Она работает, только если это предложение ты правда сказал бы.
 
 consumes:
   - life_portrait
@@ -54,8 +63,13 @@ confirm:
   present: candidates
   choice_field: statement
   authorize_language: >
-    This sentence is your compass — you'll reach for it at every confusing
-    choice. Your action plan is built to serve it.
+    This sentence is your compass — it's what you reach for at every confusing
+    choice. Your first moves are built to serve it.
+
+  authorize_language_i18n:
+    ru: >
+      Это предложение — твой компас: к нему ты будешь возвращаться на каждой
+      непонятной развилке. Первые шаги строятся под него.
 
 artifact:
   schema:

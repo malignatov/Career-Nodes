@@ -22,28 +22,28 @@ function expect(cond, msg) {
 /* ── the fabricated map (mirrors src/map.ts shape) ────────── */
 
 const SECTORS = [
-  { n: 1, label: "Phase 1 · Goal" },
-  { n: 2, label: "Phase 2 · Interview" },
-  { n: 3, label: "Phase 3 · Induction" },
-  { n: 4, label: "Phase 4 · Portrait & intention" },
-  { n: 5, label: "Phase 5 · Action" },
+  { n: 1, label: "1 · Why you're here" },
+  { n: 2, label: "2 · Your stories" },
+  { n: 3, label: "3 · What they mean" },
+  { n: 4, label: "4 · The whole picture" },
+  { n: 5, label: "5 · What you do next" },
 ];
 const DEFS = [
-  ["counseling_goal", "Goal setting", 1, "conversation", 5],
-  ["role_models", "Role models", 2, "conversation", 10],
-  ["favorite_media", "Favorite media", 2, "conversation", 5],
-  ["favorite_story", "Favorite story", 2, "conversation", 5],
-  ["motto", "Motto", 2, "conversation", 2],
-  ["early_recollections", "Early recollections", 2, "conversation", 10],
-  ["perspective", "Perspective", 3, "derived", 2],
-  ["character_sketch", "Character sketch", 3, "derived", 2],
-  ["preferred_settings", "Preferred settings", 3, "derived", 2],
-  ["script", "Script", 3, "derived", 2],
-  ["advice_to_self", "Advice to self", 3, "derived", 2],
-  ["life_portrait", "Life portrait", 4, "derived", 3],
-  ["identity_statement", "Identity statement", 4, "derived", 2],
-  ["action_recipe", "Action recipe", 5, "derived", 3],
-  ["closing_check", "Closing check", 5, "conversation", 5],
+  ["counseling_goal", "What you're here for", 1, "conversation", 5],
+  ["role_models", "Who you looked up to", 2, "conversation", 10],
+  ["favorite_media", "What you're into", 2, "conversation", 5],
+  ["favorite_story", "Your favorite story", 2, "conversation", 5],
+  ["motto", "Your motto", 2, "conversation", 2],
+  ["early_recollections", "Earliest memories", 2, "conversation", 10],
+  ["perspective", "How you see it", 3, "derived", 2],
+  ["character_sketch", "Who you are", 3, "derived", 2],
+  ["preferred_settings", "Your kind of place", 3, "derived", 2],
+  ["script", "The story you're in", 3, "derived", 2],
+  ["advice_to_self", "Your own advice", 3, "derived", 2],
+  ["life_portrait", "Your portrait", 4, "derived", 3],
+  ["identity_statement", "Your success formula", 4, "derived", 2],
+  ["action_recipe", "Your first moves", 5, "derived", 3],
+  ["closing_check", "Did we get there?", 5, "conversation", 5],
 ];
 
 function makeJourney(statuses, flags = {}) {
@@ -125,11 +125,12 @@ test("node statuses paint their materials, phases recede, counter reads the stag
   expect($('.br-node[data-i="8"]').classList.contains("br-future"), "later-phase node lacks br-future");
   expect(!$('.br-node[data-i="4"]').classList.contains("br-future"), "current-phase node wrongly br-future");
   const conv = $('.br-label[data-i="3"]').textContent;
-  expect(conv.includes(t("unlocks_after", "Favorite media")), `conversation sub wrong: ${conv}`);
+  expect(conv.includes(t("unlocks_after", "What you're into")), `conversation sub wrong: ${conv}`);
   const der = $('.br-label[data-i="6"]').textContent;
   expect(der.includes(t("derived_sub")), `derived sub wrong: ${der}`);
-  expect($('.br-label[data-i="0"]').textContent.trim() === "Goal setting", "done label should be title only");
-  expect($(".br-count-phase").textContent === "Interview · 1 of 5", `counter: ${$(".br-count-phase").textContent}`);
+  expect($('.br-label[data-i="0"]').textContent.trim() === "What you're here for", "done label should be title only");
+  // Guards the phase-label contract: braid.js shows the last "·" segment only.
+  expect($(".br-count-phase").textContent === "Your stories · 1 of 5", `counter: ${$(".br-count-phase").textContent}`);
   expect($(".br-count-total").textContent === t("braid_woven_of", 2, 15), `total: ${$(".br-count-total").textContent}`);
   expect($(".br-plaque-time").textContent === t("braid_minutes", 5), `plaque time: ${$(".br-plaque-time").textContent}`);
 });

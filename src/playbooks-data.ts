@@ -9,7 +9,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "action",
       "title": "Action recipe",
-      "purpose": "Turns your success formula into concrete moves in the real world. The premise, from career construction theory: action, not decidedness, carries you forward — you learn which future you want by exploring it. The plan names two or three directions that fit your authorized artifacts, assigns each the book's information-seeking behaviors (writing, observing, reading, listening, visiting, talking), sets three first steps for the coming week, and names the barrier most likely to stall you — with its counter-move. Everything must occur in the real world, and you authorize all of it.\n",
+      "purpose": "Turns your success formula into things you actually do. Action is what moves you, not certainty — you find out which future you want by going and looking at it. This lays out two or three directions that fit everything you've approved, gives each one a way to explore it (writing, watching, reading, listening, visiting, talking), sets three first steps for the coming week, and names the thing most likely to stop you — plus what to do when it does. All of it happens in the real world, and you approve every part.\n",
+      "purpose_i18n": {
+        "ru": "Превращает твою формулу успеха в то, что ты правда делаешь. Двигает действие, а не уверенность: какое будущее тебе нужно, выясняется, когда идёшь и смотришь. Здесь намечаются два-три направления, которые сходятся со всем, что ты принял; к каждому — свой способ разведки (писать, наблюдать, читать, слушать, приходить, разговаривать); три первых шага на ближайшую неделю; и то, что вероятнее всего тебя остановит, — вместе с тем, что делать, когда остановит. Всё это происходит в реальном мире, и каждую часть принимаешь ты.\n"
+      },
       "consumes": [
         "identity_statement",
         "life_portrait",
@@ -121,7 +124,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This plan only counts if it happens in the real world — trim anything you won't actually do, and make the first steps embarrassingly small. When you've explored, come back for the closing check.\n"
+        "authorize_language": "This only counts if it happens in the real world — cut anything you won't actually do, and make the first steps embarrassingly small. Once you've explored, come back for the last step.\n",
+        "authorize_language_i18n": {
+          "ru": "Это считается, только если случится в реальном мире. Убери всё, что ты на самом деле делать не будешь, а первые шаги сделай неприлично маленькими. Когда сходишь и посмотришь — возвращайся на последний шаг.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -156,7 +162,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "induction",
       "title": "Advice to self",
-      "purpose": "Unpacks your motto into the call to action it already contains. The premise, from career construction theory: a favorite saying is autotherapy — the best advice you have for yourself, usually stating your own strategy for moving to the next chapter. The answers you seek were already in your pocket; this step just says so plainly. Your motto stays word-for-word yours, and it will be handed back to you at the very end of the journey.\n",
+      "purpose": "Unpacks your motto into the instruction it's been carrying all along. A favorite saying is self-help in the most literal sense — the best advice you have for yourself, usually stating your own strategy for getting to what's next. The answer was in your pocket already; this step just says it out loud. Your motto stays word for word yours, and you get it back at the very end.\n",
+      "purpose_i18n": {
+        "ru": "Разворачивает твой девиз в указание, которое он всё это время нёс. Любимая поговорка — это самопомощь в самом прямом смысле: лучший совет, который у тебя есть для себя, и обычно он прямо описывает твою же стратегию перехода к следующему. Ответ и так лежал у тебя в кармане; этот шаг просто произносит его вслух. Девиз остаётся слово в слово твоим, и в самом конце он к тебе вернётся.\n"
+      },
       "consumes": [
         "motto",
         "counseling_goal"
@@ -198,7 +207,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This is your own advice, said back to you plainly — adjust anything that doesn't sound like what you meant. The life portrait builds on what you approve here.\n"
+        "authorize_language": "Your own advice, said back to you plainly — adjust anything that isn't what you meant. Your portrait builds on it.\n",
+        "authorize_language_i18n": {
+          "ru": "Твой собственный совет, сказанный тебе прямо. Поправь всё, что ты имел в виду иначе. Твой портрет строится на этом.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -228,7 +240,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "induction",
       "title": "Character sketch",
-      "purpose": "Composes a short portrait of who you are — built only from the words you approved in the role models step. The premise, from career construction theory: the traits you admired in your childhood models are the blueprint you used to build yourself, and they exist as your solution to what preoccupied you early on (bravery exists to solve fear). When your perspective artifact is available, the sketch is framed that way. Nothing is invented here: every trait must be a quote of your own words, and you edit and authorize the result.\n",
+      "purpose": "A short picture of who you are, built only from words you already approved when you talked about the people you looked up to. What you admired in them is the blueprint you used to build yourself — and those qualities are there to solve something that worried you early on. Courage exists to answer fear. If you've already worked out how you see things, this gets framed that way. Nothing is invented: every trait is a quote of your own words, and you edit the result.\n",
+      "purpose_i18n": {
+        "ru": "Короткая картина того, кто ты, — собранная только из слов, которые ты уже принял, когда рассказывал о людях, на которых равнялся. То, что тебе в них нравилось, и есть чертёж, по которому ты себя собрал, — и эти качества существуют, чтобы решать то, что тревожило тебя в самом начале. Смелость нужна, чтобы отвечать страху. Если ты уже разобрался, как смотришь на вещи, картина выстраивается с этого ракурса. Ничего не выдумано: каждая черта — цитата твоих собственных слов, и результат правишь ты.\n"
+      },
       "consumes": [
         "role_models",
         "perspective",
@@ -279,7 +294,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This sketch is assembled only from your own words. Reword anything that doesn't sound like you — the script and the life portrait will build on what you approve here.\n"
+        "authorize_language": "Assembled only from your own words. Reword anything that doesn't sound like you — what comes next builds on it.\n",
+        "authorize_language_i18n": {
+          "ru": "Собрано только из твоих слов. Переформулируй всё, что звучит не как ты, — дальше строится на этом.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -315,7 +333,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "action",
       "title": "Closing check",
-      "purpose": "The closing ritual, straight from the book. Your original request is read back to you word for word, and you — no one else — judge whether it was met. Then you name what's different now, because saying the change out loud is what makes it stick. And at the very end, your own motto is handed back to you: the advice you carried all along, now with a journey behind it. This step records your verdict; it changes nothing else.\n",
+      "purpose": "The last step, straight from the book. What you asked for at the very start is read back to you word for word, and you — nobody else — decide whether you got it. Then you say what's different now, because saying it out loud is what makes it stick. And at the end your own motto comes back to you: the advice you were carrying the whole time, now with a journey behind it. This records your verdict. It changes nothing else.\n",
+      "purpose_i18n": {
+        "ru": "Последний шаг, прямо из книги. То, с чем ты пришёл в самом начале, зачитывается тебе слово в слово, и ты — и никто другой — решаешь, получил ли ты это. Потом ты говоришь, что теперь иначе, потому что сказанное вслух и закрепляется. А в конце к тебе возвращается твой собственный девиз: совет, который ты нёс с собой всё это время, — теперь уже с пройденным путём за спиной. Здесь записывается твой вывод. Больше ничего не меняется.\n"
+      },
       "consumes": [
         "counseling_goal",
         "action_recipe",
@@ -324,7 +345,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "invalidates": [],
       "elicit": {
         "share_upstream": true,
-        "persona": "Warm, unhurried, celebratory without flattery. This is a ritual of\nclosure, not another interview. One question at a time. When quoting the\nuser's request or motto from the artifacts, quote them exactly, word for\nword — never paraphrase them.\n",
+        "persona": "Warm, unhurried, glad — without flattering anyone. This is a closing, not\nanother interview: something is finishing, and you can let that land. One\nquestion at a time. When you quote what they asked for at the start, or\ntheir motto, quote it exactly, word for word — never smooth it out, never\nparaphrase. The whole point is that they hear their own words back.\n",
         "guardrails": [
           "The user is the only judge of whether their request was met. Accept \"partly\" and \"no\" with full respect and without defending the process.",
           "Quote the counseling_goal request_verbatim and the motto exactly as they appear in the artifacts. Never edit, shorten, or improve them.",
@@ -434,7 +455,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "The journey is yours, and so is this record of it. The map stays open — any checkpoint can be revisited, and your goal can be amended for a new round whenever life asks for one.\n"
+        "authorize_language": "The journey is yours, and so is this record of it. Everything stays open — you can come back to any step, and start a new round whenever life asks for one.\n",
+        "authorize_language_i18n": {
+          "ru": "Путь твой, и эта запись о нём — тоже. Всё остаётся открытым: к любому шагу можно вернуться, а новый круг начать тогда, когда этого попросит жизнь.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -477,7 +501,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "goal",
       "title": "Counseling goal",
-      "purpose": "Establish, in your own words, what you want from this whole process. Your answer becomes the lens for every later step, and at the very end it is read back to you to ask: did we get there? Nothing is analyzed here beyond restating what you said, and you approve the restatement. You can amend the goal later — your original wording is always kept for that final check.\n",
+      "purpose": "Say what you want out of this, in your own words. Everything after this gets built around that answer — and at the very end it's read back to you to ask: did we get there? Nothing here gets analyzed. We restate what you said, and you check the restatement. You can change the goal later; your original wording is kept either way, for that last step.\n",
+      "purpose_i18n": {
+        "ru": "Скажи своими словами, чего ты хочешь от всего этого. Дальше всё строится вокруг твоего ответа — а в самом конце он зачитывается тебе обратно с вопросом: получилось? Здесь ничего не анализируется. Мы пересказываем то, что ты сказал, а ты проверяешь пересказ. Запрос можно поменять позже; исходная формулировка сохраняется в любом случае — для последнего шага.\n"
+      },
       "consumes": [],
       "invalidates": [
         "perspective",
@@ -491,7 +518,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
       ],
       "amendable_after": "life_portrait",
       "elicit": {
-        "persona": "You are a career construction interviewer opening a consultation. Warm, brief,\nunhurried. Ask one question at a time. In this phase you never analyze,\ndiagnose, or advise. When you reflect something back, use the user's own words.\n",
+        "persona": "You're opening the first conversation, and your job is to find out what this\nperson actually wants. Warm, brief, unhurried — you have time, and they can\nfeel it. One question at a time. Match their length: if they answer in a\nline, don't reply in a paragraph. In this phase you never analyze, diagnose,\nor advise. When you reflect something back, use their own words, not\nsmoother ones.\n",
         "guardrails": [
           "Never propose or suggest goals; only ask and reflect.",
           "If the user asks for a test or personality assessment, explain in one sentence that this process works through their own stories instead, then return to the question.",
@@ -632,7 +659,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "confirm": {
         "present": "candidates",
         "choice_field": "restated_goal",
-        "authorize_language": "This is the question we will keep returning to. You can amend it after you see your life portrait — your original wording stays saved for the final check.\n"
+        "authorize_language": "This is the question we keep coming back to. You can change it once you've seen your portrait — your original wording stays saved either way.\n",
+        "authorize_language_i18n": {
+          "ru": "Это вопрос, к которому мы будем возвращаться. Его можно поменять, когда увидишь свой портрет, — исходная формулировка всё равно сохранится.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -694,7 +724,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "sector": "interview",
       "skippable": true,
       "title": "Early recollections",
-      "purpose": "You'll share three early memories from roughly ages three to six, name the feeling in each, and give each one a headline — like a newspaper headline, with a verb in it. The premise, from career construction theory: early memories are not history, they are the present — the stories you reach for today reveal the perspective from which you view your current transition. This is the most personal step of the whole interview. You can skip it entirely (say /skip before sharing anything and the step closes gracefully): the perspective artifact can be inferred from your role models instead. Memories do not need to be verified facts; whatever comes to mind counts. This step only records your stories and your approved headlines; the perspective artifact is derived at the next node.\n",
+      "purpose": "Three of your earliest memories, from around ages three to six. For each one: what you felt, and a headline for it — like a newspaper headline, with a verb in it. Early memories aren't really history. The stories you reach for today say more about today than about back then. This is the most personal part of the whole thing, and you can skip it — say /skip before you share anything and it closes cleanly; the next step can work from the people you admired instead. Your memories don't have to be accurate. Whatever comes to mind counts. We record your stories and the headlines you approve, nothing more.\n",
+      "purpose_i18n": {
+        "ru": "Три самых ранних воспоминания, примерно из возраста трёх-шести лет. К каждому: что ты чувствовал и какой у него заголовок — как в газете, обязательно с глаголом. Ранние воспоминания — это не совсем история. То, какие истории всплывают сегодня, говорит больше о сегодняшнем дне, чем о том времени. Это самая личная часть всего процесса, и её можно пропустить — напиши /skip до того, как что-то расскажешь, и шаг закроется спокойно; дальше можно опереться на тех, кем ты восхищался. Воспоминания не обязаны быть точными. Годится всё, что приходит в голову. Мы записываем твои истории и заголовки, которые ты принял, — и больше ничего.\n"
+      },
       "consumes": [
         "counseling_goal"
       ],
@@ -702,7 +735,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "perspective"
       ],
       "elicit": {
-        "persona": "Quiet, unhurried, and steady. This topic deserves the most care of the\nwhole interview. Ask one question at a time, receive each story without\ncommentary, and never rush the user.\n",
+        "persona": "Quiet, unhurried, steady. This part deserves more care than anything else\nhere, and the right instinct is almost always to say less. Ask one question\nat a time. Receive each story without commentary — no praise, no reading\ninto it, no \"that must have been hard.\" Leave the silence alone, and never\nrush them.\n",
         "guardrails": [
           "This is the most personal question of the interview. Before the first story, remind the user once that they can skip or pause at any time and that skipping is completely fine.",
           "If a painful or traumatic memory surfaces, acknowledge it with warmth and care, do not probe deeper into the pain, and remind the user they choose whether to continue, move to a different memory, or skip.",
@@ -861,7 +894,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "These are your stories and your headlines, organized — nothing has been interpreted. Change anything that doesn't match how you told it. Your perspective artifact will be drawn only from what you approve here, and you can revisit or remove this material at any time.\n"
+        "authorize_language": "Your stories and your headlines, organized — nothing has been interpreted. Change anything that doesn't match how you told it. Nothing gets built from this but what you approve, and you can come back and remove any of it whenever you want.\n",
+        "authorize_language_i18n": {
+          "ru": "Твои истории и твои заголовки, разложенные по местам, — ничего не истолковано. Поменяй всё, что не совпадает с тем, как ты рассказывал. Дальше строится только на том, что ты принял, и ты можешь вернуться и убрать что угодно в любой момент.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -891,7 +927,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "interview",
       "title": "Favorite media",
-      "purpose": "You'll talk about two or three shows, series, games, YouTube channels, sites, magazines, journals, or newsletters you keep returning to. The premise, from career construction theory: your favorite media are vicarious environments — they reveal the kinds of places, people, and problems you like to be around, which is far more trustworthy than any interest inventory. This step records your favorites and what attracts you to them, in your words. The preferred-settings artifact is derived at the next node.\n",
+      "purpose": "Two or three shows, series, games, channels, sites, or newsletters you keep going back to. What you choose to spend time in says a lot about the kind of places, people, and problems you want around you — and it's far more honest than any interest quiz, because nobody is watching you answer. We record your favorites and what pulls you in, in your words. The next step turns it into a picture of where you work best.\n",
+      "purpose_i18n": {
+        "ru": "Два-три сериала, канала, игры, сайта или рассылки, к которым ты возвращаешься. То, на что ты сам тратишь время, много говорит о том, какие места, люди и задачи тебе нужны рядом, — и это честнее любого теста на интересы, потому что никто не смотрит тебе через плечо. Мы записываем твои любимые вещи и то, чем они тебя цепляют, твоими словами. На следующем шаге из этого сложится картина того, где тебе работается лучше всего.\n"
+      },
       "consumes": [
         "counseling_goal"
       ],
@@ -899,7 +938,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "preferred_settings"
       ],
       "elicit": {
-        "persona": "Warm, easy curiosity — this is the lightest topic of the interview. Use the\nlanguage of interests: what do you like, enjoy, what attracts you, what do\nyou prefer. One question at a time.\n",
+        "persona": "Easy, warm curiosity — this is the lightest part of the whole thing, closer\nto two people comparing what they watch than to an interview. Talk in the\nlanguage of liking: what do you enjoy, what pulls you in, what do you go\nback to. One question at a time, and keep it light — nobody needs to justify\ntheir taste to you.\n",
         "guardrails": [
           "Never judge or rank the user's taste; a soap opera reveals as much as a documentary.",
           "Never suggest what might attract the user to something — the attraction must be stated in their words.",
@@ -1084,7 +1123,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "These are your favorites and your words for what attracts you, plus a first rough setting code. Fix anything that feels off — your preferred-settings artifact will be built only from what you approve here.\n"
+        "authorize_language": "Your favorites, and your own words for what pulls you in — plus a first rough read on the setting. Fix anything that feels off before we build on it.\n",
+        "authorize_language_i18n": {
+          "ru": "Твои любимые вещи и твои слова о том, чем они цепляют, — плюс первая грубая прикидка среды. Поправь всё, что звучит не так, прежде чем мы будем на этом строить.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1115,7 +1157,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "interview",
       "title": "Favorite story",
-      "purpose": "You'll name your current favorite story from a book or movie and retell it in your own words. The premise, from career construction theory: the story you are drawn to right now usually carries the script for the next chapter of your own life — how a character like you deals with a predicament like yours. Your retelling is what matters, not the official plot. This step only records your version; the script artifact is derived at the next node.\n",
+      "purpose": "Name the story you love right now — book or film — and retell it your way. The story you're drawn to at the moment usually carries the plot of your own next chapter: someone like you, stuck in something like your situation, finding a way through. Your version is the one that matters, not the official plot. We record it as you tell it; the next step finds the storyline in it.\n",
+      "purpose_i18n": {
+        "ru": "Назови историю, которую любишь сейчас, — книгу или фильм — и перескажи её по-своему. История, к которой тянет прямо сейчас, обычно несёт сюжет твоей же следующей главы: кто-то вроде тебя, застрявший примерно в том же, находит выход. Важен твой пересказ, а не официальный сюжет. Мы записываем так, как рассказал ты; сюжет разбирается на следующем шаге.\n"
+      },
       "consumes": [
         "counseling_goal"
       ],
@@ -1123,7 +1168,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "script"
       ],
       "elicit": {
-        "persona": "Attentive, story-loving curiosity. You want the user's version of the tale —\nthe details they keep, the ones they drop, the words they choose. One\nquestion at a time.\n",
+        "persona": "You love a good story and you want theirs — their version, with the details\nthey keep, the ones they drop, and the words they pick. Listen the way\nsomeone listens when they actually want to know how it ends. One question at\na time, and don't finish their sentences for them.\n",
         "guardrails": [
           "It must be the user's CURRENT favorite, not their all-time favorite — an all-time favorite usually points to a role model instead of a script.",
           "Always have the user tell the story in their own words, even if it is world-famous. Never fill in plot details for them.",
@@ -1252,7 +1297,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This is your version of the story, structured. Fix anything that doesn't match how you told it — your script artifact will be built only from what you approve here.\n"
+        "authorize_language": "Your version of the story, laid out. Fix anything that doesn't match how you told it — nothing gets built on this until it does.\n",
+        "authorize_language_i18n": {
+          "ru": "Твоя версия истории, разложенная по частям. Поправь всё, что не совпадает с тем, как ты рассказывал.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1299,7 +1347,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "portrait",
       "title": "Identity statement",
-      "purpose": "Distills your life portrait into one sentence you can carry — your success formula. The premise, from career construction theory: the future is already embedded in it. The classic template is \"I will be happy and successful when I…\", assembled from phrases of your own portrait. Several candidate formulas are drafted; you pick one, reword it, or write your own — the sentence must be one you would actually say.\n",
+      "purpose": "One sentence you can actually carry — your success formula. The future is already sitting inside your portrait; this pulls it into a line you can say out loud. It usually starts \"I will be happy and successful when I…\", and it's built from phrases already in your own portrait. You'll see a few versions — pick one, reword it, or write your own. It only works if it's a sentence you'd really say.\n",
+      "purpose_i18n": {
+        "ru": "Одно предложение, которое реально можно носить с собой, — твоя формула успеха. Будущее уже лежит внутри твоего портрета; этот шаг вытаскивает его в строчку, которую можно произнести вслух. Обычно она начинается со слов «Я буду счастлив и успешен, когда…» и собирается из фраз, уже звучавших в твоём портрете. Ты увидишь несколько вариантов — выбери один, переформулируй или напиши свой. Она работает, только если это предложение ты правда сказал бы.\n"
+      },
       "consumes": [
         "life_portrait",
         "counseling_goal"
@@ -1345,7 +1396,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "confirm": {
         "present": "candidates",
         "choice_field": "statement",
-        "authorize_language": "This sentence is your compass — you'll reach for it at every confusing choice. Your action plan is built to serve it.\n"
+        "authorize_language": "This sentence is your compass — it's what you reach for at every confusing choice. Your first moves are built to serve it.\n",
+        "authorize_language_i18n": {
+          "ru": "Это предложение — твой компас: к нему ты будешь возвращаться на каждой непонятной развилке. Первые шаги строятся под него.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1374,7 +1428,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "portrait",
       "title": "Life portrait",
-      "purpose": "Assembles everything you authorized into one large story — the life portrait. The premise, from career construction theory: the small stories you told hold together as a macronarrative with six movements, presented in a fixed order: the perspective you keep returning to, the self you built to meet it, the settings that hold you, the script you are drawn to enact, the advice you already carry, and a future scenario that answers the very request you opened with. It is written from your own words and metaphors, bends the arc hopefully without flattering, and is provisional until you authorize it — you are the author; this is a draft for your editing.\n",
+      "purpose": "Everything you've approved, assembled into one long story. The small stories you told hold together, and they come in a fixed order: the angle you keep returning to, the self you built to meet it, the places that suit you, the plot you're drawn to, the advice you already carry, and a version of the future that answers the very thing you walked in with. It's written from your words and your metaphors. It leans hopeful without flattering you. And it stays a draft until you say otherwise — you're the author here.\n",
+      "purpose_i18n": {
+        "ru": "Всё, что ты принял, собранное в одну большую историю. Маленькие истории, которые ты рассказал, держатся вместе — и идут в фиксированном порядке: ракурс, к которому ты возвращаешься; «я», которое ты выстроил ему навстречу; места, которые тебе подходят; сюжет, который тебя тянет; совет, который ты уже носишь с собой; и версия будущего, которая отвечает ровно на то, с чем ты пришёл. Написано твоими словами и твоими же образами. Клонится к надежде, но не льстит. И остаётся черновиком, пока ты не скажешь иначе, — автор здесь ты.\n"
+      },
       "consumes": [
         "perspective",
         "character_sketch",
@@ -1440,7 +1497,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This is a provisional portrait — you are its author, and it only becomes true when you say so. Rewrite freely; your success formula and action plan grow from what you approve here. Once authorized, you'll also be asked whether your original request still stands or deserves amending.\n"
+        "authorize_language": "A first draft of you — and you're the author, so it's only true when you say it is. Rewrite as much as you want. Your success formula and your first moves grow out of this. After this we'll ask whether what you came here for still holds.\n",
+        "authorize_language_i18n": {
+          "ru": "Первый набросок тебя — и автор здесь ты, так что он становится правдой, только когда ты это скажешь. Переписывай сколько захочешь. Из него вырастают твоя формула успеха и первые шаги. Дальше мы спросим, в силе ли ещё то, с чем ты пришёл.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1474,7 +1534,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "interview",
       "title": "Motto",
-      "purpose": "You'll share your favorite saying or motto. The premise, from career construction theory: a motto is the best advice you have for yourself — condensed practical wisdom that usually states, almost verbatim, your own strategy for moving to the next chapter. At the very end of the whole journey, your motto is handed back to you. This step just records it; the advice-to-self artifact is derived at the next node.\n",
+      "purpose": "Your favorite saying — the one you actually use. A motto is almost always advice you gave yourself, and it usually spells out, nearly word for word, your own strategy for getting to what's next. At the very end of all this it comes back to you. Right now we just write it down.\n",
+      "purpose_i18n": {
+        "ru": "Твоя любимая поговорка — та, которой ты правда пользуешься. Девиз почти всегда оказывается советом, который ты дал себе сам, и обычно почти дословно описывает твою же стратегию перехода к следующей главе. В самом конце всего пути он вернётся к тебе. Сейчас мы его просто записываем.\n"
+      },
       "consumes": [
         "counseling_goal"
       ],
@@ -1482,7 +1545,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "advice_to_self"
       ],
       "elicit": {
-        "persona": "Light and appreciative — this is a short topic. People often smile at this\nquestion; let them. One question at a time.\n",
+        "persona": "Light and appreciative — this is a short one, and it should feel short.\nPeople often smile at this question; let them, and don't talk over it. One\nquestion at a time.\n",
         "guardrails": [
           "Any saying counts — proverb, song lyric, family phrase, something a coach once said. Never rate or improve it.",
           "If the user has no motto, composing one right now is fully valid — the book treats a saying created in the moment as equally revealing.",
@@ -1566,7 +1629,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This is your saying, word for word. Correct it if even one word is off — it will be repeated back to you at the end of the journey, so it should be exactly yours.\n"
+        "authorize_language": "Your saying, word for word. Fix it if even one word is off — you'll hear it again at the end, so it should be exactly yours.\n",
+        "authorize_language_i18n": {
+          "ru": "Твоя поговорка, слово в слово. Поправь, если хотя бы одно слово не то, — ты услышишь её снова в конце, так что она должна быть в точности твоей.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1601,7 +1667,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "induction",
       "title": "Perspective",
-      "purpose": "Reads your early recollections as parables about today. The premise, from career construction theory: early memories are not history — they reveal the vantage point from which you view your current transition, and often the preoccupation your life keeps answering. The first story tends to be a précis of the present problem; the sequence often moves from problem toward resolution; your own headlines carry the leitmotifs. If you skipped early recollections, the preoccupation is inferred from your role models instead — admired courage implies familiar fear. Nothing here is a verdict: you edit and authorize every word.\n",
+      "purpose": "Reads your earliest memories as stories about now. They aren't history — they show the angle you're seeing your current situation from, and often the question your life keeps answering. The first story tends to be the present problem in miniature. The sequence often moves from problem toward a way out. Your own headlines carry the themes. If you skipped the memories, this gets worked out from the people you admired instead — admiring courage usually means fear was familiar. None of this is a verdict. You edit every word.\n",
+      "purpose_i18n": {
+        "ru": "Читает твои самые ранние воспоминания как истории про сейчас. Они не история — они показывают ракурс, с которого ты смотришь на нынешнюю ситуацию, и часто тот вопрос, на который твоя жизнь всё время отвечает. Первая история обычно оказывается нынешней проблемой в миниатюре. Последовательность часто идёт от проблемы к выходу. Твои же заголовки несут основные темы. Если ты пропустил воспоминания, всё это выводится из тех, кем ты восхищался: восхищение смелостью обычно значит, что страх был знаком. Ничего из этого не приговор. Каждое слово правишь ты.\n"
+      },
       "consumes": [
         "early_recollections",
         "role_models",
@@ -1656,7 +1725,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This is a perspective, not a verdict — reword anything that doesn't feel like your own view. Your character sketch and life portrait build on what you approve here.\n"
+        "authorize_language": "This is a way of seeing, not a verdict — reword anything that doesn't feel like your own view. What comes next builds on it.\n",
+        "authorize_language_i18n": {
+          "ru": "Это способ смотреть, а не приговор — переформулируй всё, что не похоже на твой собственный взгляд. Дальше строится на этом.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1695,7 +1767,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "induction",
       "title": "Preferred settings",
-      "purpose": "Turns your favorite media into a picture of where you like to be. The premise, from career construction theory: favorite shows, sites, and magazines are vicarious environments — trustworthy evidence of the settings you seek. They are analyzed along four dimensions: places, people, problems, and procedures, and summarized in the Holland (RIASEC) vocabulary. This is a description of attraction, not a prescription of jobs — occupations come later, and you authorize everything.\n",
+      "purpose": "Turns your favorites into a picture of where you do your best work. What you choose to watch and read is honest evidence about the places, people, and problems you want around you. We look at it four ways — places, people, problems, and how things get done — and sum it up in the Holland (RIASEC) shorthand. This describes what pulls you, not what job to take. Jobs come later, and you approve all of it.\n",
+      "purpose_i18n": {
+        "ru": "Превращает твои любимые вещи в картину того, где тебе работается лучше всего. То, что ты сам выбираешь смотреть и читать, — честное свидетельство о местах, людях и задачах, которые тебе нужны рядом. Мы смотрим на это с четырёх сторон — места, люди, задачи и то, как там всё устроено, — и сводим в обозначения Холланда (RIASEC). Это описание того, что тебя тянет, а не указание, куда идти работать. Профессии будут позже, и всё это принимаешь ты.\n"
+      },
       "consumes": [
         "favorite_media",
         "counseling_goal"
@@ -1780,7 +1855,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "This describes where you're drawn, in your own evidence — correct anything that doesn't ring true. Your script and life portrait build on what you approve here.\n"
+        "authorize_language": "Where you're drawn, backed by your own evidence — correct anything that doesn't ring true. What comes next builds on it.\n",
+        "authorize_language_i18n": {
+          "ru": "Куда тебя тянет — по твоим же свидетельствам. Поправь всё, что звучит неправдоподобно. Дальше строится на этом.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -1829,7 +1907,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "interview",
       "title": "Role models",
-      "purpose": "You'll talk about three figures you admired when you were around six years old. The premise, from career construction theory: the traits you say you admired are the blueprint you used to build yourself — it is what you admired, not whom, that matters. This step only records and organizes your own words. The character sketch is drafted at the next node, from what you approve here, and shown for your approval too.\n",
+      "purpose": "Three people you looked up to when you were about six. Not who they were — what you admired about them. Those words describe the person you were trying to become, and mostly still are. Nothing here gets interpreted. We write down what you say, in your words, and you check it. The next step builds a picture of you out of it, and you check that too.\n",
+      "purpose_i18n": {
+        "ru": "Три человека, на которых ты равнялся лет в шесть. Важно не кто они, а что тебе в них нравилось. Эти слова описывают того, кем ты пытался стать — и во многом стал. Здесь ничего не толкуется: мы записываем твои слова, а ты их проверяешь. На следующем шаге из них соберётся твой портрет — его ты тоже проверишь.\n"
+      },
       "consumes": [
         "counseling_goal"
       ],
@@ -1837,7 +1918,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "character_sketch"
       ],
       "elicit": {
-        "persona": "You are a career construction interviewer. Warm, playful curiosity; one\nquestion at a time. You care about what the user admired, never about whom.\nYour follow-ups voice inferences, not interpretations — thought-provoking,\noccasionally humorous, always offered so the user can correct them.\n",
+        "persona": "You're asking someone about their childhood heroes, and you find it\ngenuinely interesting — that shows. Warm, curious, a little playful. One\nquestion at a time. Match their energy: if they answer in five words, don't\nanswer back in fifty. You care about what they admired, never about whom.\nWhen something occurs to you, offer it as a guess they can knock down — \"so\nyou were the one who never backed down?\" — never as analysis.\n",
         "guardrails": [
           "Never suggest characteristics or admire-worthy traits yourself. Every descriptor must originate from the user.",
           "Never assume what a famous figure \"obviously\" stands for. One person admires Superman for truth and justice; another admired only his invisible airplane. Always ask what specifically this user admired.",
@@ -2055,7 +2136,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "These are your words, organized. Fix anything that doesn't sound like you — your character sketch will be built only from what you approve here.\n"
+        "authorize_language": "Your words, just sorted. Anything that doesn't sound like you, change it — nothing gets built on this until it does.\n",
+        "authorize_language_i18n": {
+          "ru": "Твои слова, просто разложенные по местам. Всё, что звучит не как ты, — исправь. Пока не исправишь, дальше на этом ничего не строится.\n"
+        }
       },
       "artifact": {
         "schema": {
@@ -2092,7 +2176,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "derived",
       "sector": "induction",
       "title": "Script",
-      "purpose": "Finds the storyline in your favorite story. The premise, from career construction theory: your current favorite story carries the script for the next chapter — a character like you, facing a predicament like yours, and a way through it. The script unites your self (character sketch) with your setting (preferred settings). One duty of care from the book: favorite stories are cultural products, so any limiting assumptions hiding in the script are flagged for your own critical eye — the story is an invitation, never a prescription. You edit and authorize everything.\n",
+      "purpose": "Finds the plot inside your favorite story. The story you love right now carries the script for your next chapter: someone like you, facing something like what you're facing, and a way through it. This is where who you are meets where you want to be. One caution worth keeping: stories are cultural products, so if the plot smuggles in a limit, we flag it for you to look at yourself. A story is an invitation, never an instruction. You edit all of it.\n",
+      "purpose_i18n": {
+        "ru": "Находит сюжет внутри твоей любимой истории. История, которую ты любишь сейчас, несёт сценарий твоей следующей главы: кто-то вроде тебя, в чём-то похожем на то, где ты сейчас, и выход. Здесь тот, кто ты есть, встречается с тем, где ты хочешь быть. Одна оговорка, которую стоит держать в голове: истории — продукт культуры, и если в сюжет зашито ограничение, мы его отметим, чтобы ты сам на него посмотрел. История — это приглашение, а не инструкция. Правишь всё ты.\n"
+      },
       "consumes": [
         "favorite_story",
         "character_sketch",
@@ -2154,7 +2241,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
       },
       "confirm": {
         "present": "structured_review",
-        "authorize_language": "A script is an invitation, not a prescription — rewrite anything that doesn't feel like your storyline. The life portrait builds on what you approve here.\n"
+        "authorize_language": "A script is an invitation, not an instruction — rewrite anything that doesn't feel like your storyline. Your portrait builds on it.\n",
+        "authorize_language_i18n": {
+          "ru": "Сценарий — это приглашение, а не инструкция. Перепиши всё, что не похоже на твой сюжет. Твой портрет строится на этом.\n"
+        }
       },
       "artifact": {
         "schema": {

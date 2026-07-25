@@ -5,14 +5,24 @@ sector: action
 title: Action recipe
 
 purpose: >
-  Turns your success formula into concrete moves in the real world. The
-  premise, from career construction theory: action, not decidedness, carries
-  you forward — you learn which future you want by exploring it. The plan
-  names two or three directions that fit your authorized artifacts, assigns
-  each the book's information-seeking behaviors (writing, observing, reading,
+  Turns your success formula into things you actually do. Action is what moves
+  you, not certainty — you find out which future you want by going and looking
+  at it. This lays out two or three directions that fit everything you've
+  approved, gives each one a way to explore it (writing, watching, reading,
   listening, visiting, talking), sets three first steps for the coming week,
-  and names the barrier most likely to stall you — with its counter-move.
-  Everything must occur in the real world, and you authorize all of it.
+  and names the thing most likely to stop you — plus what to do when it does.
+  All of it happens in the real world, and you approve every part.
+
+purpose_i18n:
+  ru: >
+    Превращает твою формулу успеха в то, что ты правда делаешь. Двигает
+    действие, а не уверенность: какое будущее тебе нужно, выясняется, когда
+    идёшь и смотришь. Здесь намечаются два-три направления, которые сходятся со
+    всем, что ты принял; к каждому — свой способ разведки (писать, наблюдать,
+    читать, слушать, приходить, разговаривать); три первых шага на ближайшую
+    неделю; и то, что вероятнее всего тебя остановит, — вместе с тем, что
+    делать, когда остановит. Всё это происходит в реальном мире, и каждую часть
+    принимаешь ты.
 
 consumes:
   - identity_statement
@@ -86,9 +96,15 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This plan only counts if it happens in the real world — trim anything you
-    won't actually do, and make the first steps embarrassingly small. When
-    you've explored, come back for the closing check.
+    This only counts if it happens in the real world — cut anything you won't
+    actually do, and make the first steps embarrassingly small. Once you've
+    explored, come back for the last step.
+
+  authorize_language_i18n:
+    ru: >
+      Это считается, только если случится в реальном мире. Убери всё, что ты на
+      самом деле делать не будешь, а первые шаги сделай неприлично маленькими.
+      Когда сходишь и посмотришь — возвращайся на последний шаг.
 
 artifact:
   schema:

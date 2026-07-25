@@ -37,6 +37,9 @@ export interface Playbook {
   sector: string;
   title: string;
   purpose: string;
+  /** Translated purpose text, keyed by language code (e.g. ru). User-facing
+   * only — the purpose is never compiled into a model prompt. */
+  purpose_i18n?: Record<string, string>;
   consumes: string[];
   invalidates: string[];
   amendable_after?: string;
@@ -59,6 +62,8 @@ export interface Playbook {
     present: "candidates" | "structured_review";
     choice_field?: string;
     authorize_language: string;
+    /** Translated authorization sentence, keyed by language code (e.g. ru). */
+    authorize_language_i18n?: Record<string, string>;
   };
   artifact?: {
     schema: Record<string, unknown>;

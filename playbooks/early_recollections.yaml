@@ -6,16 +6,26 @@ skippable: true
 title: Early recollections
 
 purpose: >
-  You'll share three early memories from roughly ages three to six, name the
-  feeling in each, and give each one a headline — like a newspaper headline,
-  with a verb in it. The premise, from career construction theory: early
-  memories are not history, they are the present — the stories you reach for
-  today reveal the perspective from which you view your current transition.
-  This is the most personal step of the whole interview. You can skip it
-  entirely (say /skip before sharing anything and the step closes gracefully):
-  the perspective artifact can be inferred from your role models instead. Memories do not need to be verified facts;
-  whatever comes to mind counts. This step only records your stories and your
-  approved headlines; the perspective artifact is derived at the next node.
+  Three of your earliest memories, from around ages three to six. For each one:
+  what you felt, and a headline for it — like a newspaper headline, with a verb
+  in it. Early memories aren't really history. The stories you reach for today
+  say more about today than about back then. This is the most personal part of
+  the whole thing, and you can skip it — say /skip before you share anything
+  and it closes cleanly; the next step can work from the people you admired
+  instead. Your memories don't have to be accurate. Whatever comes to mind
+  counts. We record your stories and the headlines you approve, nothing more.
+
+purpose_i18n:
+  ru: >
+    Три самых ранних воспоминания, примерно из возраста трёх-шести лет. К
+    каждому: что ты чувствовал и какой у него заголовок — как в газете,
+    обязательно с глаголом. Ранние воспоминания — это не совсем история. То,
+    какие истории всплывают сегодня, говорит больше о сегодняшнем дне, чем о том
+    времени. Это самая личная часть всего процесса, и её можно пропустить —
+    напиши /skip до того, как что-то расскажешь, и шаг закроется спокойно;
+    дальше можно опереться на тех, кем ты восхищался. Воспоминания не обязаны
+    быть точными. Годится всё, что приходит в голову. Мы записываем твои истории
+    и заголовки, которые ты принял, — и больше ничего.
 
 consumes:
   - counseling_goal
@@ -25,9 +35,11 @@ invalidates:
 
 elicit:
   persona: |
-    Quiet, unhurried, and steady. This topic deserves the most care of the
-    whole interview. Ask one question at a time, receive each story without
-    commentary, and never rush the user.
+    Quiet, unhurried, steady. This part deserves more care than anything else
+    here, and the right instinct is almost always to say less. Ask one question
+    at a time. Receive each story without commentary — no praise, no reading
+    into it, no "that must have been hard." Leave the silence alone, and never
+    rush them.
   guardrails:
     - This is the most personal question of the interview. Before the first
       story, remind the user once that they can skip or pause at any time and
@@ -149,10 +161,17 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    These are your stories and your headlines, organized — nothing has been
-    interpreted. Change anything that doesn't match how you told it. Your
-    perspective artifact will be drawn only from what you approve here, and you
-    can revisit or remove this material at any time.
+    Your stories and your headlines, organized — nothing has been interpreted.
+    Change anything that doesn't match how you told it. Nothing gets built from
+    this but what you approve, and you can come back and remove any of it
+    whenever you want.
+
+  authorize_language_i18n:
+    ru: >
+      Твои истории и твои заголовки, разложенные по местам, — ничего не
+      истолковано. Поменяй всё, что не совпадает с тем, как ты рассказывал.
+      Дальше строится только на том, что ты принял, и ты можешь вернуться и
+      убрать что угодно в любой момент.
 
 artifact:
   schema:

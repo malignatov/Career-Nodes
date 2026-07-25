@@ -15,7 +15,8 @@ import {
   manualFormSchema, manualWarnings, verbatimSource, loadExchange, buildManualSession, reconstructManualAnswers,
 } from "./manual.ts";
 import {
-  compiledPrompts, runInduce, stageOpening, type ReviewAction, type SessionIO, type SessionLang,
+  authorizeLanguage, compiledPrompts, playbookPurpose, runInduce, stageOpening,
+  type ReviewAction, type SessionIO, type SessionLang,
 } from "./engine.ts";
 import { OpenAICompatAdapter, aiAvailable, type LlmAdapter } from "./llm.ts";
 import { MAP_NODES } from "./map.ts";
@@ -173,7 +174,7 @@ async function handleApi(url: URL, method: string, body: Record<string, unknown>
       id: pb.id,
       title: pb.title,
       kind: pb.kind,
-      purpose: pb.purpose.trim(),
+      purpose: playbookPurpose(pb, lang),
       consumes: pb.consumes,
       invalidates: pb.invalidates,
       stages: pb.elicit?.stages.map((s) => ({
@@ -186,7 +187,7 @@ async function handleApi(url: URL, method: string, body: Record<string, unknown>
       form: manualFormSchema(pb),
       confirm_present: pb.confirm?.present ?? null,
       choice_field: pb.confirm?.choice_field ?? null,
-      authorize_language: pb.confirm?.authorize_language.trim() ?? "",
+      authorize_language: authorizeLanguage(pb, lang),
       compiled: compiledPrompts(pb, lang),
     });
   }
@@ -284,7 +285,7 @@ async function handleApi(url: URL, method: string, body: Record<string, unknown>
     const existing = await store.read(sessPath);
     if (existing !== null) {
       const saved = JSON.parse(existing) as { manual_answers?: unknown };
-      if (!saved.manual_answers) return jsonRes({ error: "an interviewer-led session exists for this step" }, 409);
+      if (!saved.manual_answers) return jsonRes({ error: "This step already has a conversation recorded with the AI interviewer — reopen it there instead." }, 409);
     }
     const built = buildManualSession(pb, answers, lang);
     if (!built) {
@@ -380,7 +381,7 @@ function makeSessionWS(urlStr: string): ShimSocket {
         return finish();
       }
       if (!aiAvailable()) {
-        emit({ type: "error", text: "no model configured — add a key in settings, or use practitioner mode" });
+        emit({ type: "error", text: "No model is set up, so there's no one to talk to yet — add a key in settings, or switch to practitioner mode to work by hand." });
         return finish();
       }
       const store = scoped(rootStore, profilePrefix(url.searchParams.get("profile")));

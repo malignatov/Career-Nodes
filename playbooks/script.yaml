@@ -5,14 +5,22 @@ sector: induction
 title: Script
 
 purpose: >
-  Finds the storyline in your favorite story. The premise, from career
-  construction theory: your current favorite story carries the script for the
-  next chapter — a character like you, facing a predicament like yours, and a
-  way through it. The script unites your self (character sketch) with your
-  setting (preferred settings). One duty of care from the book: favorite
-  stories are cultural products, so any limiting assumptions hiding in the
-  script are flagged for your own critical eye — the story is an invitation,
-  never a prescription. You edit and authorize everything.
+  Finds the plot inside your favorite story. The story you love right now
+  carries the script for your next chapter: someone like you, facing something
+  like what you're facing, and a way through it. This is where who you are
+  meets where you want to be. One caution worth keeping: stories are cultural
+  products, so if the plot smuggles in a limit, we flag it for you to look at
+  yourself. A story is an invitation, never an instruction. You edit all of it.
+
+purpose_i18n:
+  ru: >
+    Находит сюжет внутри твоей любимой истории. История, которую ты любишь
+    сейчас, несёт сценарий твоей следующей главы: кто-то вроде тебя, в чём-то
+    похожем на то, где ты сейчас, и выход. Здесь тот, кто ты есть, встречается с
+    тем, где ты хочешь быть. Одна оговорка, которую стоит держать в голове:
+    истории — продукт культуры, и если в сюжет зашито ограничение, мы его
+    отметим, чтобы ты сам на него посмотрел. История — это приглашение, а не
+    инструкция. Правишь всё ты.
 
 consumes:
   - favorite_story
@@ -69,9 +77,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    A script is an invitation, not a prescription — rewrite anything that
-    doesn't feel like your storyline. The life portrait builds on what you
-    approve here.
+    A script is an invitation, not an instruction — rewrite anything that
+    doesn't feel like your storyline. Your portrait builds on it.
+
+  authorize_language_i18n:
+    ru: >
+      Сценарий — это приглашение, а не инструкция. Перепиши всё, что не похоже
+      на твой сюжет. Твой портрет строится на этом.
 
 artifact:
   schema:

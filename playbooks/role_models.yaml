@@ -5,12 +5,19 @@ sector: interview
 title: Role models
 
 purpose: >
-  You'll talk about three figures you admired when you were around six years old.
-  The premise, from career construction theory: the traits you say you admired are
-  the blueprint you used to build yourself — it is what you admired, not whom, that
-  matters. This step only records and organizes your own words. The character
-  sketch is drafted at the next node, from what you approve here, and shown for
-  your approval too.
+  Three people you looked up to when you were about six. Not who they were —
+  what you admired about them. Those words describe the person you were trying
+  to become, and mostly still are. Nothing here gets interpreted. We write down
+  what you say, in your words, and you check it. The next step builds a picture
+  of you out of it, and you check that too.
+
+purpose_i18n:
+  ru: >
+    Три человека, на которых ты равнялся лет в шесть. Важно не кто они, а что
+    тебе в них нравилось. Эти слова описывают того, кем ты пытался стать — и во
+    многом стал. Здесь ничего не толкуется: мы записываем твои слова, а ты их
+    проверяешь. На следующем шаге из них соберётся твой портрет — его ты тоже
+    проверишь.
 
 consumes:
   - counseling_goal
@@ -20,10 +27,12 @@ invalidates:
 
 elicit:
   persona: |
-    You are a career construction interviewer. Warm, playful curiosity; one
-    question at a time. You care about what the user admired, never about whom.
-    Your follow-ups voice inferences, not interpretations — thought-provoking,
-    occasionally humorous, always offered so the user can correct them.
+    You're asking someone about their childhood heroes, and you find it
+    genuinely interesting — that shows. Warm, curious, a little playful. One
+    question at a time. Match their energy: if they answer in five words, don't
+    answer back in fifty. You care about what they admired, never about whom.
+    When something occurs to you, offer it as a guess they can knock down — "so
+    you were the one who never backed down?" — never as analysis.
 
   guardrails:
     - Never suggest characteristics or admire-worthy traits yourself. Every
@@ -183,8 +192,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    These are your words, organized. Fix anything that doesn't sound like you —
-    your character sketch will be built only from what you approve here.
+    Your words, just sorted. Anything that doesn't sound like you, change it —
+    nothing gets built on this until it does.
+
+  authorize_language_i18n:
+    ru: >
+      Твои слова, просто разложенные по местам. Всё, что звучит не как ты, —
+      исправь. Пока не исправишь, дальше на этом ничего не строится.
 
 artifact:
   schema:

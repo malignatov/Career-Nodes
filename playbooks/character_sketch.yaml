@@ -5,14 +5,23 @@ sector: induction
 title: Character sketch
 
 purpose: >
-  Composes a short portrait of who you are — built only from the words you
-  approved in the role models step. The premise, from career construction
-  theory: the traits you admired in your childhood models are the blueprint you
-  used to build yourself, and they exist as your solution to what preoccupied
-  you early on (bravery exists to solve fear). When your perspective artifact
-  is available, the sketch is framed that way. Nothing is invented here: every
-  trait must be a quote of your own words, and you edit and authorize the
-  result.
+  A short picture of who you are, built only from words you already approved
+  when you talked about the people you looked up to. What you admired in them
+  is the blueprint you used to build yourself — and those qualities are there
+  to solve something that worried you early on. Courage exists to answer fear.
+  If you've already worked out how you see things, this gets framed that way.
+  Nothing is invented: every trait is a quote of your own words, and you edit
+  the result.
+
+purpose_i18n:
+  ru: >
+    Короткая картина того, кто ты, — собранная только из слов, которые ты уже
+    принял, когда рассказывал о людях, на которых равнялся. То, что тебе в них
+    нравилось, и есть чертёж, по которому ты себя собрал, — и эти качества
+    существуют, чтобы решать то, что тревожило тебя в самом начале. Смелость
+    нужна, чтобы отвечать страху. Если ты уже разобрался, как смотришь на вещи,
+    картина выстраивается с этого ракурса. Ничего не выдумано: каждая черта —
+    цитата твоих собственных слов, и результат правишь ты.
 
 consumes:
   - role_models
@@ -60,9 +69,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This sketch is assembled only from your own words. Reword anything that
-    doesn't sound like you — the script and the life portrait will build on
-    what you approve here.
+    Assembled only from your own words. Reword anything that doesn't sound like
+    you — what comes next builds on it.
+
+  authorize_language_i18n:
+    ru: >
+      Собрано только из твоих слов. Переформулируй всё, что звучит не как ты, —
+      дальше строится на этом.
 
 artifact:
   schema:

@@ -44,13 +44,28 @@ export interface SessionLang {
 }
 
 const GREETINGS: Record<string, string> = {
-  en: "Hi — I'm glad you're here.",
-  ru: "Привет! Хорошо, что ты здесь.",
+  en: "Hey — glad you're here.",
+  ru: "Привет. Хорошо, что ты здесь.",
 };
 
 export function stageOpening(stage: Stage, lang?: SessionLang): string {
   const localized = lang ? stage.opening_i18n?.[lang.code] : undefined;
   return (localized ?? stage.opening).trim();
+}
+
+/** The step's user-facing "what happens here" text, in the session language.
+ * Never reaches a model prompt — the purpose is shown, not compiled. */
+export function playbookPurpose(pb: Playbook, lang?: SessionLang): string {
+  const localized = lang ? pb.purpose_i18n?.[lang.code] : undefined;
+  return (localized ?? pb.purpose).trim();
+}
+
+/** The sentence shown at the moment of authorization, in the session language. */
+export function authorizeLanguage(pb: Playbook, lang?: SessionLang): string {
+  const confirm = pb.confirm;
+  if (!confirm) return "";
+  const localized = lang ? confirm.authorize_language_i18n?.[lang.code] : undefined;
+  return (localized ?? confirm.authorize_language).trim();
 }
 
 export interface ResumeState {
@@ -244,7 +259,9 @@ export async function runElicit(
 
   for (let i = startIndex; i < stages.length; i++) {
     const stage = stages[i];
-    io.note(`(topic ${i + 1} of ${stages.length}: ${stage.id})`);
+    // The stage id is an internal handle — it belongs in the transparency
+    // panel, not in the user's chat.
+    io.note(`(topic ${i + 1} of ${stages.length})`);
     const system = interviewerSystem(pb, stage, lang, upstream);
     let skipGenerate = false;
 
@@ -301,7 +318,7 @@ export async function runElicit(
             : "(skipped — nothing was shared for this step)");
           return { exchange, userWords: "", aborted: false, skipped: true };
         }
-        io.note(`(skipped remaining checks for topic "${stage.id}")`);
+        io.note(lang?.code === "ru" ? "(идём дальше)" : "(moving on)");
         break;
       }
       messages.push({ role: "user", content: answer });
@@ -327,7 +344,7 @@ export async function runElicit(
             : "(skipped — nothing was shared for this step)");
           return { exchange, userWords: userWords(exchange), aborted: false, skipped: true };
         }
-        io.note(`(skipped remaining checks for topic "${stage.id}")`);
+        io.note(lang?.code === "ru" ? "(идём дальше)" : "(moving on)");
         break;
       }
       if (check.done) { anyDone = true; break; }
@@ -455,7 +472,7 @@ export async function runInduce(
   ].join("\n");
   const draft: Record<string, unknown> = {};
   for (const step of pb.induce!.steps) {
-    io.note(`(inducing: ${step.id}…)`);
+    io.note(lang?.code === "ru" ? "(собираю…)" : "(putting it together…)");
     Object.assign(draft, await runInduceStep(llm, pb, step, transcript, upstream, verbatimSource, feedback, lang, prior));
   }
   return draft;
@@ -574,7 +591,7 @@ export async function runConfirm(
   // the authorize action says what it really does: skip this step.
   const authLang = opts.skipMode
     ? (opts.lang?.code === "ru" ? "Пропустить этот шаг" : "Skip this step")
-    : confirm.authorize_language.trim();
+    : authorizeLanguage(pb, opts.lang);
   const present = opts.skipMode ? "structured_review" : confirm.present;
 
   if (io.review) {
@@ -597,7 +614,7 @@ export async function runConfirm(
           if (settled === null) continue; // withdrawn — the draft stands
           feedback = settled;
         }
-        io.note("(revising…)");
+        io.note("(reworking it…)");
         // A feedback revision hands the current draft over as `prior` so the
         // recomposer keeps everything that was not discussed — the amend
         // conversation promises "only this changes", and a from-scratch
@@ -630,7 +647,7 @@ export async function runConfirm(
     const field = confirm.choice_field ?? "chosen";
     const { candidates: _dropped, ...rest } = current;
     current = { ...rest, [field]: chosen };
-    io.say(confirm.authorize_language.trim());
+    io.say(authLang);
     return current;
   }
 
@@ -640,10 +657,10 @@ export async function runConfirm(
     io.say(JSON.stringify(current, null, 2));
     const answer = (await io.ask("press enter to authorize, or describe what to fix")).trim();
     if (answer === "") {
-      io.say(confirm.authorize_language.trim());
+      io.say(authLang);
       return current;
     }
-    io.note("(revising…)");
+    io.note("(reworking it…)");
     current = await reinduce(answer, current);
   }
 }

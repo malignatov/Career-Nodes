@@ -364,6 +364,7 @@ function applyModalStrings() {
   $("changesBtn").textContent = t("ask_changes");
   $("saveEdit").textContent = t("save_wording");
   $("practAmendSend").textContent = t("send");
+  $("amendSend").textContent = t("send");
 }
 
 async function openModal(id) {
@@ -496,10 +497,11 @@ function addMsg(cls, text) {
 /** Engine notes arrive in English; map the known ones to the UI language. */
 function localizeNote(text) {
   if (lang === "en") return text;
-  const topic = text.match(/^\(topic (\d+) of (\d+): (.+)\)$/);
-  if (topic) return t("topic_note", topic[1], topic[2], topic[3]);
-  if (text.startsWith("(the conversation is complete")) return t("drafting_note");
-  if (text.startsWith("(revising")) return t("revising_note");
+  const topic = text.match(/^\(topic (\d+) of (\d+)\)$/);
+  if (topic) return t("topic_note", topic[1], topic[2]);
+  if (text.startsWith("(that's everything")) return t("drafting_note");
+  if (text.startsWith("(reworking")) return t("revising_note");
+  if (text.startsWith("(putting it together")) return t("inducing_note");
   return text;
 }
 

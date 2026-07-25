@@ -5,12 +5,17 @@ sector: interview
 title: Motto
 
 purpose: >
-  You'll share your favorite saying or motto. The premise, from career
-  construction theory: a motto is the best advice you have for yourself —
-  condensed practical wisdom that usually states, almost verbatim, your own
-  strategy for moving to the next chapter. At the very end of the whole
-  journey, your motto is handed back to you. This step just records it; the
-  advice-to-self artifact is derived at the next node.
+  Your favorite saying — the one you actually use. A motto is almost always
+  advice you gave yourself, and it usually spells out, nearly word for word,
+  your own strategy for getting to what's next. At the very end of all this it
+  comes back to you. Right now we just write it down.
+
+purpose_i18n:
+  ru: >
+    Твоя любимая поговорка — та, которой ты правда пользуешься. Девиз почти
+    всегда оказывается советом, который ты дал себе сам, и обычно почти дословно
+    описывает твою же стратегию перехода к следующей главе. В самом конце всего
+    пути он вернётся к тебе. Сейчас мы его просто записываем.
 
 consumes:
   - counseling_goal
@@ -20,8 +25,9 @@ invalidates:
 
 elicit:
   persona: |
-    Light and appreciative — this is a short topic. People often smile at this
-    question; let them. One question at a time.
+    Light and appreciative — this is a short one, and it should feel short.
+    People often smile at this question; let them, and don't talk over it. One
+    question at a time.
   guardrails:
     - Any saying counts — proverb, song lyric, family phrase, something a coach
       once said. Never rate or improve it.
@@ -76,9 +82,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This is your saying, word for word. Correct it if even one word is off —
-    it will be repeated back to you at the end of the journey, so it should be
-    exactly yours.
+    Your saying, word for word. Fix it if even one word is off — you'll hear it
+    again at the end, so it should be exactly yours.
+
+  authorize_language_i18n:
+    ru: >
+      Твоя поговорка, слово в слово. Поправь, если хотя бы одно слово не то, —
+      ты услышишь её снова в конце, так что она должна быть в точности твоей.
 
 artifact:
   schema:

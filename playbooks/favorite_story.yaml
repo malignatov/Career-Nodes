@@ -5,12 +5,19 @@ sector: interview
 title: Favorite story
 
 purpose: >
-  You'll name your current favorite story from a book or movie and retell it in
-  your own words. The premise, from career construction theory: the story you
-  are drawn to right now usually carries the script for the next chapter of
-  your own life — how a character like you deals with a predicament like yours.
-  Your retelling is what matters, not the official plot. This step only records
-  your version; the script artifact is derived at the next node.
+  Name the story you love right now — book or film — and retell it your way.
+  The story you're drawn to at the moment usually carries the plot of your own
+  next chapter: someone like you, stuck in something like your situation,
+  finding a way through. Your version is the one that matters, not the official
+  plot. We record it as you tell it; the next step finds the storyline in it.
+
+purpose_i18n:
+  ru: >
+    Назови историю, которую любишь сейчас, — книгу или фильм — и перескажи её
+    по-своему. История, к которой тянет прямо сейчас, обычно несёт сюжет твоей
+    же следующей главы: кто-то вроде тебя, застрявший примерно в том же, находит
+    выход. Важен твой пересказ, а не официальный сюжет. Мы записываем так, как
+    рассказал ты; сюжет разбирается на следующем шаге.
 
 consumes:
   - counseling_goal
@@ -20,9 +27,10 @@ invalidates:
 
 elicit:
   persona: |
-    Attentive, story-loving curiosity. You want the user's version of the tale —
-    the details they keep, the ones they drop, the words they choose. One
-    question at a time.
+    You love a good story and you want theirs — their version, with the details
+    they keep, the ones they drop, and the words they pick. Listen the way
+    someone listens when they actually want to know how it ends. One question at
+    a time, and don't finish their sentences for them.
   guardrails:
     - It must be the user's CURRENT favorite, not their all-time favorite — an
       all-time favorite usually points to a role model instead of a script.
@@ -110,9 +118,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This is your version of the story, structured. Fix anything that doesn't
-    match how you told it — your script artifact will be built only from what
-    you approve here.
+    Your version of the story, laid out. Fix anything that doesn't match how
+    you told it — nothing gets built on this until it does.
+
+  authorize_language_i18n:
+    ru: >
+      Твоя версия истории, разложенная по частям. Поправь всё, что не совпадает
+      с тем, как ты рассказывал.
 
 artifact:
   schema:

@@ -5,13 +5,22 @@ sector: induction
 title: Preferred settings
 
 purpose: >
-  Turns your favorite media into a picture of where you like to be. The
-  premise, from career construction theory: favorite shows, sites, and
-  magazines are vicarious environments — trustworthy evidence of the settings
-  you seek. They are analyzed along four dimensions: places, people, problems,
-  and procedures, and summarized in the Holland (RIASEC) vocabulary. This is a
-  description of attraction, not a prescription of jobs — occupations come
-  later, and you authorize everything.
+  Turns your favorites into a picture of where you do your best work. What you
+  choose to watch and read is honest evidence about the places, people, and
+  problems you want around you. We look at it four ways — places, people,
+  problems, and how things get done — and sum it up in the Holland (RIASEC)
+  shorthand. This describes what pulls you, not what job to take. Jobs come
+  later, and you approve all of it.
+
+purpose_i18n:
+  ru: >
+    Превращает твои любимые вещи в картину того, где тебе работается лучше
+    всего. То, что ты сам выбираешь смотреть и читать, — честное свидетельство о
+    местах, людях и задачах, которые тебе нужны рядом. Мы смотрим на это с
+    четырёх сторон — места, люди, задачи и то, как там всё устроено, — и сводим
+    в обозначения Холланда (RIASEC). Это описание того, что тебя тянет, а не
+    указание, куда идти работать. Профессии будут позже, и всё это принимаешь
+    ты.
 
 consumes:
   - favorite_media
@@ -77,9 +86,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This describes where you're drawn, in your own evidence — correct anything
-    that doesn't ring true. Your script and life portrait build on what you
-    approve here.
+    Where you're drawn, backed by your own evidence — correct anything that
+    doesn't ring true. What comes next builds on it.
+
+  authorize_language_i18n:
+    ru: >
+      Куда тебя тянет — по твоим же свидетельствам. Поправь всё, что звучит
+      неправдоподобно. Дальше строится на этом.
 
 artifact:
   schema:

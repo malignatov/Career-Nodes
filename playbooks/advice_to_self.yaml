@@ -5,12 +5,20 @@ sector: induction
 title: Advice to self
 
 purpose: >
-  Unpacks your motto into the call to action it already contains. The premise,
-  from career construction theory: a favorite saying is autotherapy — the best
-  advice you have for yourself, usually stating your own strategy for moving
-  to the next chapter. The answers you seek were already in your pocket; this
-  step just says so plainly. Your motto stays word-for-word yours, and it will
-  be handed back to you at the very end of the journey.
+  Unpacks your motto into the instruction it's been carrying all along. A
+  favorite saying is self-help in the most literal sense — the best advice you
+  have for yourself, usually stating your own strategy for getting to what's
+  next. The answer was in your pocket already; this step just says it out loud.
+  Your motto stays word for word yours, and you get it back at the very end.
+
+purpose_i18n:
+  ru: >
+    Разворачивает твой девиз в указание, которое он всё это время нёс. Любимая
+    поговорка — это самопомощь в самом прямом смысле: лучший совет, который у
+    тебя есть для себя, и обычно он прямо описывает твою же стратегию перехода к
+    следующему. Ответ и так лежал у тебя в кармане; этот шаг просто произносит
+    его вслух. Девиз остаётся слово в слово твоим, и в самом конце он к тебе
+    вернётся.
 
 consumes:
   - motto
@@ -50,9 +58,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This is your own advice, said back to you plainly — adjust anything that
-    doesn't sound like what you meant. The life portrait builds on what you
-    approve here.
+    Your own advice, said back to you plainly — adjust anything that isn't what
+    you meant. Your portrait builds on it.
+
+  authorize_language_i18n:
+    ru: >
+      Твой собственный совет, сказанный тебе прямо. Поправь всё, что ты имел в
+      виду иначе. Твой портрет строится на этом.
 
 artifact:
   schema:

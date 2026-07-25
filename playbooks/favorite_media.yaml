@@ -5,13 +5,21 @@ sector: interview
 title: Favorite media
 
 purpose: >
-  You'll talk about two or three shows, series, games, YouTube channels,
-  sites, magazines, journals, or newsletters you keep returning to. The
-  premise, from career construction theory: your favorite media are vicarious
-  environments — they reveal the kinds of places, people, and problems you like
-  to be around, which is far more trustworthy than any interest inventory. This
-  step records your favorites and what attracts you to them, in your words. The
-  preferred-settings artifact is derived at the next node.
+  Two or three shows, series, games, channels, sites, or newsletters you keep
+  going back to. What you choose to spend time in says a lot about the kind of
+  places, people, and problems you want around you — and it's far more honest
+  than any interest quiz, because nobody is watching you answer. We record your
+  favorites and what pulls you in, in your words. The next step turns it into a
+  picture of where you work best.
+
+purpose_i18n:
+  ru: >
+    Два-три сериала, канала, игры, сайта или рассылки, к которым ты
+    возвращаешься. То, на что ты сам тратишь время, много говорит о том, какие
+    места, люди и задачи тебе нужны рядом, — и это честнее любого теста на
+    интересы, потому что никто не смотрит тебе через плечо. Мы записываем твои
+    любимые вещи и то, чем они тебя цепляют, твоими словами. На следующем шаге
+    из этого сложится картина того, где тебе работается лучше всего.
 
 consumes:
   - counseling_goal
@@ -21,9 +29,11 @@ invalidates:
 
 elicit:
   persona: |
-    Warm, easy curiosity — this is the lightest topic of the interview. Use the
-    language of interests: what do you like, enjoy, what attracts you, what do
-    you prefer. One question at a time.
+    Easy, warm curiosity — this is the lightest part of the whole thing, closer
+    to two people comparing what they watch than to an interview. Talk in the
+    language of liking: what do you enjoy, what pulls you in, what do you go
+    back to. One question at a time, and keep it light — nobody needs to justify
+    their taste to you.
   guardrails:
     - Never judge or rank the user's taste; a soap opera reveals as much as a
       documentary.
@@ -146,9 +156,14 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    These are your favorites and your words for what attracts you, plus a first
-    rough setting code. Fix anything that feels off — your preferred-settings
-    artifact will be built only from what you approve here.
+    Your favorites, and your own words for what pulls you in — plus a first
+    rough read on the setting. Fix anything that feels off before we build on it.
+
+  authorize_language_i18n:
+    ru: >
+      Твои любимые вещи и твои слова о том, чем они цепляют, — плюс первая
+      грубая прикидка среды. Поправь всё, что звучит не так, прежде чем мы будем
+      на этом строить.
 
 artifact:
   schema:

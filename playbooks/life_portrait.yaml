@@ -5,15 +5,24 @@ sector: portrait
 title: Life portrait
 
 purpose: >
-  Assembles everything you authorized into one large story — the life
-  portrait. The premise, from career construction theory: the small stories
-  you told hold together as a macronarrative with six movements, presented in
-  a fixed order: the perspective you keep returning to, the self you built to
-  meet it, the settings that hold you, the script you are drawn to enact, the
-  advice you already carry, and a future scenario that answers the very
-  request you opened with. It is written from your own words and metaphors,
-  bends the arc hopefully without flattering, and is provisional until you
-  authorize it — you are the author; this is a draft for your editing.
+  Everything you've approved, assembled into one long story. The small stories
+  you told hold together, and they come in a fixed order: the angle you keep
+  returning to, the self you built to meet it, the places that suit you, the
+  plot you're drawn to, the advice you already carry, and a version of the
+  future that answers the very thing you walked in with. It's written from your
+  words and your metaphors. It leans hopeful without flattering you. And it
+  stays a draft until you say otherwise — you're the author here.
+
+purpose_i18n:
+  ru: >
+    Всё, что ты принял, собранное в одну большую историю. Маленькие истории,
+    которые ты рассказал, держатся вместе — и идут в фиксированном порядке:
+    ракурс, к которому ты возвращаешься; «я», которое ты выстроил ему навстречу;
+    места, которые тебе подходят; сюжет, который тебя тянет; совет, который ты
+    уже носишь с собой; и версия будущего, которая отвечает ровно на то, с чем
+    ты пришёл. Написано твоими словами и твоими же образами. Клонится к надежде,
+    но не льстит. И остаётся черновиком, пока ты не скажешь иначе, — автор здесь
+    ты.
 
 consumes:
   - perspective
@@ -76,10 +85,17 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This is a provisional portrait — you are its author, and it only becomes
-    true when you say so. Rewrite freely; your success formula and action plan
-    grow from what you approve here. Once authorized, you'll also be asked
-    whether your original request still stands or deserves amending.
+    A first draft of you — and you're the author, so it's only true when you
+    say it is. Rewrite as much as you want. Your success formula and your first
+    moves grow out of this. After this we'll ask whether what you came here for
+    still holds.
+
+  authorize_language_i18n:
+    ru: >
+      Первый набросок тебя — и автор здесь ты, так что он становится правдой,
+      только когда ты это скажешь. Переписывай сколько захочешь. Из него
+      вырастают твоя формула успеха и первые шаги. Дальше мы спросим, в силе ли
+      ещё то, с чем ты пришёл.
 
 artifact:
   schema:

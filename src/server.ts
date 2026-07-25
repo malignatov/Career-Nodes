@@ -9,7 +9,7 @@ import { runPlaybookSession, runReviewSession, loadUpstream, saveArtifact } from
 import { buildJourney, profilePrefix, type PlaybookSource } from "./journey.ts";
 import { MAP_NODES } from "./map.ts";
 import {
-  compiledPrompts, runInduce, stageOpening,
+  authorizeLanguage, compiledPrompts, playbookPurpose, runInduce, stageOpening,
   type ReviewAction, type SessionIO, type SessionLang,
 } from "./engine.ts";
 import {
@@ -173,7 +173,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       id: pb.id,
       title: pb.title,
       kind: pb.kind,
-      purpose: pb.purpose.trim(),
+      purpose: playbookPurpose(pb, lang),
       consumes: pb.consumes,
       invalidates: pb.invalidates,
       stages: pb.elicit?.stages.map((s) => ({
@@ -186,7 +186,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       form: manualFormSchema(pb),
       confirm_present: pb.confirm?.present ?? null,
       choice_field: pb.confirm?.choice_field ?? null,
-      authorize_language: pb.confirm?.authorize_language.trim() ?? "",
+      authorize_language: authorizeLanguage(pb, lang),
       compiled: compiledPrompts(pb, lang),
     });
   }
@@ -303,7 +303,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const existing = await store.read(sessPath);
     if (existing !== null) {
       const saved = JSON.parse(existing) as { manual_answers?: unknown };
-      if (!saved.manual_answers) return json(res, 409, { error: "an interviewer-led session exists for this step" });
+      if (!saved.manual_answers) return json(res, 409, { error: "This step already has a conversation recorded with the AI interviewer — reopen it there instead." });
     }
     const built = buildManualSession(pb, answers, lang);
     if (!built) {
@@ -436,7 +436,7 @@ wss.on("connection", (ws, req) => {
     return ws.close();
   }
   if (!AI_AVAILABLE) {
-    ws.send(JSON.stringify({ type: "error", text: "no model configured — use practitioner mode" }));
+    ws.send(JSON.stringify({ type: "error", text: "No model is set up, so there's no one to talk to yet — switch to practitioner mode to work by hand." }));
     return ws.close();
   }
   let store: Storage;

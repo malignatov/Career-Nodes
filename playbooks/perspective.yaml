@@ -5,15 +5,24 @@ sector: induction
 title: Perspective
 
 purpose: >
-  Reads your early recollections as parables about today. The premise, from
-  career construction theory: early memories are not history — they reveal the
-  vantage point from which you view your current transition, and often the
-  preoccupation your life keeps answering. The first story tends to be a précis
-  of the present problem; the sequence often moves from problem toward
-  resolution; your own headlines carry the leitmotifs. If you skipped early
-  recollections, the preoccupation is inferred from your role models instead —
-  admired courage implies familiar fear. Nothing here is a verdict: you edit
-  and authorize every word.
+  Reads your earliest memories as stories about now. They aren't history —
+  they show the angle you're seeing your current situation from, and often the
+  question your life keeps answering. The first story tends to be the present
+  problem in miniature. The sequence often moves from problem toward a way out.
+  Your own headlines carry the themes. If you skipped the memories, this gets
+  worked out from the people you admired instead — admiring courage usually
+  means fear was familiar. None of this is a verdict. You edit every word.
+
+purpose_i18n:
+  ru: >
+    Читает твои самые ранние воспоминания как истории про сейчас. Они не история
+    — они показывают ракурс, с которого ты смотришь на нынешнюю ситуацию, и
+    часто тот вопрос, на который твоя жизнь всё время отвечает. Первая история
+    обычно оказывается нынешней проблемой в миниатюре. Последовательность часто
+    идёт от проблемы к выходу. Твои же заголовки несут основные темы. Если ты
+    пропустил воспоминания, всё это выводится из тех, кем ты восхищался:
+    восхищение смелостью обычно значит, что страх был знаком. Ничего из этого не
+    приговор. Каждое слово правишь ты.
 
 consumes:
   - early_recollections
@@ -68,9 +77,13 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    This is a perspective, not a verdict — reword anything that doesn't feel
-    like your own view. Your character sketch and life portrait build on what
-    you approve here.
+    This is a way of seeing, not a verdict — reword anything that doesn't feel
+    like your own view. What comes next builds on it.
+
+  authorize_language_i18n:
+    ru: >
+      Это способ смотреть, а не приговор — переформулируй всё, что не похоже на
+      твой собственный взгляд. Дальше строится на этом.
 
 artifact:
   schema:

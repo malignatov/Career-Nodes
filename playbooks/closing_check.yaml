@@ -5,12 +5,21 @@ sector: action
 title: Closing check
 
 purpose: >
-  The closing ritual, straight from the book. Your original request is read
-  back to you word for word, and you — no one else — judge whether it was
-  met. Then you name what's different now, because saying the change out loud
-  is what makes it stick. And at the very end, your own motto is handed back
-  to you: the advice you carried all along, now with a journey behind it.
-  This step records your verdict; it changes nothing else.
+  The last step, straight from the book. What you asked for at the very start
+  is read back to you word for word, and you — nobody else — decide whether you
+  got it. Then you say what's different now, because saying it out loud is what
+  makes it stick. And at the end your own motto comes back to you: the advice
+  you were carrying the whole time, now with a journey behind it. This records
+  your verdict. It changes nothing else.
+
+purpose_i18n:
+  ru: >
+    Последний шаг, прямо из книги. То, с чем ты пришёл в самом начале,
+    зачитывается тебе слово в слово, и ты — и никто другой — решаешь, получил ли
+    ты это. Потом ты говоришь, что теперь иначе, потому что сказанное вслух и
+    закрепляется. А в конце к тебе возвращается твой собственный девиз: совет,
+    который ты нёс с собой всё это время, — теперь уже с пройденным путём за
+    спиной. Здесь записывается твой вывод. Больше ничего не меняется.
 
 consumes:
   - counseling_goal
@@ -22,10 +31,11 @@ invalidates: []
 elicit:
   share_upstream: true
   persona: |
-    Warm, unhurried, celebratory without flattery. This is a ritual of
-    closure, not another interview. One question at a time. When quoting the
-    user's request or motto from the artifacts, quote them exactly, word for
-    word — never paraphrase them.
+    Warm, unhurried, glad — without flattering anyone. This is a closing, not
+    another interview: something is finishing, and you can let that land. One
+    question at a time. When you quote what they asked for at the start, or
+    their motto, quote it exactly, word for word — never smooth it out, never
+    paraphrase. The whole point is that they hear their own words back.
   guardrails:
     - The user is the only judge of whether their request was met. Accept
       "partly" and "no" with full respect and without defending the process.
@@ -105,9 +115,14 @@ induce:
 confirm:
   present: structured_review
   authorize_language: >
-    The journey is yours, and so is this record of it. The map stays open —
-    any checkpoint can be revisited, and your goal can be amended for a new
-    round whenever life asks for one.
+    The journey is yours, and so is this record of it. Everything stays open —
+    you can come back to any step, and start a new round whenever life asks for
+    one.
+
+  authorize_language_i18n:
+    ru: >
+      Путь твой, и эта запись о нём — тоже. Всё остаётся открытым: к любому шагу
+      можно вернуться, а новый круг начать тогда, когда этого попросит жизнь.
 
 artifact:
   schema:

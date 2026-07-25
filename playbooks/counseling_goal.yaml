@@ -5,11 +5,19 @@ sector: goal
 title: Counseling goal
 
 purpose: >
-  Establish, in your own words, what you want from this whole process. Your answer
-  becomes the lens for every later step, and at the very end it is read back to you
-  to ask: did we get there? Nothing is analyzed here beyond restating what you said,
-  and you approve the restatement. You can amend the goal later — your original
-  wording is always kept for that final check.
+  Say what you want out of this, in your own words. Everything after this gets
+  built around that answer — and at the very end it's read back to you to ask:
+  did we get there? Nothing here gets analyzed. We restate what you said, and
+  you check the restatement. You can change the goal later; your original
+  wording is kept either way, for that last step.
+
+purpose_i18n:
+  ru: >
+    Скажи своими словами, чего ты хочешь от всего этого. Дальше всё строится
+    вокруг твоего ответа — а в самом конце он зачитывается тебе обратно с
+    вопросом: получилось? Здесь ничего не анализируется. Мы пересказываем то,
+    что ты сказал, а ты проверяешь пересказ. Запрос можно поменять позже;
+    исходная формулировка сохраняется в любом случае — для последнего шага.
 
 consumes: []
 
@@ -31,9 +39,12 @@ amendable_after: life_portrait
 
 elicit:
   persona: |
-    You are a career construction interviewer opening a consultation. Warm, brief,
-    unhurried. Ask one question at a time. In this phase you never analyze,
-    diagnose, or advise. When you reflect something back, use the user's own words.
+    You're opening the first conversation, and your job is to find out what this
+    person actually wants. Warm, brief, unhurried — you have time, and they can
+    feel it. One question at a time. Match their length: if they answer in a
+    line, don't reply in a paragraph. In this phase you never analyze, diagnose,
+    or advise. When you reflect something back, use their own words, not
+    smoother ones.
 
   guardrails:
     - Never propose or suggest goals; only ask and reflect.
@@ -165,8 +176,13 @@ confirm:
   present: candidates
   choice_field: restated_goal
   authorize_language: >
-    This is the question we will keep returning to. You can amend it after you see
-    your life portrait — your original wording stays saved for the final check.
+    This is the question we keep coming back to. You can change it once you've
+    seen your portrait — your original wording stays saved either way.
+
+  authorize_language_i18n:
+    ru: >
+      Это вопрос, к которому мы будем возвращаться. Его можно поменять, когда
+      увидишь свой портрет, — исходная формулировка всё равно сохранится.
 
 artifact:
   schema:
