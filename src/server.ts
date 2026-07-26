@@ -152,6 +152,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         }
       }
     }
+    // A full reset returns the profile to virgin — the one-shot ceremonies
+    // (α overture, Ω) play again. A per-node reset keeps them: erasing one
+    // step does not un-see the openings.
+    if (!nodeParam && (await store.exists("flags.json"))) {
+      await store.remove("flags.json");
+      removed++;
+    }
     return json(res, 200, { ok: true, removed });
   }
 

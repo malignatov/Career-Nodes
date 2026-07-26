@@ -729,16 +729,31 @@ test("Σ holds back while a story is still untold", async () => {
   expect(!debug().ov, "the field must not be withheld yet");
 });
 
-test("Σ never rises from a reload — six told, page opened fresh, quiet field", async () => {
-  // The moment belongs to the session where the sixth weave happened. A page
-  // opened later with six done has a client who already moved on.
+test("Σ returns on every open while How-you-see-it waits", async () => {
+  // Σ is state, not memory: six told and the first composed bead unwoven
+  // means the moment still stands — a reload walks back into it.
   const statuses = DEFS.map((_, i) => (i <= 5 ? "authorized" : i === 6 ? "available" : "planned"));
   const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
   render(ctx);
   await sleep(400);
   const layer = $(".br-alpha");
-  expect(!layer || layer.hidden, "Σ rose from stored state on a reload");
-  expect(!debug().ov, "the field is withheld on a plain reload");
+  expect(layer && !layer.hidden && debug().ov && debug().ovKind === "sigma",
+    "Σ must rise again on a reload while the first composed bead waits");
+  expect($('[data-ao="lead"]').textContent === t("braid_sigma_lead"), "wrong copy on the reload path");
+});
+
+test("Σ stays gone once How-you-see-it is woven", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 6 ? "authorized" : i === 7 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(400);
+  // (A fresh page would have no layer at all; in the harness the previous
+  // scenario's Σ is still up, so this render must retire it — the 1.5s fade
+  // is still running at this point, so ask the state and the opacity.)
+  expect(!debug().ov, "the field is quiet once the reading has begun");
+  const layer = $(".br-alpha");
+  expect(!layer || layer.hidden || layer.style.opacity === "0",
+    "Σ must not return after the first composed bead is woven");
 });
 
 test("Σ fires on the weave that completes the telling, and the next weave retires it", async () => {
@@ -756,7 +771,6 @@ test("Σ fires on the weave that completes the telling, and the next weave retir
   er.done("authorized");
   await sleep(6200);
   expect(debug().ov && debug().ovKind === "sigma", `Σ should be up after the sixth weave: ${JSON.stringify({ ov: debug().ov, kind: debug().ovKind })}`);
-  expect(debug().ovHold, "Σ withholds the bead's chrome while it speaks");
   const layer = $(".br-alpha");
   expect(layer && !layer.hidden, "the layer never showed");
   expect($('[data-ao="lead"]').textContent === t("braid_sigma_lead"),
@@ -771,6 +785,28 @@ test("Σ fires on the weave that completes the telling, and the next weave retir
     `a woven thread dimmed under Σ: ${woven.style.opacity}`);
   expect(planned.style.opacity === "0.16" || planned.style.opacity === ".16",
     `a loose thread should lift to .16: ${planned.style.opacity}`);
+
+  // The wake releases the hold — Σ's copy stands left of the field and the
+  // bead's name rises beside it. Half a screen fits both.
+  await sleep(5200);
+  expect(debug().ovWake && !debug().ovHold, "the wake should release Σ's hold");
+  {
+    const cv = $(".br-live"), g = cv.getContext("2d");
+    const seen = [];
+    const orig = g.fillText.bind(g);
+    g.fillText = function (txt, x, ...rest) {
+      if (typeof txt === "string" && /How|you|see/.test(txt)) {
+        seen.push(g.textAlign === "right" ? x - g.measureText(txt).width : x);
+      }
+      return orig(txt, x, ...rest);
+    };
+    const t0 = performance.now();
+    for (let k = 0; k < 60; k++) window.Braid._frame(t0 + k * 40);
+    g.fillText = orig;
+    expect(seen.length > 0, "the waking bead's name never rose beside Σ");
+    // …and on the empty right half, not through Σ's column (ends ≈ x 368).
+    expect(Math.min(...seen) > 370, `the name ran into Σ's copy: left edge ${Math.min(...seen).toFixed(0)}`);
+  }
 
   // The invitation leads to the step that composes itself.
   $('[data-ao="begin"]').click();
@@ -837,6 +873,26 @@ test("the waking name stays on its canvas — wrapped into the room the session 
   expect(maxRight <= 900, `the name ran off the right: ${maxRight.toFixed(1)}`);
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await sleep(300);
+});
+
+test("α plays for a fresh profile even after another journey's moments", async () => {
+  // One journey stands mid-Σ…
+  const s1 = DEFS.map((_, i) => (i <= 5 ? "authorized" : i === 6 ? "available" : "planned"));
+  const a = makeCtx(makeJourney(s1, { overture_done: true }));
+  render(a.ctx);
+  await sleep(300);
+  expect(debug().ov && debug().ovKind === "sigma", "precondition: Σ up on the first profile");
+
+  // …and a brand-new profile must still get its overture. The moment state
+  // lives in the module, and it used to travel: a fresh journey booted with
+  // the old one's "already played" and showed nothing at all.
+  const b = makeCtx(makeJourney(DEFS.map(() => "planned"), {}));
+  b.ctx.profile = "fresh-" + Math.floor(performance.now());
+  render(b.ctx);
+  await sleep(300);
+  expect(debug().ov && debug().ovKind === "alpha",
+    `α must open on the fresh profile: ${JSON.stringify({ ov: debug().ov, kind: debug().ovKind })}`);
+  expect($('[data-ao="lead"]').textContent === t("braid_alpha_lead"), "the fresh profile got the wrong copy");
 });
 
 test("the authorize ceremony: travel wireframe, solidify, promoted next bead, resync", async () => {

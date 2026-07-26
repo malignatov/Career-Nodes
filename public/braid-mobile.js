@@ -663,12 +663,19 @@ window.BraidM = (() => {
     });
   }
 
-  /** α releases the withhold on wake; Σ holds it — its copy stands where the
-   *  focused caption would land, and two voices in one place is one too many. */
-  const ovHoldM = () => M.ov && !M.sess && (!M.ovWake || M.ovKind === "sigma");
+  /** Both moments release on wake; a session drops the hold outright. */
+  const ovHoldM = () => M.ov && !M.sess && !M.ovWake;
 
   /** The first step that composes itself instead of being told. */
   const firstDerivedM = () => M.nodes.findIndex((n) => n.kind === "derived");
+
+  /** Σ stands while the telling is done and the first composed bead is not. */
+  function sigmaDueM() {
+    const d = firstDerivedM();
+    if (d <= 0 || M.omega) return false;
+    return M.nodes.slice(0, d).every((n) => M.ctx.isSettled(n.status))
+      && !M.ctx.isSettled(M.nodes[d].status) && M.status[d] !== "done";
+  }
 
   function overtureOpenM(kind) {
     M.ovKind = kind;
@@ -730,8 +737,7 @@ window.BraidM = (() => {
       a.style.opacity = "0";
       setTimeout(() => { a.hidden = true; }, 1400);
     }
-    if (M.ovKind === "sigma") M.sgDone = true; // in-memory: Σ never persists
-    else M.ctx?.setFlag?.("overture_done");
+    if (M.ovKind !== "sigma") M.ctx?.setFlag?.("overture_done");
   }
 
   function omegaLayoutM() {
@@ -886,11 +892,13 @@ window.BraidM = (() => {
       const nx = Math.min(M.nodes.length - 1, j + 1);
       if (nx !== M.focus || M.pendNext != null) setFocus(nx); else layout();
       M.glideDur = null;
-      // Σ fires on the weave that completes the telling — live, in-memory,
-      // never resurrected by a reload. Only an interview weave lights it.
-      if (!M.sgDone && !M.omega) {
+      // Σ fires the moment the weave completes the telling; the boot rule
+      // re-raises it on any later open until the first composed bead weaves.
+      if (!M.ov) {
         const d = firstDerivedM();
-        if (d > 0 && j < d && M.status.slice(0, d).every((st) => st === "done")) overtureOpenM("sigma");
+        if (d > 0 && j < d && M.status.slice(0, d).every((st) => st === "done") && M.status[d] !== "done") {
+          overtureOpenM("sigma");
+        }
       }
     }, 3600);
   }
@@ -1540,8 +1548,17 @@ window.BraidM = (() => {
     // α/Ω boot — mirrors the desktop braid.
     const flags = ctx.journey.flags ?? {};
     M.omDone = Boolean(flags.omega_done);
-    if (!flags.overture_done && ctx.journey.authorized === 0 && !M.ovDone && !M.ov) overtureOpenM("alpha");
+    if (M.ovProfile !== ctx.profile) { // per-journey moments, module state
+      M.ovProfile = ctx.profile;
+      M.ov = false; M.ovDone = false; M.ovKind = "alpha";
+      clearTimeout(M.timers.aoWake);
+      const oa = M.strip && M.strip.querySelector(".bm-alpha");
+      if (oa) { oa.hidden = true; oa.style.opacity = "0"; }
+    }
+    if (!flags.overture_done && ctx.journey.authorized === 0 && !M.ov) overtureOpenM("alpha");
     else if (M.ov && M.ovKind === "alpha" && ctx.journey.authorized > 0) aoDismissM();
+    else if (M.ov && M.ovKind === "sigma" && !sigmaDueM()) aoDismissM(); // woven meanwhile
+    else if (!M.ov && sigmaDueM()) overtureOpenM("sigma");
     if (rebuild && M.omega) omegaLayoutM();
   }
 

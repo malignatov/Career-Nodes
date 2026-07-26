@@ -1334,13 +1334,14 @@
       // linear map makes the optimism safe; the resync confirms it.
       J.pendingNext = J.pendingNext ?? Math.min(J.nodes.length - 1, i + 1);
       setFocus(J.pendingNext);
-      // Σ fires HERE, on the weave that completes the telling — a live
-      // moment, not a stored one. Only an interview weave can light it
-      // (i < firstDerived), it latches in memory alone, and a page opened
-      // later with six done boots quiet: whoever reloads has moved on.
-      if (!J.sgDone && !J.omega) {
+      // Σ fires HERE, the moment the weave completes the telling — and the
+      // boot rule re-raises it on any later open until the first composed
+      // bead is woven.
+      if (!J.ov) {
         const d = firstDerived();
-        if (d > 0 && i < d && J.status.slice(0, d).every((st) => st === "done")) overtureOpen("sigma");
+        if (d > 0 && i < d && J.status.slice(0, d).every((st) => st === "done") && J.status[d] !== "done") {
+          overtureOpen("sigma");
+        }
       }
       // ALWAYS resync after a weave: the authorize changed server state even
       // when no already-known step wakes — the step this one just unlocked
@@ -1405,17 +1406,30 @@
   /* ══ α / Ω — the overture and the closing ceremony ════════ */
 
   /**
-   * While the copy speaks, the bead keeps only its material — no plaque, no
-   * caption, no aura. α releases that on wake, five seconds in. Σ holds it
-   * for as long as it is up: its column stands exactly where the caption
-   * would land, and two voices in one place is one too many. A session
-   * releases the hold — the layer is CSS-hidden there, and the bead the
-   * client is talking to needs its name back.
+   * While the copy arrives, the bead keeps only its material — no plaque, no
+   * caption, no name. Both moments release on wake, five seconds in: the
+   * copy stands left of the field, the name rises at the bead, and there is
+   * room for both. A session drops the hold outright — the layer is
+   * CSS-hidden there, and the bead the client is talking to needs its name.
    */
-  const ovHold = () => J.ov && !J.sess && (!J.ovWake || J.ovKind === "sigma");
+  const ovHold = () => J.ov && !J.sess && !J.ovWake;
 
   /** The first step that composes itself instead of being told. */
   const firstDerived = () => J.nodes.findIndex((n) => n.kind === "derived");
+
+  /**
+   * Σ stands whenever the telling is finished and the first composed bead is
+   * not yet woven — on the live weave that completes the six, and on every
+   * later open of the page until "How you see it" is authorized. Weaving
+   * anything dismisses the layer for the ceremony; this rule brings it back
+   * as long as it still holds.
+   */
+  function sigmaDue() {
+    const d = firstDerived();
+    if (d <= 0 || J.omega) return false;
+    return J.nodes.slice(0, d).every((n) => J.ctx.isSettled(n.status))
+      && !J.ctx.isSettled(J.nodes[d].status) && J.status[d] !== "done";
+  }
 
   /**
    * The copy takes the field. α opens on a virgin braid, Σ when the telling
@@ -1482,9 +1496,6 @@
     if (J.ovDone) return;
     J.ovDone = true;
     J.ov = false;
-    if (J.ovKind === "sigma") J.sgDone = true; // an in-memory latch — Σ is a
-    // live moment: the next weave retires it, and a reload simply never
-    // brings it back. Only α persists a flag.
     if (J.stage) delete J.stage.dataset.sig;
     clearTimeout(J.timers.aoWake);
     const a = J.strip && J.strip.querySelector(".br-alpha");
@@ -1629,10 +1640,25 @@
     startTick();
     // α/Ω boot: a virgin journey opens on the overture (once, ever); a
     // completed one remembers the ceremony already played.
+    // The moments are PER JOURNEY, but this state lives in the module: a
+    // profile switch must not carry one journey's "already played" into the
+    // next — that is how a fresh profile booted with no overture at all.
+    if (J.ovProfile !== ctx.profile) {
+      J.ovProfile = ctx.profile;
+      J.ov = false; J.ovDone = false; J.ovKind = "alpha";
+      clearTimeout(J.timers.aoWake);
+      if (J.stage) delete J.stage.dataset.sig;
+      const oa = J.strip && J.strip.querySelector(".br-alpha");
+      if (oa) { oa.hidden = true; oa.style.opacity = "0"; }
+    }
     const flags = ctx.journey.flags ?? {};
     J.omDone = Boolean(flags.omega_done);
-    if (!flags.overture_done && ctx.journey.authorized === 0 && !J.ovDone && !J.ov) overtureOpen("alpha");
+    // No !J.ovDone here: with the flag unset and nothing woven the journey IS
+    // virgin — a full reset in the same page-life replays the overture.
+    if (!flags.overture_done && ctx.journey.authorized === 0 && !J.ov) overtureOpen("alpha");
     else if (J.ov && J.ovKind === "alpha" && ctx.journey.authorized > 0) aoDismiss(); // authorized elsewhere
+    else if (J.ov && J.ovKind === "sigma" && !sigmaDue()) aoDismiss(); // woven meanwhile
+    else if (!J.ov && sigmaDue()) overtureOpen("sigma");
     if (rebuild && J.omega) omegaLayout(); // a rebuild mid-rest re-applies the terminal camera
   }
 
@@ -1884,7 +1910,9 @@
       const sc1 = nameStation(true, true, r).scale;
       const availL = Math.floor((cx - 26 - 6 - clear) / sc1); // base-font px
       const availR = Math.floor((894 - cx - 26 - clear) / sc1);
-      let side = J.sess ? false : !!w.flip;
+      // While an overture's copy owns the left of the field, the name takes
+      // the right shoulder — the empty half — unless it truly has no room.
+      let side = J.sess ? false : J.ov ? true : !!w.flip;
       let room = side ? availR : availL;
       const need = Math.min(300, Math.ceil(lg.measureText(w.title).width));
       if (room < need) {
