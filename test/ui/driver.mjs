@@ -89,7 +89,12 @@ function makeCtx(journey) {
   return { ctx, spies };
 }
 
-const render = (ctx) => window.Braid.renderJourney(root, ctx);
+const render = (ctx) => {
+  // app.js does this in the real client, and it matters: style.css lays the
+  // journey out as a centred 900px card list until `braid-on` releases it.
+  root.classList.add("braid-on");
+  window.Braid.renderJourney(root, ctx);
+};
 const debug = () => window.Braid._debug();
 const core = (i) => $(`.br-node[data-i="${i}"] [data-core]`);
 
@@ -505,7 +510,11 @@ test("the readout reads as people, then the pattern about all of them", async ()
     draft: {
       models: [
         { name: "Archangel Michael", named_order: 1,
-          descriptors: [{ text: "strong", spoken_order: 2 }, { text: "Benevolent", spoken_order: 1 }],
+          descriptors: [
+            { text: "strong", spoken_order: 2 },
+            { text: "Benevolent", spoken_order: 1 },
+            { text: "always committed to protect people and give them space to realize themselves, prevent to fall into the abyss", spoken_order: 3 },
+          ],
           similarities: ["I am also can be counted on"], differences: ["I am more social"] },
         { name: "J.S. Bach", named_order: 2, descriptors: [{ text: "so emotional and honest" }],
           similarities: ["Try to be honest always"], differences: [] },
@@ -537,10 +546,25 @@ test("the readout reads as people, then the pattern about all of them", async ()
   // Every descriptor is its own chip, in the order it was spoken, and the
   // word said first about the first model is found by its TEXT.
   const chips = [...cards[0].querySelectorAll(".rm-chip")];
-  expect(chips.length === 2, `want a chip per descriptor, got ${chips.length}`);
+  expect(chips.length === 3, `want a chip per descriptor, got ${chips.length}`);
   expect(chips[0].textContent.includes("Benevolent"), `chips ignored spoken_order: ${chips.map((c) => c.textContent)}`);
   expect(chips[0].classList.contains("is-primacy"), "the said-first word is not marked on its chip");
   expect(!chips[1].classList.contains("is-primacy"), "a second chip was marked too");
+
+  // A descriptor can be a word or a sentence, so a chip's SIZE varies — its
+  // corner must not. A pill radius clamps to half the height and would curve
+  // the wrapped chip twice as hard as the one beside it.
+  // Measure the corner the browser DRAWS, not the one declared: a radius
+  // larger than half the box is clamped to half, which is exactly how a pill
+  // ends up with a different curve on every line count.
+  const corner = (c) => {
+    const { width, height } = c.getBoundingClientRect();
+    return Math.round(Math.min(parseFloat(getComputedStyle(c).borderTopLeftRadius), height / 2, width / 2));
+  };
+  const radii = new Set(chips.map(corner));
+  const heights = new Set(chips.map((c) => Math.round(c.getBoundingClientRect().height)));
+  expect(heights.size > 1, "this only means something when the chips are different sizes");
+  expect(radii.size === 1, `chips disagree on their corner: ${[...radii].join("px | ")}px`);
 
   // Like you / Unlike you, and a paraphrase flagged once — by its tag.
   const labs = [...cards[0].querySelectorAll(".dr-rowlab")].map((e) => e.textContent);
@@ -620,7 +644,6 @@ test("starting a step over asks twice before it erases anything", async () => {
 
 test("the document never scrolls out from under the braid", async () => {
   const { ctx } = makeCtx(makeJourney(DEFS.map(() => "planned"), { overture_done: true }));
-  root.classList.add("braid-on"); // app.js does this in the real client
   render(ctx);
   await sleep(200);
   // PageDown once carried the whole field away (the page scrolled beneath it)

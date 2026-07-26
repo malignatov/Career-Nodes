@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <title>Braid UI tests</title>
   <!-- Real field styles: material classes, recession rules, loader keyframes. -->
+  <!-- Both sheets, in the order index.html loads them: the readout and the
+       entity blocks live in style.css, and braid.css lands last on purpose. -->
+  <link rel="stylesheet" href="../../public/style.css" />
   <link rel="stylesheet" href="../../public/braid.css" />
   <style>html, body { margin: 0; } #journey { width: 1280px; height: 800px; position: relative; }</style>
 </head>

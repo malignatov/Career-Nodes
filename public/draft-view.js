@@ -186,8 +186,7 @@ export function makeRenderer(ctx) {
           // The primacy chip is found by its TEXT on the first-named model —
           // never by position, which drifts the moment an amend reorders them.
           const sage = first && text === primacy ? " is-primacy" : "";
-          const long = text.length > 48 ? " is-long" : "";
-          return `<span class="rm-chip${sage}${long}">${quotedText(text, quotes, warnings)}</span>`;
+          return `<span class="rm-chip${sage}">${quotedText(text, quotes, warnings)}</span>`;
         }).join("")}</div>`);
       }
 

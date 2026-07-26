@@ -591,14 +591,15 @@ body:has(#scrim:not([hidden])) {
 
   /* Each descriptor is its own chip — never a comma-joined paragraph. */
   .rm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  /* One corner for every chip. A descriptor can be a single word or a whole
+     sentence, so the chip's SIZE varies — but a pill radius (99px) clamps to
+     half the height, which would curve a wrapped chip twice as hard as its
+     neighbour. A fixed radius keeps the family looking like one thing. */
   .rm-chip {
     font: 500 15px/1.45 Lora, serif; color: var(--dr-chip-ink);
     background: var(--dr-chip-bg); border: 1px solid var(--dr-card-bd);
-    border-radius: 99px; padding: 7px 15px; text-wrap: pretty;
+    border-radius: 18px; padding: 7px 15px; text-wrap: pretty;
   }
-  /* A descriptor can be a whole sentence. It stays a chip and wraps — the
-     corner just relaxes; authorized content is never truncated. */
-  .rm-chip.is-long { border-radius: 16px; line-height: 1.45; }
   /* The word said first about the first model, matched by its text. */
   .rm-chip.is-primacy {
     color: var(--dr-sage-ink); background: var(--dr-sage-bg); border-color: var(--dr-sage-bd);
