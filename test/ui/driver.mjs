@@ -450,7 +450,17 @@ test("the authorize ceremony: travel wireframe, solidify, promoted next bead, re
   await sleep(200);
   $("[data-review] [data-auth]").dispatchEvent(new MouseEvent("click", { bubbles: true }));
   surface.done("authorized"); // t0; seal 1.4s + 350ms stagger → weave starts ≈ t0+1.75s
+  // The words stay ON the node while the weave carries it: sample the gap all
+  // the way through the travel, not just once it has settled.
+  const gapNow = () => {
+    const x = (sel) => new DOMMatrixReadOnly(getComputedStyle($(sel)).transform).m41;
+    return Math.abs(x(".br-plaque") - x('.br-node[data-i="2"]'));
+  };
+  let worstGap = 0;
+  const watch = setInterval(() => { worstGap = Math.max(worstGap, gapNow()); }, 90);
   await sleep(2600); // mid-travel (weave+0.85s)
+  clearInterval(watch);
+  expect(worstGap < 6, `the caption came ${worstGap.toFixed(1)}px away from its node during the weave`);
   let d = debug();
   expect(d.merge, "ceremony merge state missing during travel");
   expect(d.status.split(",")[2] === "done", "status must flip to done at t=0");

@@ -835,37 +835,41 @@
         const handoff = (J.wasWake === j) !== (st === "next");
         // The box rides the node; the name moves only relative to it.
         const lny = nodeYf(j);
+        // The box always rides its own node, on the node's own clock — that is
+        // what keeps a name attached while a ceremony carries the bead.
         const lx = withGrav(baseX(j, lny), lny, anchor);
-        if (handoff && st !== "next" && J.lastAmp) {
-          // Take the name back exactly where the canvas was holding it —
-          // mid-sway — then let it settle to rest instead of snapping there.
-          l.style.transition = "none";
-          l.style.transform = `translate(${(lx + J.lastAmp).toFixed(1)}px, ${lny.toFixed(1)}px)`;
-          void l.offsetWidth;
-        }
         l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
         l.style.transform = `translate(${lx.toFixed(1)}px, ${lny.toFixed(1)}px)`;
         // In session the chat owns the right of the field, so the name
         // takes the other side of its sphere rather than colliding with it.
         const ns = nameStation(active, J.sess ? false : lp.right, nodeR(j));
-        span.style.transition = instant || handoff ? "none" : "";
-        span.style.transformOrigin = ns.origin;
-        span.style.transform = `translate(${ns.dx}px, ${ns.dy}px) scale(${ns.scale})`;
-        span.style.textAlign = ns.align;
-        // Future phases recede: their labels dim further — the field's
-        // stage structure is carried by depth, not by signposts. During the
-        // overture every label steps back so the copy can speak.
-        span.style.opacity = ((active ? 1 : lp.opacity)
+        const station = `translate(${ns.dx}px, ${ns.dy}px) scale(${ns.scale})`;
+        // Future phases recede: their labels dim further — the field's stage
+        // structure is carried by depth, not by signposts. During the overture
+        // every label steps back so the copy can speak. A waking step shows
+        // nothing here at all: the canvas is holding its name.
+        const op = st === "next" ? "0" : ((active ? 1 : lp.opacity)
           * (J.nodes[j].sector > curSector ? 0.45 : 1)
           * (J.ov && !J.ovWake ? 0.3 : 1)).toFixed(2);
+        span.style.transformOrigin = ns.origin;
+        span.style.textAlign = ns.align;
         span.style.color = active ? "var(--t4ink2)"
           : st === "done" ? "var(--t4lab1)" : st === "next" ? "var(--t4lab2)" : "var(--t4lab3)";
-        // The waking node oscillates, so a DOM name pinned to its resting
-        // place drifts out from under it. Its name rides the sway on the
-        // canvas instead; the box stays as the click target, invisible.
-        if (st === "next") {
-          span.style.opacity = "0";
+        if (handoff) {
+          // Ownership changes in ONE frame: no fade beside the copy that has
+          // already arrived, and the name is taken back exactly where the
+          // canvas was holding it — the sway offset rides the SPAN, so
+          // absorbing it never fights the node's own travel underneath.
+          span.style.transition = "none";
+          span.style.transform = st !== "next" && J.lastAmp
+            ? `translate(${(ns.dx + J.lastAmp).toFixed(1)}px, ${ns.dy}px) scale(${ns.scale})`
+            : station;
+          span.style.opacity = op;
+          void span.offsetWidth;
         }
+        span.style.transition = instant ? "none" : "";
+        span.style.transform = station;
+        span.style.opacity = op;
         if (handoff) { void span.offsetWidth; span.style.transition = ""; } // commit, then let motion resume
       }
     }
@@ -918,8 +922,30 @@
     const capCanvas = fst === "next";
     const capHandoff = J.wasCapCanvas !== capCanvas;
     J.wasCapCanvas = capCanvas;
-    plaque.style.transition = capHandoff ? "none" : "opacity .5s ease";
-    nimbus.style.transition = capHandoff ? "none" : "opacity .5s ease";
+    // Travelling BETWEEN nodes was the ghost; travelling WITH its own node is
+    // what keeps the caption attached while a weave carries the node across.
+    const focusMoved = J.prevFocus !== J.focus;
+    J.prevFocus = J.focus;
+    const ride = focusMoved ? "" : `transform ${tm.dur} ${tm.ease}, `;
+    if (capHandoff && focusPos) {
+      // Land on the node where it stands RIGHT NOW, not where it is headed:
+      // jumping to the destination left the caption waiting there while the
+      // weave was still carrying the bead across.
+      const fnd = J.strip.querySelector(`.br-node[data-i="${J.focus}"]`);
+      const cm = fnd && new DOMMatrixReadOnly(getComputedStyle(fnd).transform);
+      if (cm) {
+        const here = `translate(${cm.m41.toFixed(1)}px, ${cm.m42.toFixed(1)}px)`;
+        plaque.style.transition = "none";
+        nimbus.style.transition = "none";
+        plaque.style.transform = here;
+        nimbus.style.transform = here;
+        void plaque.offsetWidth;
+      }
+    }
+    // opacity 0s at a hand-off (no fade beside the copy that already arrived),
+    // but the transform still rides the node it belongs to.
+    plaque.style.transition = `${ride}opacity ${capHandoff ? "0s" : ".5s ease"}`;
+    nimbus.style.transition = `${ride}opacity ${capHandoff ? "0s" : ".5s ease"}`;
     // The caption belongs to its node, so it hangs off the node's REAL
     // position — anchor.nx is the raw pre-gravity value and sits ~40px away,
     // which is exactly how far the caption jumped when the canvas (which
