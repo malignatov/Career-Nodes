@@ -5,9 +5,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { distill } from "../src/journey.ts";
+import { distill, nodeStatus } from "../src/journey.ts";
 import { reconstructManualAnswers } from "../src/manual.ts";
 import type { ExchangeEntry, Playbook } from "../src/types.ts";
+import type { Storage } from "../src/storage.ts";
 
 test("distill: role models join names in order", () => {
   const parts = distill("role_models", { models: [{ name: "Lincoln" }, { name: "Edison" }, {}] });
@@ -80,4 +81,42 @@ test("manual reconstruction skips amend turns — an amended artifact stays edit
     { speaker: "interviewer", text: "Softened — anything else?", phase: "amend" },
   ];
   assert.deepEqual(reconstructManualAnswers(PB, ex), { s1: "answer one" });
+});
+
+/* ── the interview is never locked ───────────────────────── */
+
+const emptyStore = () => ({
+  read: async () => null,
+  write: async () => {},
+  exists: async () => false,      // nothing authorized yet: a virgin journey
+  remove: async () => {},
+  list: async () => [],
+} as unknown as Storage);
+
+const pb = (id: string, kind: string, sector: string, consumes: string[]): Playbook =>
+  ({ id, kind, sector, consumes, invalidates: [], version: "0", title: id, purpose: "" }) as unknown as Playbook;
+
+const BOOK: Record<string, Playbook> = {
+  counseling_goal: pb("counseling_goal", "conversation", "goal", []),
+  role_models: pb("role_models", "conversation", "interview", ["counseling_goal"]),
+  motto: pb("motto", "conversation", "interview", ["counseling_goal"]),
+  perspective: pb("perspective", "derived", "induction", ["early_recollections", "counseling_goal"]),
+  closing_check: pb("closing_check", "conversation", "action", ["counseling_goal", "motto"]),
+};
+
+test("nodeStatus: any interview question opens before the goal is authorized", async () => {
+  const store = emptyStore();
+  const look = (id: string) => BOOK[id] ?? null;
+  // A client who arrives wanting to talk about their heroes is not turned away.
+  assert.equal(await nodeStatus("role_models", store, look), "available");
+  assert.equal(await nodeStatus("motto", store, look), "available");
+  assert.equal(await nodeStatus("counseling_goal", store, look), "available");
+});
+
+test("nodeStatus: derived steps and the closing check still wait for their sources", async () => {
+  const store = emptyStore();
+  const look = (id: string) => BOOK[id] ?? null;
+  // These compose from, or read back, words that do not exist yet.
+  assert.equal(await nodeStatus("perspective", store, look), "planned");
+  assert.equal(await nodeStatus("closing_check", store, look), "planned");
 });

@@ -730,7 +730,11 @@
     // ~14px gap from node center; flip to the in-frame side; clamp inside the
     // 900-wide field so no name leaves the frame.
     const LW = 180, FW = 900;
-    let right = nx < 450;
+    // The name prefers the LEFT of its sphere, reading right-aligned into it
+    // (the field's original hand). It only takes the right shoulder when the
+    // frame's edge would cut it off — half the field was too eager a rule,
+    // and pushed near-centre nodes like the goal onto their crowded side.
+    let right = nx < 366;
     let lx = right ? nx + 14 : nx - 194;
     if (!right && lx < 12) { right = true; lx = nx + 14; }
     else if (right && lx + LW > FW - 12) { right = false; lx = nx - 194; }

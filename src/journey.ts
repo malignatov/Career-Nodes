@@ -57,6 +57,12 @@ export async function nodeStatus(id: string, store: Storage, playbooks: Playbook
   if (await store.exists(`${id}.draft.json`)) return "in_progress";
   const pb = playbooks(id);
   if (!pb) return "planned";
+  // The interview is never locked. Its five questions each consume only the
+  // goal, and the goal shapes how a story is READ, not whether it can be
+  // told — a client who arrives wanting to talk about their heroes should
+  // not be turned away. (closing_check is a conversation too, but it waits:
+  // it reads the client's own goal and motto back to them, word for word.)
+  if (pb.kind === "conversation" && pb.sector === "interview") return "available";
   if (pb.consumes.length > 0) {
     // The goal is context, not source material — it never gates derived nodes.
     const sources = pb.kind === "conversation" ? pb.consumes : pb.consumes.filter((d) => d !== "counseling_goal");
