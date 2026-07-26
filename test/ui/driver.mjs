@@ -124,8 +124,11 @@ test("node statuses paint their materials, phases recede, counter reads the stag
   expect(core(5).__c === "wlo", `planned core is ${core(5).__c}, want wlo`);
   expect($('.br-node[data-i="8"]').classList.contains("br-future"), "later-phase node lacks br-future");
   expect(!$('.br-node[data-i="4"]').classList.contains("br-future"), "current-phase node wrongly br-future");
-  const conv = $('.br-label[data-i="3"]').textContent;
-  expect(conv.includes(t("unlocks_after", "What you're into")), `conversation sub wrong: ${conv}`);
+  // Only derived steps explain their wait; an interview step never claims a
+  // step above it, because it depends on the goal alone.
+  const conv = $('.br-label[data-i="3"]');
+  expect(!conv.querySelector(".br-label-sub"), `interview step must not carry a lock line: ${conv.textContent}`);
+  expect(conv.textContent.trim() === "Your favorite story", `interview label should be the name alone: ${conv.textContent}`);
   const der = $('.br-label[data-i="6"]').textContent;
   expect(der.includes(t("derived_sub")), `derived sub wrong: ${der}`);
   expect($('.br-label[data-i="0"]').textContent.trim() === "What you're here for", "done label should be title only");
@@ -292,6 +295,74 @@ test("alternative wordings: selection replaces the original, survives the click,
   // close without the ceremony: the engine never confirmed, so just exit
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await sleep(300);
+});
+
+test("a stray click never costs work: unsent words hold the session, and outlive leaving it", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(400);
+  const id = "favorite_media";
+  try { localStorage.removeItem(`cc_draft_${id}`); } catch { /* ignore */ }
+  const surface = await openAndCapture(ctx, id);
+  surface.ask("you");
+  await sleep(150);
+
+  // A click on the bare field, mid-thought, must not close the interview.
+  const inp = $(".br7-input");
+  inp.value = "my grandfather, who fixed everything himself";
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  const strip = $(".br-strip");
+  strip.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 40, clientY: 400 }));
+  await sleep(250);
+  expect(debug().lOpen, "a stray click discarded a session with unsent words in it");
+  expect($(".br7-input").value.includes("grandfather"), "the unsent words were lost");
+
+  // Paragraphs (Shift+Enter, or the counselor's own) must survive rendering.
+  surface.say("First paragraph.\n\nSecond paragraph.");
+  await sleep(150);
+  const bubble = $(".br7-say");
+  expect(bubble && bubble.textContent.includes("\n"), "the newline was lost before rendering");
+  expect(getComputedStyle(bubble).whiteSpace === "pre-line",
+    "chat bubbles collapse newlines — Shift+Enter paragraphs vanish on send");
+
+  // Leaving deliberately keeps the words for the return.
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  for (let i = 0; i < 20 && debug().sess; i++) await sleep(150); // the leave animation owns the field
+  await sleep(300);
+  expect(!debug().lOpen, "Escape must still leave the session");
+  let stored = null;
+  try { stored = localStorage.getItem(`cc_draft_${id}`); } catch { /* ignore */ }
+  expect(stored && stored.includes("grandfather"), `the draft was not kept for the return (${stored})`);
+
+  // …and an empty composer keeps the click-out affordance intact.
+  const surface2 = await openAndCapture(ctx, id);
+  surface2.ask("you");
+  await sleep(150);
+  const inp2 = $(".br7-input");
+  expect(inp2.value.includes("grandfather"), "the kept draft did not come back on reopen");
+  inp2.value = "";
+  inp2.dispatchEvent(new Event("input", { bubbles: true }));
+  $(".br-strip").dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 40, clientY: 400 }));
+  await sleep(400);
+  expect(!debug().lOpen, "with nothing at stake, clicking the field should still leave");
+});
+
+test("the document never scrolls out from under the braid", async () => {
+  const { ctx } = makeCtx(makeJourney(DEFS.map(() => "planned"), { overture_done: true }));
+  root.classList.add("braid-on"); // app.js does this in the real client
+  render(ctx);
+  await sleep(200);
+  // PageDown once carried the whole field away (the page scrolled beneath it)
+  // and the session read as empty until a restart.
+  expect(getComputedStyle(document.body).overflow === "hidden",
+    "body must be locked while the braid owns the viewport");
+  const before = document.documentElement.scrollTop;
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown", bubbles: true, cancelable: true }));
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }));
+  await sleep(200);
+  expect(document.documentElement.scrollTop === before,
+    `the page scrolled under the braid (${before} → ${document.documentElement.scrollTop})`);
 });
 
 test("the α overture: withheld field, wake on invitation, dismissal on first weave", async () => {

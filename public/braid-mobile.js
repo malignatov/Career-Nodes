@@ -538,7 +538,10 @@ window.BraidM = (() => {
     const gap = 40 + (fst === "next" ? 12 : 0);
     const title = q(".bm-title"), prompt = q(".bm-prompt");
     title.textContent = M.ctx.nodeTitle(focused);
-    if (focused.status === "planned" && f > 0) { // server truth, not paint state
+    // Server truth, not paint state — and only a DERIVED step is described as
+    // waiting: the interview steps hang on the goal alone, never on each
+    // other, so naming the step above them claimed an order that isn't there.
+    if (focused.status === "planned" && focused.kind === "derived" && f > 0) {
       prompt.innerHTML = `<span>${esc(M.ctx.nodeDesc(focused))}</span><span class="bm-locked">${esc(t("locked_unlocks_after", M.ctx.nodeTitle(M.nodes[f - 1])))}</span>`;
     } else {
       prompt.textContent = M.merge && M.merge.j === f && M.merge.phase === "solid"

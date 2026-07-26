@@ -439,7 +439,14 @@
           </div>
         </div>
         <button class="br7-exit"><span class="br7-exit-arrow">←</span> <span class="br7-exit-label"></span></button>
-        <button class="br7-info" title="Transparency">◎</button>
+        <!-- Drawn, not typed: the ◎ glyph's metrics differ per platform font
+             (visibly off-centre on Windows' symbol fallback). -->
+        <button class="br7-info" title="Transparency" aria-label="Transparency">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.2"></circle>
+            <circle cx="8" cy="8" r="2.5" fill="currentColor"></circle>
+          </svg>
+        </button>
       </div>`;
     J.frame = root.firstElementChild;
     J.stage = J.frame.querySelector(".br-stage");
@@ -482,12 +489,29 @@
       }
       e.preventDefault();
       if (J.omega) {
-        // Terminal state: up returns to the field; the ceremony itself
-        // swallows everything.
+        // Terminal state: the reading can run taller than the window (long
+        // statements, small laptops), so scrolling DOWN pans the camera to
+        // the end of it first. Only from the top does up return to the field.
         if (J.omega !== "rest") return;
+        const rd = J.strip.querySelector(".br-omread");
+        // Bound the pan in LAYOUT coordinates (offsetTop/Height ignore the
+        // strip's transform). Measuring the live rect instead lets a burst of
+        // wheel events clamp against a position the transition hasn't reached
+        // yet — the pan then runs away by thousands of pixels.
+        const maxPan = rd
+          ? Math.max(0, rd.offsetTop + rd.offsetHeight + 28 - 1330 - J.stage.clientHeight)
+          : 0;
+        if (e.deltaY > 0) {
+          acc = 0;
+          if ((J.omPan || 0) < maxPan) {
+            J.omPan = Math.min(maxPan, (J.omPan || 0) + e.deltaY);
+            omegaLayout(true);
+          }
+          return;
+        }
+        if ((J.omPan || 0) > 0) { acc = 0; J.omPan = Math.max(0, J.omPan + e.deltaY); omegaLayout(true); return; }
         acc += e.deltaY;
         if (acc < -34) { acc = 0; omegaExit(); }
-        else if (acc > 0) acc = 0;
         return;
       }
       if (J.merge) return; // no scrolling away mid-weave
@@ -512,9 +536,15 @@
       // opening shifts the camera, so the node slides out from under the
       // cursor and this click's target is no longer the node.
       if (Date.now() - (J.__pd || 0) < 700) return;
-      if (e.target.closest(".br7-chat,.br7-comp,.br7-info,.br7-exit,.br7-tpanel,.br7-mic,.br-node")) return;
+      // The whole session column counts as "inside" — the empty space under
+      // the messages and around the composer is where a hand naturally rests,
+      // and losing an interview to a stray click there is indefensible.
+      if (e.target.closest(".br7-canvas,.br7-chat,.br7-comp,.br7-info,.br7-exit,.br7-tpanel,.br7-mic,.br-node")) return;
       const tp = q7(".br7-tpanel");
       if (tp && !tp.hidden) { tp.hidden = true; return; }
+      // Work in flight is never discarded by a click: unsent words, or an
+      // amend conversation mid-settlement. Esc and ← Journey still leave.
+      if (L.open && (composerText() || L.composerMode === "amend")) return;
       if (L.open) { L.ctx.closeWs(); inlineClose(); L.ctx.reload(); }
     });
 
@@ -533,6 +563,7 @@
     inp.addEventListener("input", () => {
       autosize(inp);
       L.draft = inp.value; // persist the in-progress draft across re-renders
+      saveDraft(inp.value); // …and across leaving the session entirely
     });
     q7(".br7-mic").addEventListener("click", () => {
       if (!L.open) return;
@@ -638,12 +669,12 @@
       const j = Number(el.dataset.i);
       const node = J.nodes[j];
       const nm = J.ctx.nodeTitle(node);
-      // Unwoven steps carry a caption: the honest time it asks of you, and —
-      // when locked — what it IS (derived steps compose from what's already
-      // woven; conversations say what unlocks them). Server truth, not paint.
-      if (node.status === "planned" && j > 0) {
-        const sub = node.kind === "derived" ? t("derived_sub") : t("unlocks_after", J.ctx.nodeTitle(J.nodes[j - 1]));
-        el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(sub)}</div>`;
+      // Only DERIVED steps explain themselves while they wait — they compose
+      // from what's already woven, so the wait is the point. The interview
+      // steps say nothing: they hang on the goal alone, never on each other,
+      // and naming the step above them claimed an order that doesn't exist.
+      if (node.status === "planned" && node.kind === "derived") {
+        el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(t("derived_sub"))}</div>`;
       } else if (el.textContent !== nm || el.querySelector(".br-label-sub")) {
         el.textContent = nm;
       }
@@ -714,6 +745,8 @@
       acc: livePaintColor("var(--acc)"),
       cnt: livePaintColor("var(--t4cnt)"),
       note: livePaintColor("var(--t4note)"),
+      lab2: livePaintColor("var(--t4lab2)"),
+      ts3: livePaintColor("var(--t4ts3)"),
       ink2: livePaintColor("var(--t4ink2)"),
       lab3: livePaintColor("var(--t4lab3)"),
       body: livePaintColor("var(--t4body)"),
@@ -766,8 +799,17 @@
           * (J.ov && !J.ovWake ? 0.3 : 1)).toFixed(2);
         const st = J.status[j];
         l.style.color = st === "done" ? "var(--t4lab1)" : st === "next" ? "var(--t4lab2)" : "var(--t4lab3)";
+        // The waking node oscillates, so a DOM label pinned to its resting
+        // place drifts out from under it (and collides with the sphere at the
+        // extremes). Its name rides the sway on the canvas instead; the box
+        // stays as the click target, invisible.
+        if (st === "next" && j !== J.focus) {
+          l.style.opacity = "0";
+          J.ride = { j, text: J.ctx.nodeTitle(J.nodes[j]) };
+        }
       }
     }
+    if (J.status[J.focus] === "next" || J.status.indexOf("next") < 0) J.ride = null;
 
     const focused = J.nodes[J.focus];
     const fst = J.status[J.focus];
@@ -794,7 +836,9 @@
         ? J.ctx.t("braid_woven_in")
         // "Locked" must reflect SERVER truth: a step that is available but
         // simply not the current one still opens — never call it locked.
-        : (focused.status === "planned" && J.focus > 0)
+        // And only a DERIVED step is ever described as waiting: an interview
+        // step keeps its own invitation, whatever order it is met in.
+        : (focused.status === "planned" && focused.kind === "derived" && J.focus > 0)
           ? J.ctx.t("locked_unlocks_after", J.ctx.nodeTitle(J.nodes[J.focus - 1]))
           : J.ctx.nodeDesc(focused);
     // Plaque and nimbus ride the camera via inline transform. A WAKING focus
@@ -1010,6 +1054,32 @@
         lg.restore();
         lg.filter = "none";
         lg.globalAlpha = 1;
+      }
+      // The waking node's name rides its oscillation (the DOM box beneath is
+      // the click target, held invisible by layout). It stays a step quieter
+      // than the focused node's title, and ducks when the two would collide.
+      if (J.ride && J.ride.j === j && lg && !(J.ov && !J.ovWake)) {
+        const p = J.paint || {};
+        const cx0 = nx0 + amp;
+        const fy = NY(J.focus), fx = anchor.nx;
+        let right = cx0 < 450, lx;
+        const vHit = (ny + 8 > fy - 88 && ny - 10 < fy - 50) || (ny + 8 > fy + 52 && ny - 10 < fy + 120);
+        let a = 0.6 * dim;
+        if (Math.abs(j - J.focus) === 1 && vHit) {
+          right = cx0 >= fx;
+          lx = right ? Math.max(cx0 + 26, fx + 180) : Math.min(cx0 - 206, fx - 360);
+          lx = Math.max(8, Math.min(712, lx));
+          if (lx + 180 > fx - 180 && lx < fx + 180) a = 0.15 * dim;
+        } else lx = right ? cx0 + 26 : cx0 - 206;
+        lg.save();
+        lg.font = "600 13.5px Lora, serif";
+        lg.textAlign = right ? "left" : "right";
+        lg.textBaseline = "middle";
+        lg.shadowColor = pcss(p.ts3, a);
+        lg.shadowBlur = 3; lg.shadowOffsetY = 1;
+        lg.fillStyle = pcss(p.lab2, a);
+        lg.fillText(J.ride.text, right ? lx : lx + 180, ny - 2);
+        lg.restore();
       }
       // Rings wrap the WAITING node: when the waking sphere is the focus they
       // ride its live swayed center; otherwise they hold on the focused node's
@@ -1257,13 +1327,15 @@
 
   /* Terminal camera + the pour styling — idempotent, called by layout()
    * whenever J.omega is set so resyncs can't fight the ceremony. */
-  function omegaLayout() {
+  function omegaLayout(panning) {
     const strip = J.strip;
     if (!strip) return;
-    strip.style.transition = J.omega === "descend"
-      ? "transform 2.6s cubic-bezier(.3,.7,.15,1)"
-      : "transform 1.05s cubic-bezier(.32,.72,.16,1)";
-    strip.style.transform = "translate(0px, -1330px)";
+    strip.style.transition = panning
+      ? "transform .18s ease-out" // hand-on-the-wheel, not a ceremony
+      : J.omega === "descend"
+        ? "transform 2.6s cubic-bezier(.3,.7,.15,1)"
+        : "transform 1.05s cubic-bezier(.32,.72,.16,1)";
+    strip.style.transform = `translate(0px, ${(-1330 - (J.omPan || 0)).toFixed(0)}px)`;
     strip.querySelectorAll("path[data-s]").forEach((p) => {
       p.style.transition = "opacity 2.2s ease";
       p.style.opacity = ".5";
@@ -1304,6 +1376,7 @@
   function omegaCeremony() {
     const last = J.nodes.length - 1;
     J.omega = "descend";
+    J.omPan = 0;
     J.focus = last;
     if (J.stage) J.stage.dataset.omg = "1";
     omegaLayout();
@@ -1343,6 +1416,7 @@
   function omegaEnter() {
     if (J.omega || !J.omDone) return;
     J.omega = "rest";
+    J.omPan = 0;
     if (J.stage) J.stage.dataset.omg = "1";
     omegaReading();
     omegaLayout();
@@ -1351,6 +1425,7 @@
   function omegaExit() {
     if (!J.omega) return;
     J.omega = null;
+    J.omPan = 0;
     if (J.stage) delete J.stage.dataset.omg;
     const rd = J.strip && J.strip.querySelector(".br-omread");
     if (rd) rd.hidden = true;
@@ -1403,6 +1478,17 @@
 
   const q7 = (cls) => (J.stage ? J.stage.querySelector(cls) : null);
 
+  /* Scrolling to the bottom ONCE lands short: the bubble arrives mid
+   * fade-in (translated down), and a web font landing late reflows it taller.
+   * Pin again across those settling frames — a message the client can read
+   * without touching the wheel is the whole point. */
+  function pinBottom(box) {
+    box.scrollTop = box.scrollHeight;
+    requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
+    for (const ms of [120, 320, 620]) setTimeout(() => { box.scrollTop = box.scrollHeight; }, ms);
+    document.fonts?.ready?.then(() => { box.scrollTop = box.scrollHeight; }).catch(() => {});
+  }
+
   function inlineMsg(kind, text, html) {
     const box = q7(".br7-msgs");
     if (!box) return null;
@@ -1411,7 +1497,7 @@
     if (html !== undefined) d.innerHTML = html;
     else d.textContent = text;
     box.appendChild(d);
-    box.scrollTop = box.scrollHeight;
+    pinBottom(box);
     return d;
   }
 
@@ -1428,6 +1514,26 @@
     // The transcript floor rides up with the growing field — the two must
     // never superimpose on the transparent stage.
     if (J.stage) J.stage.style.setProperty("--br7-grow", (h - 38) + "px");
+  }
+
+  /** Unsent words currently in the composer (empty string when none). */
+  function composerText() {
+    const inp = q7(".br7-input");
+    return inp ? inp.value.trim() : "";
+  }
+
+  /* A half-written answer outlives the session it was typed in: leaving (by
+   * any route, including a crash) must never cost the client their words. */
+  const draftKey = (id) => `cc_draft_${id}`;
+  function saveDraft(text) {
+    if (!L.node) return;
+    try {
+      if (text) localStorage.setItem(draftKey(L.node.id), text);
+      else localStorage.removeItem(draftKey(L.node.id));
+    } catch { /* private mode — the in-memory draft still serves */ }
+  }
+  function loadDraft(id) {
+    try { return localStorage.getItem(draftKey(id)) ?? ""; } catch { return ""; }
   }
 
   function inlineCompose(on, placeholder) {
@@ -1488,6 +1594,7 @@
     if (!L.ctx.wsSend(payload)) return inlineConnLost();
     inp.value = "";
     L.draft = "";
+    saveDraft(""); // sent — the stored copy has served its purpose
     autosize(inp);
     inlineCompose(false);
     inlineMsg("user", text);
@@ -1543,6 +1650,13 @@
     if (J.sat && !J.sat.offT) J.sat.offT = performance.now();
   }
 
+  /* Canvas text measured before its webfont lands wraps against fallback
+   * metrics — and a cached wrap would keep those wrong line breaks forever
+   * (first run on a cold font cache, i.e. every new Windows install). Bump
+   * the generation when fonts settle so every cache recomputes once. */
+  let fontGen = 0;
+  document.fonts?.ready?.then(() => { fontGen++; }).catch(() => {});
+
   /* Greedy word-wrap against the current ctx font; cached by the caller. */
   function wrapLines(g, text, maxW) {
     const words = String(text || "").split(/\s+/).filter(Boolean);
@@ -1580,7 +1694,7 @@
     const x = J.plqX, y = J.plqY;
     lg.save();
     lg.font = "600 26px Lora, serif";
-    if (!w._t) w._t = wrapLines(lg, w.title, 340);
+    if (!w._t || w._g !== fontGen) { w._t = wrapLines(lg, w.title, 340); w._g = fontGen; }
     lg.textAlign = w.flip ? "left" : "right";
     const tX = w.flip ? x + 20 : x - 16;
     const base = y - 52;
@@ -1597,7 +1711,7 @@
     }
     if (w.line) {
       lg.font = "400 13.5px Lora, serif";
-      if (!w._l) w._l = wrapLines(lg, w.line, 260);
+      if (!w._l || w._lg !== fontGen) { w._l = wrapLines(lg, w.line, 260); w._lg = fontGen; }
       lg.textAlign = "left";
       w._l.forEach((ln, i) => {
         haloText(lg, ln, x + 20, y + 59 + i * 21.6, pcss(p.body, a), pcss(p.ts2, a), 18, 6);
@@ -1973,7 +2087,7 @@
     L.chatless = node.kind === "derived";
     L.reviewing = reviewing;
     L.firstReview = reviewing;
-    L.draft = "";
+    L.draft = loadDraft(node.id); // words typed before an earlier exit come back
     L.record = null;
     L.tWhat = "";
     L.tCompiled = "";
@@ -2135,6 +2249,25 @@
   // transparency panel, otherwise it leaves whichever session surface is live.
   // Inert when the braid is showing the card field (app.js owns Escape there).
   document.addEventListener("keydown", (e) => {
+    // Page/Home/End belong to the braid, not the document underneath it.
+    // (The css lock already stops the page from scrolling away; this gives
+    // the keys something sensible to do instead of nothing.)
+    if (["PageUp", "PageDown", "Home", "End"].includes(e.key)
+      && J.frame && J.frame.isConnected && !/^(TEXTAREA|INPUT)$/.test(e.target.tagName)) {
+      e.preventDefault();
+      const box = q7(".br7-msgs");
+      if (L.open && box) {
+        const step = e.key === "PageUp" ? -box.clientHeight * 0.8
+          : e.key === "PageDown" ? box.clientHeight * 0.8
+            : e.key === "Home" ? -box.scrollHeight : box.scrollHeight;
+        box.scrollTop += step;
+      } else if (!J.omega && !J.merge) {
+        if (e.key === "PageDown") setFocus(J.focus + 1);
+        else if (e.key === "PageUp") setFocus(J.focus - 1);
+        else setFocus(e.key === "Home" ? 0 : J.nodes.length - 1);
+      }
+      return;
+    }
     if (e.key !== "Escape") return;
     if (J.omega === "rest") { omegaExit(); return; }
     const tp = q7(".br7-tpanel");

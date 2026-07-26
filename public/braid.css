@@ -118,6 +118,12 @@
   height: 100dvh;
   overflow: hidden;
 }
+/* The braid owns the whole viewport, but the card UI still lives in the
+   document beneath it — without this, PageDown/Home/End scroll the PAGE and
+   carry the braid away: the field appears to fly up and the chat reads as
+   empty until a restart. Lock the document while the braid is mounted. */
+html:has(#journey.braid-on),
+body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
 
 .br-frame {
   position: relative;
@@ -474,9 +480,11 @@
 .br7-mic.err { border-color: var(--t5err); color: var(--t5err); }
 
 /* Message materials (inline variant: user answers are bare text, no card). */
-.br7-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 370px; animation: floatIn .5s both; text-wrap: pretty; }
+/* pre-line: a client who pressed Shift+Enter meant those paragraphs — the
+   newlines survive in the text node, and only CSS was collapsing them. */
+.br7-say { font: 500 15px/1.65 Lora, serif; color: var(--t5say); max-width: 370px; animation: floatIn .5s both; text-wrap: pretty; white-space: pre-line; }
 .br7-note { align-self: center; text-align: center; font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--t4note); animation: floatIn .5s both; }
-.br7-user { align-self: flex-end; max-width: 340px; text-align: right; font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t5user-ink); animation: floatIn .5s both; text-wrap: pretty; }
+.br7-user { align-self: flex-end; max-width: 340px; text-align: right; font: 400 13.5px/1.55 Karla, Manrope, sans-serif; color: var(--t5user-ink); animation: floatIn .5s both; text-wrap: pretty; white-space: pre-line; }
 .br7-woven { align-self: center; font: italic 500 16px Lora, serif; color: var(--acc-text); animation: floatIn .8s both; }
 .br7-error { align-self: center; text-align: center; font: 500 12px Karla, Manrope, sans-serif; color: var(--t5err); animation: floatIn .5s both; max-width: 370px; }
 
