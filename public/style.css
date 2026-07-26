@@ -31,10 +31,57 @@
   --c-bubble: #F1EADF;
   --u-bubble: #DCE5DB;
   --u-ink: #33402F;
+
+  /* Draft readout — the authorized artifact read as a product page.
+     Paper set; the dark field swaps these below. */
+  --dr-card-bg: #FBF9F3;
+  --dr-card-bd: #DDD6C6;
+  --dr-ink: #2A2620;
+  --dr-soft: #A99E8B;
+  --dr-chip-bg: #F5F1E6;
+  --dr-chip-ink: #3A342A;
+  --dr-rule: #E7E0CF;
+  --dr-value: #4A4234;
+  --dr-gm: #B0A692;
+  --dr-sage-bg: #E9EBDD;
+  --dr-sage-bd: #CBD0B4;
+  --dr-sage-ink: #33402A;
+  --dr-sage-eye: #77815B;
+  --dr-sage-note: #6B7355;
+  --dr-echo: #7A7264;
+  --dr-echo-gm: #C4BAA4;
+  --dr-help-bg: #EAE5D8;
+  --dr-help-title: #6C6455;
+  --dr-help-body: #8C8272;
+  --dr-tag-ink: #8A7430;
+  --dr-tag-bg: #F1E7CE;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
+  /* The readout on the dark field: same geometry, the field's own materials.
+     Never ship the paper palette onto #0d0c08. */
+  --dr-card-bg: #141309;
+  --dr-card-bd: #3A362A;
+  --dr-ink: #EFE8DA;
+  --dr-soft: #8C8272;
+  --dr-chip-bg: rgba(255, 255, 255, .045);
+  --dr-chip-ink: #E8E0CC;
+  --dr-rule: rgba(232, 224, 198, .14);
+  --dr-value: #CFC6B2;
+  --dr-gm: #6C6455;
+  --dr-sage-bg: color-mix(in srgb, var(--acc, #B7F24C) 16%, transparent);
+  --dr-sage-bd: color-mix(in srgb, var(--acc, #B7F24C) 34%, transparent);
+  --dr-sage-ink: #EFE8DA;
+  --dr-sage-eye: #8C8272;
+  --dr-sage-note: #B7AE9E;
+  --dr-echo: #9C9280;
+  --dr-echo-gm: #6C6455;
+  --dr-help-bg: rgba(255, 255, 255, .035);
+  --dr-help-title: #B7AE9E;
+  --dr-help-body: #8C8272;
+  --dr-tag-ink: #D8B96A;
+  --dr-tag-bg: rgba(216, 185, 106, .14);
   --canvas: #1B1815;
   --card: #252119;
   --surface: #2A251D;
@@ -511,40 +558,129 @@ body:has(#scrim:not([hidden])) {
 
 #verifyLine { display: flex; align-items: center; gap: 7px; font: 500 11.5px Karla, Manrope, sans-serif; color: var(--sage); }
 
-/* Role-model entity blocks — one per person, on every review surface (modal,
- * braid, mobile). Colors ride the surrounding surface: currentColor + opacity
- * for muting, the accent var for the verbatim marks it inherits. */
-.rm-block {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 14px 0 4px; margin-top: 4px;
-  border-top: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
+/* ── the draft readout ───────────────────────────────────────────────────
+   An authorized artifact read as a product page: one column of cards, a
+   person to a card, their own words as chips and quoted lines, and the
+   pattern under the names in its own card. Screen only — the print
+   document keeps its serif spec (see @media print). */
+@media screen {
+  .dv-sec { display: block; max-width: 560px; }
+  .dv-sec + .dv-sec { margin-top: 30px; }
+  /* The headline states the thing, then says the quiet half in gray. */
+  /* The element selector is load-bearing: every review surface carries its
+     own `.field-label` rule at equal specificity, and braid.css lands last. */
+  .dv-sec > h3.field-label {
+    font: 600 22px/1.25 Lora, serif; letter-spacing: 0; text-transform: none;
+    color: var(--dr-ink); margin: 0 0 16px; text-wrap: pretty;
+  }
+  .dv-sec > h3.field-label .dr-soft { color: var(--dr-soft); }
+
+  .dr-card {
+    background: var(--dr-card-bg); border: 1px solid var(--dr-card-bd);
+    border-radius: 18px; padding: 26px 28px;
+  }
+  .dr-card + .dr-card { margin-top: 16px; }
+  .rm-block.dr-card { display: block; }
+
+  .dr-eyebrow {
+    font: 600 10.5px Karla, Manrope, sans-serif; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--dr-soft);
+  }
+  .dr-card .rm-name { font: 600 25px/1.2 Lora, serif; color: var(--dr-ink); margin-top: 6px; }
+  .dr-card .rm-rel { font: italic 400 13px/1.4 Lora, serif; color: var(--dr-soft); margin-top: 4px; }
+
+  /* Each descriptor is its own chip — never a comma-joined paragraph. */
+  .rm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .rm-chip {
+    font: 500 15px/1.45 Lora, serif; color: var(--dr-chip-ink);
+    background: var(--dr-chip-bg); border: 1px solid var(--dr-card-bd);
+    border-radius: 99px; padding: 7px 15px; text-wrap: pretty;
+  }
+  /* A descriptor can be a whole sentence. It stays a chip and wraps — the
+     corner just relaxes; authorized content is never truncated. */
+  .rm-chip.is-long { border-radius: 16px; line-height: 1.45; }
+  /* The word said first about the first model, matched by its text. */
+  .rm-chip.is-primacy {
+    color: var(--dr-sage-ink); background: var(--dr-sage-bg); border-color: var(--dr-sage-bd);
+  }
+
+  .dr-rule { height: 1px; background: var(--dr-rule); margin: 20px 0 16px; }
+  .rm-duo { display: grid; grid-template-columns: 86px 1fr; gap: 10px 18px; align-items: baseline; }
+  .dr-rowlab {
+    font: 600 10.5px Karla, Manrope, sans-serif; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--dr-soft);
+  }
+  .dr-rowval, .dr-line { font: 400 15.5px/1.5 Lora, serif; color: var(--dr-value); text-wrap: pretty; }
+  .dr-line + .dr-line { margin-top: 5px; }
+  .dr-gm { color: var(--dr-gm); }
+
+  /* Below the narrow break the label rides above its value, same type. */
+  @media (max-width: 420px) {
+    .rm-duo { display: block; }
+    .dr-rowlab { margin-top: 12px; }
+    .rm-duo > .dr-rowlab:first-child { margin-top: 0; }
+  }
+
+  /* The salience pass, in its own voice. */
+  .dr-card.dr-sage {
+    background: var(--dr-sage-bg); border-color: var(--dr-sage-bd); padding: 24px 28px;
+  }
+  .dr-sage .dr-eyebrow { color: var(--dr-sage-eye); }
+  .dr-first { font: 600 32px/1.15 Lora, serif; color: var(--dr-sage-ink); margin-top: 10px; text-wrap: pretty; }
+  .dr-first .dr-gm { color: inherit; opacity: .45; }
+  .dr-first-note { font: 400 13px/1.5 Karla, Manrope, sans-serif; color: var(--dr-sage-note); margin-top: 6px; }
+  .dr-card.dr-repeat { padding: 22px 28px; }
+  /* The trait is the composer's phrasing, so it wears no guillemets; every
+     echo under it is the client's, so every echo does. */
+  .dr-trait { font: 600 15.5px Karla, Manrope, sans-serif; color: var(--dr-ink); }
+  .dr-echo { font: 400 14.5px/1.55 Lora, serif; color: var(--dr-echo); margin-top: 8px; text-wrap: pretty; }
+  .dr-echo + .dr-echo { margin-top: 5px; }
+  .dr-echo .dr-gm { color: var(--dr-echo-gm); }
+
+  .dr-card.dr-help {
+    background: var(--dr-help-bg); border: none; padding: 22px 28px;
+    display: flex; align-items: flex-start; gap: 18px;
+  }
+  .dr-help-title { font: 600 15px Karla, Manrope, sans-serif; color: var(--dr-help-title); }
+  .dr-help-body { font: 400 13.5px/1.5 Karla, Manrope, sans-serif; color: var(--dr-help-body); margin-top: 4px; }
+  .dr-help-more {
+    flex: none; width: 22px; height: 22px; border-radius: 99px;
+    border: 1.5px solid var(--dr-soft); color: var(--dr-soft);
+    display: flex; align-items: center; justify-content: center;
+    font: 400 14px Karla, Manrope, sans-serif; line-height: 1;
+  }
+
+  /* Declared fields the client left empty are said, not silently dropped. */
+  .dr-empty {
+    font: 400 12.5px Karla, Manrope, sans-serif; color: var(--dr-soft);
+    margin-top: 18px; max-width: 560px;
+  }
+
+  /* Verified verbatim is the DEFAULT look — the mark survives for tooling
+     and carries no highlight of its own. */
+  .dv-sec mark, .dr-card mark { background: none; color: inherit; }
+  /* A paraphrase is flagged once, by the tag. No dashed underline. */
+  .dr-card .assumed, .dv-sec .assumed { border-bottom: none; }
 }
-.rm-block:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+.assumed { border-bottom: 1px dashed color-mix(in srgb, currentColor 45%, transparent); }
+.assumed-tag {
+  font: 600 9px Karla, Manrope, sans-serif; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dr-tag-ink); background: var(--dr-tag-bg);
+  border-radius: 99px; padding: 2.5px 8px; vertical-align: 2px;
+  white-space: nowrap; margin-left: 6px;
+}
+
+/* Entity blocks outside the readout (sources view, print) keep the plain
+   stack they have always had. */
+.rm-block { display: flex; flex-direction: column; gap: 4px; }
 .rm-name { font: 600 21px/1.15 Lora, serif; }
 .rm-trait .rm-name { font: 600 15px/1.25 Lora, serif; opacity: .9; }
 .rm-rel { font: italic 400 12.5px/1.4 Lora, serif; opacity: .6; }
-
-/* Composer-offered quotes that verification could not find in the user's
- * words or authorized artifacts: dashed, and honestly labeled. */
-.assumed { border-bottom: 1px dashed color-mix(in srgb, currentColor 45%, transparent); }
-.assumed-tag {
-  font: 600 8px Karla, Manrope, sans-serif; letter-spacing: .09em;
-  text-transform: uppercase; opacity: .5; margin-left: 4px; vertical-align: super;
-}
 .rm-sec {
   font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em;
   text-transform: uppercase; opacity: .55; margin-top: 9px;
 }
-
-/* One titled section per top-level field. Without the heading the models and
-   the guides ran together as six anonymous name-blocks, and the traits below
-   read as if they belonged to whoever happened to be last. */
-.dv-sec { display: block; }
-.dv-sec + .dv-sec { margin-top: 20px; padding-top: 16px; border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent); }
-.dv-sec > .field-label { margin-top: 0; opacity: .75; }
-/* A person's block sits inside its section, so the section's own rule draws
-   the separation and the dashes stay between people. */
-.dv-sec > .rm-block:first-of-type { border-top: none; padding-top: 2px; margin-top: 0; }
 .rm-item { font: 400 13.5px/1.6 Karla, Manrope, sans-serif; opacity: .85; margin-bottom: 5px; }
 
 #editArea { display: flex; flex-direction: column; gap: 8px; }

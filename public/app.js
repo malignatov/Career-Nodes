@@ -670,7 +670,8 @@ function renderDraftBody() {
     }
   } else {
     $("altList").hidden = true;
-    body.innerHTML = renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [], 0, payload.field_order);
+    body.innerHTML = renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [],
+      { order: payload.field_order, playbook: pract?.node?.id, help: true });
   }
 
   const verify = $("verifyLine");

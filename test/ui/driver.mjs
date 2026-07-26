@@ -487,7 +487,7 @@ test("writing keeps the end of the conversation in view", async () => {
   expect(over <= 1, `the growing field cut off the newest words by ${over.toFixed(1)}px`);
 });
 
-test("the review reads as people, then the traits about all of them", async () => {
+test("the readout reads as people, then the pattern about all of them", async () => {
   // Role models and guides are both lists of named blocks. Unlabelled they
   // ran together as six anonymous names, and the artifact-wide traits under
   // them looked like they belonged to whoever happened to be last — a tester
@@ -500,16 +500,20 @@ test("the review reads as people, then the traits about all of them", async () =
   surface.review({
     ...REVIEW,
     mode: "structured_review",
+    field_order: ["models", "guides", "shared_by_all", "primacy_trait", "repeated_traits"],
+    warnings: ["I am more social"],
     draft: {
       models: [
-        { name: "Archangel Michael", descriptors: [{ text: "Benevolent, unobtrusive, strong" }],
+        { name: "Archangel Michael", named_order: 1,
+          descriptors: [{ text: "strong", spoken_order: 2 }, { text: "Benevolent", spoken_order: 1 }],
           similarities: ["I am also can be counted on"], differences: ["I am more social"] },
-        { name: "J.S. Bach", descriptors: [{ text: "He was so emotional and honest" }],
-          similarities: ["Try to be honest always"], differences: ["I am not as productive"] },
-        { name: "Hitman", descriptors: [{ text: "He does the work so clean" }],
+        { name: "J.S. Bach", named_order: 2, descriptors: [{ text: "so emotional and honest" }],
+          similarities: ["Try to be honest always"], differences: [] },
+        { name: "Hitman", named_order: 3, descriptors: [{ text: "He does the work so clean" }],
           similarities: [], differences: [] },
       ],
-      guides: [{ name: "Archangel Michael", relationship: "role model", descriptors: ["Benevolent"] }],
+      guides: [],
+      shared_by_all: null,
       primacy_trait: "Benevolent",
       repeated_traits: [{ trait: "Honest", echoes: ["honest", "honest always"] }],
     },
@@ -518,23 +522,71 @@ test("the review reads as people, then the traits about all of them", async () =
   const body = $("[data-review] .br7-review-body");
   const secs = [...body.querySelectorAll(".dv-sec")];
   const heads = secs.map((s) => s.querySelector(".field-label")?.textContent);
-  expect(heads.join("|") === "models|guides|primacy trait|repeated traits",
-    `every top-level field needs its own heading, got: ${heads.join("|")}`);
+  expect(heads.length === 2, `want a people section and a pattern section, got: ${heads.join("|")}`);
+  expect(heads[0] === `${t("models_heading")} ${t("models_heading_soft")}`, `people heading: ${heads[0]}`);
+  expect(heads[1] === `${t("pattern_heading")} ${t("pattern_heading_soft")}`, `pattern heading: ${heads[1]}`);
 
-  // A person's material lives inside that person, in interview order.
-  const michael = secs[0].querySelectorAll(".rm-block")[0];
-  const order = [...michael.querySelectorAll(".rm-sec")].map((e) => e.textContent);
-  expect(order.join("|") === `${t("rm_descriptors")}|${t("rm_similarities")}|${t("rm_differences")}`,
-    `wrong order inside a person: ${order.join("|")}`);
-  expect(michael.textContent.includes("I am more social"), "a person lost their material");
-  expect(!michael.textContent.includes("Bach"), "one person's block swallowed another");
+  // A person to a card, in the order they were named.
+  const cards = [...secs[0].querySelectorAll(".rm-block")];
+  expect(cards.length === 3, `want three people, got ${cards.length}`);
+  expect(cards[0].querySelector(".dr-eyebrow").textContent === `${t("entity_model", 1)} · ${t("named_first")}`,
+    `first eyebrow: ${cards[0].querySelector(".dr-eyebrow").textContent}`);
+  expect(cards[1].querySelector(".dr-eyebrow").textContent === t("entity_model", 2), "second eyebrow wrong");
+  expect(!cards[2].textContent.includes("Bach"), "one person's card swallowed another");
 
-  // The traits are about all three, and must not read as the last one's.
-  const hitman = [...secs[0].querySelectorAll(".rm-block")].pop();
-  expect(hitman.textContent.includes("Hitman"), "the third model is missing");
-  expect(!hitman.textContent.includes("Benevolent"), "artifact-wide traits leaked into a person's block");
-  expect(secs[3].textContent.includes("Honest") && secs[3].textContent.includes("honest always"),
+  // Every descriptor is its own chip, in the order it was spoken, and the
+  // word said first about the first model is found by its TEXT.
+  const chips = [...cards[0].querySelectorAll(".rm-chip")];
+  expect(chips.length === 2, `want a chip per descriptor, got ${chips.length}`);
+  expect(chips[0].textContent.includes("Benevolent"), `chips ignored spoken_order: ${chips.map((c) => c.textContent)}`);
+  expect(chips[0].classList.contains("is-primacy"), "the said-first word is not marked on its chip");
+  expect(!chips[1].classList.contains("is-primacy"), "a second chip was marked too");
+
+  // Like you / Unlike you, and a paraphrase flagged once — by its tag.
+  const labs = [...cards[0].querySelectorAll(".dr-rowlab")].map((e) => e.textContent);
+  expect(labs.join("|") === `${t("rm_similarities")}|${t("rm_differences")}`, `duo labels: ${labs.join("|")}`);
+  const tag = cards[0].querySelector(".assumed-tag");
+  expect(tag && tag.textContent === t("assumed_tag"), `paraphrase tag: ${tag?.textContent}`);
+  expect(getComputedStyle(cards[0].querySelector(".assumed")).borderBottomStyle === "none",
+    "the paraphrase is double-flagged — dashed underline AND tag");
+
+  // The pattern is about all three, and must not read as the last one's.
+  expect(!cards[2].textContent.includes("Benevolent"), "artifact-wide traits leaked into a person's card");
+  const sage = secs[1].querySelector(".dr-sage");
+  expect(sage && sage.textContent.includes("Benevolent") && sage.textContent.includes(t("salience_first")),
+    "the said-first card is missing");
+  expect(secs[1].textContent.includes("Honest") && secs[1].textContent.includes("honest always"),
     "the repeated trait lost its echoes");
+
+  // Declared fields the client left empty are said, not silently dropped.
+  const empty = body.querySelector(".dr-empty");
+  expect(empty && empty.textContent === `${t("empty_guides")} · ${t("empty_shared")}`,
+    `empty-state footnote: ${empty?.textContent}`);
+});
+
+test("guides that were named render as people, never as the empty footnote", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "role_models");
+  surface.review({
+    ...REVIEW,
+    mode: "structured_review",
+    field_order: ["models", "guides"],
+    draft: {
+      models: [{ name: "Archangel Michael", named_order: 1, descriptors: [{ text: "strong" }] }],
+      guides: [{ name: "my mother", relationship: "mother", descriptors: ["she never sat down"] }],
+    },
+  });
+  await sleep(300);
+  const body = $("[data-review] .br7-review-body");
+  const secs = [...body.querySelectorAll(".dv-sec")];
+  const guide = secs[1].querySelector(".rm-block");
+  expect(guide.querySelector(".dr-eyebrow").textContent === `${t("entity_guide")} · mother`,
+    `guide eyebrow: ${guide.querySelector(".dr-eyebrow").textContent}`);
+  expect(!guide.textContent.includes("mother\nmother"), "the relationship printed twice");
+  expect(!body.querySelector(".dr-empty"), "named guides must never draw the empty-state footnote");
 });
 
 test("starting a step over asks twice before it erases anything", async () => {
