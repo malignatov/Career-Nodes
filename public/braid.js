@@ -102,6 +102,12 @@
     return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 };
   }
 
+  /* Blend two paint tokens — the name's colour travels with its motion. */
+  const plerp = (A, B, t) => (!A || !B ? (A || B) : {
+    r: A.r + (B.r - A.r) * t, g: A.g + (B.g - A.g) * t,
+    b: A.b + (B.b - A.b) * t, a: A.a + (B.a - A.a) * t,
+  });
+
   /* Resolve a CSS color expression (vars, color-mix) against the live strip. */
   function liveColor(expr) {
     let s = J.__cspan;
@@ -180,7 +186,7 @@
     merge: null, pendingNext: null, slowUntil: 0,
     timers: { phase: 0, advance: 0, flash: 0, reload: 0 },
     raf: 0, lastTs: undefined, mx: undefined, my: undefined,
-    spin: 0.6, hovOn: false, hovK: 1, prevNext: null, wakeT: 0, pulseT: 0, glowT: 0,
+    spin: 0.6, hovOn: false, hovK: 1, nameP: 0, prevNext: null, wakeT: 0, pulseT: 0, glowT: 0,
     flashOn: false, resetTimer: 0,
     sess: false, sx: 0, // inline session: camera X shift while the field recedes
   };
@@ -703,16 +709,20 @@
    * small and tucked against its side. Scaling happens about the node-facing
    * edge, so the two states are one continuous physical move — the name is
    * drawn out of the node, or pulled back into it. */
-  function nameStation(active, right) {
-    const scale = active ? 1.92 : 1; // 13.5px → ~26px
+  function nameStation(active, right, r = 13) {
+    const scale = active ? 1.92 : 1;      // 13.5px → ~26px
+    const clear = (active ? r * 1.6 : r) + (active ? 18 : 11); // past the sphere
     return {
       scale,
       origin: right ? "0% 50%" : "100% 50%",
       align: right ? "left" : "right",
-      dx: right ? (active ? 22 : 15) : (active ? -322 : -315),
+      dx: right ? clear : -(300 + clear),
       dy: active ? -52 : -8,
     };
   }
+
+  /* The drawn radius of a node's sphere, which is what its name must clear. */
+  const nodeR = (j) => (J.status[j] === "next" ? 25 : J.status[j] === "done" ? 13 : 9);
 
   function labelPlace(j, anchor) {
     const ny = nodeYf(j);
@@ -812,7 +822,7 @@
         const lny = nodeYf(j);
         l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
         l.style.transform = `translate(${withGrav(baseX(j, lny), lny, anchor).toFixed(1)}px, ${lny.toFixed(1)}px)`;
-        const ns = nameStation(active, lp.right);
+        const ns = nameStation(active, lp.right, nodeR(j));
         span.style.transition = instant ? "none" : "";
         span.style.transformOrigin = ns.origin;
         span.style.transform = `translate(${ns.dx}px, ${ns.dy}px) scale(${ns.scale})`;
@@ -830,11 +840,9 @@
         // canvas instead; the box stays as the click target, invisible.
         if (st === "next") {
           span.style.opacity = "0";
-          if (!active) J.ride = { j, text: J.ctx.nodeTitle(J.nodes[j]) };
         }
       }
     }
-    if (J.status[J.focus] === "next" || J.status.indexOf("next") < 0) J.ride = null;
 
     const focused = J.nodes[J.focus];
     const fst = J.status[J.focus];
@@ -877,14 +885,19 @@
     const tx = `translate(${anchor.nx.toFixed(1)}px, ${anchor.py.toFixed(1)}px)`;
     plaque.style.transform = tx;
     nimbus.style.transform = tx;
-    if (fst === "next") {
+    // The waking node's words are canvas-painted in BOTH states (it sways, and
+    // no transition may run beside a cursor) — so the state is kept whether or
+    // not it holds the focus, and the painter interpolates between the two.
+    if (nextIdx >= 0) {
+      const wn = J.nodes[nextIdx];
+      const wake = nextIdx === J.focus;
       J.wake = {
-        title: titleEl.textContent,
-        time: J.sess ? "" : timeEl.textContent,
-        line: J.sess ? "" : plaque.querySelector(".br-plaque-line").textContent,
-        flip,
+        j: nextIdx,
+        title: J.ctx.nodeTitle(wn),
+        time: wake && !J.sess ? timeEl.textContent : "",
+        line: wake && !J.sess ? plaque.querySelector(".br-plaque-line").textContent : "",
+        flip: labelPlace(nextIdx, anchor).right,
       };
-      J.plqX = J.plqY = undefined; // follow starts from the node, not old focus
     } else J.wake = null;
     // A waking focus draws its whole aura (glow, ping, sway) on the canvas —
     // the DOM nimbus serves only the settled (done) state, where it is still.
@@ -1086,36 +1099,16 @@
       // The waking node's name rides its oscillation (the DOM box beneath is
       // the click target, held invisible by layout). It stays a step quieter
       // than the focused node's title, and ducks when the two would collide.
-      if (J.ride && J.ride.j === j && lg && !(J.ov && !J.ovWake)) {
-        const p = J.paint || {};
-        const cx0 = nx0 + amp;
-        const fy = NY(J.focus), fx = anchor.nx;
-        let right = cx0 < 450, lx;
-        const vHit = (ny + 8 > fy - 88 && ny - 10 < fy - 50) || (ny + 8 > fy + 52 && ny - 10 < fy + 120);
-        let a = 0.6 * dim;
-        if (Math.abs(j - J.focus) === 1 && vHit) {
-          right = cx0 >= fx;
-          lx = right ? Math.max(cx0 + 26, fx + 180) : Math.min(cx0 - 206, fx - 360);
-          lx = Math.max(8, Math.min(712, lx));
-          if (lx + 180 > fx - 180 && lx < fx + 180) a = 0.15 * dim;
-        } else lx = right ? cx0 + 26 : cx0 - 206;
-        lg.save();
-        lg.font = "600 13.5px Lora, serif";
-        lg.textAlign = right ? "left" : "right";
-        lg.textBaseline = "middle";
-        lg.shadowColor = pcss(p.ts3, a);
-        lg.shadowBlur = 3; lg.shadowOffsetY = 1;
-        lg.fillStyle = pcss(p.lab2, a);
-        lg.fillText(J.ride.text, right ? lx : lx + 180, ny - 2);
-        lg.restore();
-      }
+      // One name, two stations: eased here because canvas has no transitions.
+      J.nameP += ((j === J.focus ? 1 : 0) - J.nameP) * 0.12;
       // Rings wrap the WAITING node: when the waking sphere is the focus they
       // ride its live swayed center; otherwise they hold on the focused node's
       // RENDERED position (withGrav — anchorFor's raw base misses by the
       // gravity offset, which is where off-center rings came from).
+      // The waking node's words ride its sway in either state.
+      drawWake(lg, ts, nx0 + amp, ny, dim);
       if (j === J.focus) {
         drawWait(lg, ts, nx0 + amp, ny);
-        drawWake(lg, ts, nx0 + amp, ny, dim);
       } else {
         const fny = nodeYf(J.focus);
         drawWait(lg, ts, withGrav(baseX(J.focus, fny), fny, anchor), fny);
@@ -1710,39 +1703,60 @@
 
   /* The waking plaque — name, time, caption — painted riding the sway with
    * the old soft-follow (.14 lerp), honoring the α withhold and bloom. */
-  function drawWake(lg, ts, tx, ty, dim) {
+  /* The waking node's words, painted because that node oscillates and no DOM
+   * transition may run beside a cursor. Same two stations as every other
+   * node's name (nameStation), interpolated here by hand: the name grows out
+   * of the sphere or is drawn back into it, and the caption simply arrives
+   * with it. Nothing travels across the field. */
+  function drawWake(lg, ts, cx, ny, dim) {
     const w = J.wake;
     if (!w || !lg) return;
     if (J.ov && !J.ovWake) return; // α withhold — the copy owns the field
-    J.plqX = J.plqX === undefined ? tx : J.plqX + (tx - J.plqX) * 0.14;
-    J.plqY = J.plqY === undefined ? ty : J.plqY + (ty - J.plqY) * 0.14;
     const p = J.paint || {};
-    const a = (J.glowT ? Math.max(0, Math.min(1, (ts - J.glowT) / 1900)) : 1) * dim;
-    if (a <= 0.01) return;
-    const x = J.plqX, y = J.plqY;
+    const bloom = (J.glowT ? Math.max(0, Math.min(1, (ts - J.glowT) / 1900)) : 1) * dim;
+    if (bloom <= 0.01) return;
+    const q = J.nameP;                       // 0 = tucked aside, 1 = risen
+    const right = !w.flip ? false : true;    // flip → the name sits to the right
+    const r = 25; // the waking sphere
+    const s0 = nameStation(false, right, r), s1 = nameStation(true, right, r);
+    const mix = (a, b) => a + (b - a) * q;
+    const scale = mix(s0.scale, s1.scale);
+    const dx = mix(s0.dx, s1.dx);
+    const dy = mix(s0.dy, s1.dy);
     lg.save();
-    lg.font = "600 26px Lora, serif";
-    if (!w._t || w._g !== fontGen) { w._t = wrapLines(lg, w.title, 340); w._g = fontGen; }
-    lg.textAlign = w.flip ? "left" : "right";
-    const tX = w.flip ? x + 20 : x - 16;
-    const base = y - 52;
+    // Line breaks are scale-invariant: the box and the type grow together.
+    lg.font = "600 13.5px Lora, serif";
+    if (!w._t || w._g !== fontGen) { w._t = wrapLines(lg, w.title, 300); w._g = fontGen; }
+    const size = 13.5 * scale, lineH = 1.18 * size;
+    const centreY = ny + dy + (w._t.length * 1.18 * 13.5) / 2;
+    const top = centreY - (w._t.length * lineH) / 2;
+    lg.font = `600 ${size.toFixed(2)}px Lora, serif`;
+    lg.textAlign = right ? "left" : "right";
+    lg.textBaseline = "middle";
+    const tX = right ? cx + dx : cx + dx + 300;
+    const ink = pcss(plerp(p.lab2, p.ink2, q), mix(0.6, 1) * dim);
+    const halo = pcss(plerp(p.ts3, p.ts1, q), bloom);
     w._t.forEach((ln, i) => {
-      haloText(lg, ln, tX, base - (w._t.length - 1 - i) * 28.1, pcss(p.ink2, a), pcss(p.ts1, a), 24, 12);
+      haloText(lg, ln, tX, top + lineH * (i + 0.5), ink, halo, mix(3, 24), mix(2, 12));
     });
-    if (w.time) {
+    // Time and caption belong to the risen state — they arrive with it.
+    const a = bloom * q;
+    if (a > 0.01 && w.time) {
       lg.font = "600 11px Karla, Manrope, sans-serif";
       lg.letterSpacing = "1px";
-      lg.textAlign = w.flip ? "right" : "left";
+      lg.textAlign = right ? "right" : "left";
+      lg.textBaseline = "alphabetic";
       lg.fillStyle = pcss(p.lab3, 0.9 * a);
-      lg.fillText(w.time.toUpperCase(), w.flip ? x - 34 : x + 34, y - 38);
+      lg.fillText(w.time.toUpperCase(), right ? cx - 34 : cx + 34, ny - 38);
       lg.letterSpacing = "0px";
     }
-    if (w.line) {
+    if (a > 0.01 && w.line) {
       lg.font = "400 13.5px Lora, serif";
       if (!w._l || w._lg !== fontGen) { w._l = wrapLines(lg, w.line, 260); w._lg = fontGen; }
       lg.textAlign = "left";
+      lg.textBaseline = "alphabetic";
       w._l.forEach((ln, i) => {
-        haloText(lg, ln, x + 20, y + 59 + i * 21.6, pcss(p.body, a), pcss(p.ts2, a), 18, 6);
+        haloText(lg, ln, cx + 20, ny + 59 + i * 21.6, pcss(p.body, a), pcss(p.ts2, a), 18, 6);
       });
     }
     lg.restore();
@@ -2818,7 +2832,7 @@
     /** Close any live inline session (ws included) — called by the app when
      * the braid stops being the active journey surface. */
     abortSession() { if (L.open) inlineAbort(); },
-    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext, hov: J.hovOn, hovK: J.hovK, ov: J.ov, ovWake: J.ovWake, wake: !!J.wake, think: !!J.think, sat: J.sat ? (J.sat.offT ? "fading" : "on") : null, thinkIdx: J.think && J.ctx ? (J.think.i + Math.floor(Math.max(0, (performance.now() - J.think.t0) / 2000))) % J.ctx.t("braid_think_pool").length : null }),
+    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext, hov: J.hovOn, hovK: J.hovK, nameP: J.nameP, ov: J.ov, ovWake: J.ovWake, wake: !!J.wake, think: !!J.think, sat: J.sat ? (J.sat.offT ? "fading" : "on") : null, thinkIdx: J.think && J.ctx ? (J.think.i + Math.floor(Math.max(0, (performance.now() - J.think.t0) / 2000))) % J.ctx.t("braid_think_pool").length : null }),
     _frame: (ts) => { if (J.loop) J.loop(ts); },
   };
 })();
