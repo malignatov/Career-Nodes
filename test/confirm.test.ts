@@ -154,3 +154,25 @@ test("candidates mode: authorize picks the chosen wording into the choice field"
   );
   assert.deepEqual(out, { statement: "picked wording", extra: 1 });
 });
+
+test("the counselor is holding the interview when a change is discussed", async () => {
+  // Without it, "use what I already told you" is unanswerable: one tester
+  // spent eighteen turns being asked to repeat things the engine had on disk.
+  const { io } = makeIO([{ action: "feedback", text: "use what I told you about Hitman" }, { action: "authorize" }]);
+  const prompts: string[] = [];
+  const llm = {
+    complete: async (opts: { messages: { content: string }[] }) => {
+      prompts.push(opts.messages[0].content);
+      return chatTurn({ action: "drop", say: "Kept.", directive: "", paths: [] });
+    },
+  } as unknown as LlmAdapter;
+  const exchange: ExchangeEntry[] = [
+    { speaker: "interviewer", text: "And now Hitman — what was he like?" },
+    { speaker: "user", text: "He does the work so clean. Highly ethical." },
+  ];
+  await runConfirm(PB, { text: "v1" }, io as never, async () => ({ text: "v2" }), { llm, exchange });
+  assert.equal(prompts.length, 1);
+  assert.match(prompts[0], /He does the work so clean/, "the interview never reached the counselor");
+  assert.match(prompts[0], /use what I told you about Hitman/, "the change request is missing");
+  assert.match(prompts[0], /"text": "v1"/, "the draft under review is missing");
+});

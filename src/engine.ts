@@ -533,9 +533,14 @@ export function amendChatSystem(pb: Playbook, lang?: SessionLang): string {
       "Each turn, return JSON with:",
       '- action "reply" — keep talking: `say` is your next message, asking exactly one question. Clarify when the request is ambiguous or could be applied more than one way; once the change is clear, play back in one or two sentences exactly what will change and ask the user to confirm. Leave `directive` empty.',
       '- action "revise" — the user has clearly confirmed (yes / go ahead / exactly). `directive` compiles every agreed change into one compact instruction for the rewrite engine; `say` is a brief acknowledgment, or empty. `paths` names where the change lands, as dotted paths into the draft — `models.2.similarities`, `guides`, `recollections.0.feeling`. Name the NARROWEST thing that contains it: a single field when the change is confined to that field, the whole item only when it genuinely spans several. Everything you do not name is guaranteed to stay exactly as the user already approved it, so a path wider than the change lets untouched wording be rewritten.',
-      '- action "drop" — the user withdrew the request or wants the draft kept as it is. `say` acknowledges briefly; the draft stays. Leave `directive` empty.',
+      '- action "drop" — ONLY when the user has said to leave the draft alone: they took the request back, or they are satisfied as it stands. Frustration is not withdrawal, and neither is a demand to tear the artifact up and rebuild it — that is the widest possible revise. `say` acknowledges briefly; the draft stays. Leave `directive` and `paths` empty.',
     ].join("\n"),
-    "The user's first request alone is never a confirmation — always reply at least once before revising. Never rewrite the draft yourself inside `say`, and never put changes into `directive` that the user did not agree to.",
+    [
+      "Settle the change in as few turns as you can. Reply once to confirm what you understood, then revise. Ask a second question only when the request could genuinely be applied in more than one place and you cannot tell which — and never ask the same thing twice in different words. If the user repeats themselves, insists, or shows frustration, you already have your answer: revise.",
+      "You are holding the interview above. Never ask the user to tell you again what they already said in it — read it. \"Use what I told you\", \"rebuild it from the chat\", \"recalculate everything\" are complete instructions on their own: confirm once and revise, with `paths` covering what they named.",
+      "Do not raise what the rewrite engine will need — quotes, minimum counts, which field a thing lives in. That is not the user's problem. Settle what they want in their terms; if it truly cannot be built from their words, the rewrite says so afterwards.",
+    ].join("\n"),
+    "Never rewrite the draft yourself inside `say`, and never put changes into `directive` that the user did not agree to. The draft is already displayed to the user above this conversation — you cannot paste, attach, or send anything, so never say that you have. If they ask to see it, tell them it is shown above and ask what they would like changed.",
     "The passage may only hold the user's own words. If the change would need words they have not said — a comparison they never made, a feeling they never named — do not agree to supply them: ask for them, in their words, and settle the change around what they give you.",
     "Write `say` as plain prose — no markdown, no asterisks — and never name a schema field to the user: speak of the passage in their own terms.",
     lang ? `Write \`say\` in ${lang.instruction}.` : "",
@@ -570,6 +575,15 @@ export async function runAmendChat(
       .filter((e) => e.speaker === "user" && e.phase !== "amend_withdrawn")
       .map((e) => e.text).join("\n");
 
+  // The interview itself. Without it the counselor cannot answer "use what I
+  // already told you" and ends up asking the user to repeat things it is
+  // holding — which is exactly how one tester's change conversation went.
+  const interview = exchange
+    .slice(0, start)
+    .filter((e) => e.phase !== "amend_withdrawn")
+    .map((e) => `${e.speaker === "user" ? "user" : "counselor"}: ${e.text}`)
+    .join("\n");
+
   for (let turn = 0; turn < MAX_AMEND_TURNS; turn++) {
     const convo = exchange
       .slice(start)
@@ -582,7 +596,9 @@ export async function runAmendChat(
         system: amendChatSystem(pb, lang),
         messages: [{
           role: "user",
-          content: `The draft under review:\n${JSON.stringify(draft, null, 2)}\n\nThe amend conversation so far:\n${convo}`,
+          content: `What the user said in the interview:\n${interview}`
+            + `\n\nThe draft under review:\n${JSON.stringify(draft, null, 2)}`
+            + `\n\nThe change conversation so far:\n${convo}`,
         }],
         jsonSchema: AMEND_TURN_SCHEMA,
         temperature: 0.4,
