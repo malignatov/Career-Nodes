@@ -181,3 +181,75 @@ function compact(node: unknown): void {
   }
   if (isRecord(node)) for (const v of Object.values(node)) compact(v);
 }
+
+/**
+ * The other way to change a settled artifact: throw it away and compose it
+ * again from the transcript, then keep only the parts the change was about.
+ *
+ * Recomposing is the honest instrument when the client has just SAID the new
+ * material — their words are in the transcript now, and the composer reads
+ * them the way it read the interview. What recomposing cannot promise is
+ * restraint: asked to fix one model's differences it will happily re-derive
+ * every other field too, and things nobody discussed drift or empty out.
+ *
+ * So the code fences it. Only the named paths are taken from the fresh
+ * composition; everything else is the prior artifact, byte for byte.
+ */
+export function adoptPaths(
+  prior: Record<string, unknown>,
+  fresh: Record<string, unknown>,
+  paths: string[],
+  schema: Record<string, unknown>,
+): AppliedPatch {
+  const next = structuredClone(prior) as Record<string, unknown>;
+  const applied: PatchOp[] = [];
+  const rejected: { op: PatchOp; reason: string }[] = [];
+
+  for (const path of paths) {
+    const op: PatchOp = { op: "set", path };
+    const segments = String(path).split(".").filter((s) => s.length > 0);
+    if (segments.length === 0) { rejected.push({ op, reason: "empty path" }); continue; }
+    if (schemaAt(schema, segments) === null) {
+      rejected.push({ op, reason: `no such field in this artifact: ${path}` });
+      continue;
+    }
+    const [value, found] = read(fresh, segments);
+    if (!found) {
+      // The recomposition has nothing there. For a whole field that is a real
+      // answer — the change asked for it to go — but a missing entity would
+      // mean adopting a hole, so only top-level fields may vanish this way.
+      if (segments.length > 1) { rejected.push({ op, reason: `the recomposition has no ${path}` }); continue; }
+      delete next[segments[0]];
+      applied.push(op);
+      continue;
+    }
+    // The recomposition may have one more of something than the artifact had
+    // — a model the client only mentioned during the change conversation.
+    const [parent] = read(next, segments.slice(0, -1));
+    const grows = Array.isArray(parent) && Number(segments[segments.length - 1]) === parent.length;
+    const edit: PatchOp = grows
+      ? { op: "add", path: [...segments.slice(0, -1), "-"].join("."), value }
+      : { op: "set", path, value };
+    const reason = attempt(next, edit, edit.path.split("."), schema);
+    if (reason === null) applied.push(edit);
+    else rejected.push({ op, reason });
+  }
+  compact(next);
+  return { next, applied, rejected };
+}
+
+/** The value at a path, and whether anything was actually there. */
+function read(node: unknown, segments: string[]): [unknown, boolean] {
+  let cur: unknown = node;
+  for (const seg of segments) {
+    if (Array.isArray(cur)) {
+      const i = Number(seg);
+      if (!Number.isInteger(i) || i < 0 || i >= cur.length) return [undefined, false];
+      cur = cur[i];
+    } else if (isRecord(cur)) {
+      if (!(seg in cur)) return [undefined, false];
+      cur = cur[seg];
+    } else return [undefined, false];
+  }
+  return [cur, true];
+}

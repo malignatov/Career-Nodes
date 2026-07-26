@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyOps } from "../src/patch.ts";
+import { adoptPaths, applyOps } from "../src/patch.ts";
 
 const SCHEMA = {
   type: "object",
@@ -119,4 +119,67 @@ test("the prior draft is never mutated", () => {
   const subject = draft();
   applyOps(subject, [{ op: "remove", path: "models.0" }, { op: "set", path: "headline", value: "x" }], SCHEMA);
   assert.deepEqual(subject, before);
+});
+
+/* ── invalidate and recompute, fenced ──────────────────────────────────── */
+
+const fresh = () => ({
+  models: [
+    { name: "the elephant", similarities: ["re-derived, and nobody asked"], descriptors: [{ text: "strong" }] },
+    { name: "Michael", similarities: ["I never stop"], descriptors: [{ text: "unresting" }] },
+  ],
+  guides: [],
+  headline: "A different headline nobody discussed",
+});
+
+test("only the named part of the recomposition is kept", () => {
+  const { next, applied, rejected } = adoptPaths(draft(), fresh(), ["models.1"], SCHEMA);
+  assert.equal(applied.length, 1);
+  assert.deepEqual(rejected, []);
+  assert.deepEqual(next.models[1].similarities, ["I never stop"]);
+  // everything outside the fence is exactly what the client already approved
+  assert.deepEqual(next.models[0], draft().models[0]);
+  assert.deepEqual(next.guides, draft().guides);
+  assert.equal(next.headline, draft().headline);
+});
+
+test("a whole field the change asked to empty may come back empty", () => {
+  const { next, applied } = adoptPaths(draft(), fresh(), ["guides"], SCHEMA);
+  assert.equal(applied.length, 1);
+  assert.deepEqual(next.guides, []);
+  assert.deepEqual(next.models, draft().models);
+});
+
+test("a field the recomposition dropped altogether is dropped here too", () => {
+  const gone = { models: fresh().models, guides: [] }; // no headline at all
+  const { next, applied } = adoptPaths(draft(), gone, ["headline"], SCHEMA);
+  assert.equal(applied.length, 1);
+  assert.ok(!("headline" in next));
+});
+
+test("a missing entity is refused rather than adopted as a hole", () => {
+  const short = { models: [fresh().models[0]], guides: [], headline: "h" };
+  const { next, applied, rejected } = adoptPaths(draft(), short, ["models.1"], SCHEMA);
+  assert.deepEqual(applied, []);
+  assert.match(rejected[0].reason, /no models\.1/);
+  assert.deepEqual(next, draft());
+});
+
+test("the recomposition may bring one more of something than the artifact had", () => {
+  const grown = {
+    ...fresh(),
+    models: [...fresh().models, { name: "my grandmother", similarities: [], descriptors: [] }],
+  };
+  const { next, applied } = adoptPaths(draft(), grown, ["models.2"], SCHEMA);
+  assert.equal(applied.length, 1);
+  assert.equal(next.models.length, 3);
+  assert.equal(next.models[2].name, "my grandmother");
+  assert.deepEqual(next.models[0], draft().models[0]);
+});
+
+test("a path the artifact cannot have is refused", () => {
+  const { next, applied, rejected } = adoptPaths(draft(), fresh(), ["invented"], SCHEMA);
+  assert.deepEqual(applied, []);
+  assert.match(rejected[0].reason, /no such field/);
+  assert.deepEqual(next, draft());
 });

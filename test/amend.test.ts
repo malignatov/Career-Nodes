@@ -191,3 +191,59 @@ test("a refusal is spoken and recorded, and the draft stands", async () => {
   assert.ok(said.includes(refusal), `the client was never told why: ${said.join(" | ")}`);
   assert.equal(exchange.at(-1)?.text, refusal, "the refusal belongs in the record");
 });
+
+/* ── invalidate and recompute, fenced to what was agreed ───────────────── */
+
+test("a change recomposes its own part and leaves everything else alone", async () => {
+  const { io, said } = makeIO(
+    [{ action: "feedback", text: "we missed Michael's similarity" }, { action: "authorize" }],
+    ["I also never stop when it matters"],
+  );
+  const responses = [
+    JSON.stringify({ action: "reply", say: "What would you say it is?", directive: "", paths: [] }),
+    JSON.stringify({
+      action: "revise", say: "Got it.",
+      directive: "add Michael's similarity from what the client just said",
+      paths: ["models.1"],
+    }),
+  ];
+  const llm = { complete: async () => responses.shift() ?? "{}" } as LlmAdapter;
+  // The recomposition re-derives the whole artifact, first model included.
+  const RECOMPOSED = {
+    models: [
+      { name: "the elephant", similarities: ["re-derived, and nobody asked for this"] },
+      { name: "Michael", similarities: ["I also never stop when it matters"] },
+    ],
+  };
+  const exchange = [...EXCHANGE];
+  const out = await runConfirm(
+    PB, structuredClone(DRAFT), io as never, async () => structuredClone(RECOMPOSED),
+    { llm, exchange, upstream: {} },
+  );
+  assert.deepEqual(out.models[1].similarities, ["I also never stop when it matters"], "the change never landed");
+  assert.deepEqual(out.models[0], DRAFT.models[0], "the recomposition spilled onto a model nobody discussed");
+  assert.ok(said.includes("Got it."));
+});
+
+test("when the recomposition moves nothing, the direct edit gets its turn", async () => {
+  const { io } = makeIO(
+    [{ action: "feedback", text: "add Michael's similarity" }, { action: "authorize" }],
+    ["yes please"],
+  );
+  const responses = [
+    JSON.stringify({ action: "reply", say: "Add what?", directive: "", paths: [] }),
+    JSON.stringify({ action: "revise", say: "", directive: "add Michael's similarity", paths: ["models.1"] }),
+    // the patch step, reached only because the recomposition came back the same
+    JSON.stringify({
+      summary: "Added it.", blocked: "",
+      ops: [{ op: "add", path: "models.1.similarities.-", value: "He never stops" }],
+    }),
+  ];
+  const llm = { complete: async () => responses.shift() ?? "{}" } as LlmAdapter;
+  const out = await runConfirm(
+    PB, structuredClone(DRAFT), io as never,
+    async () => structuredClone(DRAFT), // recomposes to exactly what was there
+    { llm, exchange: [...EXCHANGE], upstream: {} },
+  );
+  assert.deepEqual(out.models[1].similarities, ["He never stops"]);
+});

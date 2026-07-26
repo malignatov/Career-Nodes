@@ -3,7 +3,7 @@ import type {
 } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
 import { borrowedAcrossEntities, gatherMarked, verbatimViolations } from "./verbatim.ts";
-import { applyOps, PATCH_SCHEMA, type PatchOp } from "./patch.ts";
+import { adoptPaths, applyOps, PATCH_SCHEMA, type PatchOp } from "./patch.ts";
 import { cfg } from "./config.ts";
 
 // Output ceiling for an induce step. Generous by default; env-tunable because
@@ -487,7 +487,14 @@ export async function runInduce(
   // A withdrawn amend stays in the record but never composes: the user took
   // those words back, and the composer quotes what it is given.
   const live = exchange.filter((e) => e.phase !== "amend_withdrawn");
-  const transcript = live.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
+  // The change conversation belongs in the source — the words the client just
+  // said are as quotable as anything from the interview — but it is marked,
+  // so a request to fix the draft is never mistaken for an answer about their
+  // life.
+  const transcript = live.map((e) => {
+    const who = e.speaker === "user" ? "user" : "interviewer";
+    return e.phase === "amend" ? `[about the draft] ${who}: ${e.text}` : `${who}: ${e.text}`;
+  }).join("\n");
   const verbatimSource = [
     ...live.filter((e) => e.speaker === "user").map((e) => e.text),
     ...stringValuesDeep(upstream),
@@ -513,8 +520,9 @@ const AMEND_TURN_SCHEMA = {
     action: { type: "string", enum: ["reply", "revise", "drop"] },
     say: { type: "string" },
     directive: { type: "string" },
+    paths: { type: "array", items: { type: "string" } },
   },
-  required: ["action", "say", "directive"],
+  required: ["action", "say", "directive", "paths"],
   additionalProperties: false,
 };
 
@@ -524,7 +532,7 @@ export function amendChatSystem(pb: Playbook, lang?: SessionLang): string {
     [
       "Each turn, return JSON with:",
       '- action "reply" — keep talking: `say` is your next message, asking exactly one question. Clarify when the request is ambiguous or could be applied more than one way; once the change is clear, play back in one or two sentences exactly what will change and ask the user to confirm. Leave `directive` empty.',
-      '- action "revise" — the user has clearly confirmed (yes / go ahead / exactly). `directive` compiles every agreed change into one compact instruction for the rewrite engine; `say` is a brief acknowledgment, or empty.',
+      '- action "revise" — the user has clearly confirmed (yes / go ahead / exactly). `directive` compiles every agreed change into one compact instruction for the rewrite engine; `say` is a brief acknowledgment, or empty. `paths` names where the change lands, as dotted paths into the draft — `models.2.similarities`, `guides`, `recollections.0.feeling`. Name the NARROWEST thing that contains it: a single field when the change is confined to that field, the whole item only when it genuinely spans several. Everything you do not name is guaranteed to stay exactly as the user already approved it, so a path wider than the change lets untouched wording be rewritten.',
       '- action "drop" — the user withdrew the request or wants the draft kept as it is. `say` acknowledges briefly; the draft stays. Leave `directive` empty.',
     ].join("\n"),
     "The user's first request alone is never a confirmation — always reply at least once before revising. Never rewrite the draft yourself inside `say`, and never put changes into `directive` that the user did not agree to.",
@@ -538,6 +546,12 @@ export function amendChatSystem(pb: Playbook, lang?: SessionLang): string {
  * request. The dialogue is appended to `exchange` (marked `phase:"amend"`)
  * so the recompose can quote the user's new words and the saved transcript
  * carries the full session log. */
+export interface AgreedChange {
+  directive: string;
+  /** Where in the artifact it lands — the fence the recomposition runs inside. */
+  paths: string[];
+}
+
 export async function runAmendChat(
   pb: Playbook,
   llm: LlmAdapter,
@@ -547,7 +561,7 @@ export async function runAmendChat(
   lang: SessionLang | undefined,
   exchange: ExchangeEntry[],
   persist?: (exchange: ExchangeEntry[]) => void,
-): Promise<string | null> {
+): Promise<AgreedChange | null> {
   const start = exchange.length;
   exchange.push({ speaker: "user", text: firstComment, phase: "amend" });
   persist?.(exchange);
@@ -561,7 +575,7 @@ export async function runAmendChat(
       .slice(start)
       .map((e) => `${e.speaker === "user" ? "user" : "counselor"}: ${e.text}`)
       .join("\n");
-    let out: { action?: string; say?: string; directive?: string };
+    let out: { action?: string; say?: string; directive?: string; paths?: string[] };
     try {
       const raw = await llm.complete({
         tier: "small",
@@ -577,7 +591,7 @@ export async function runAmendChat(
     } catch {
       // A failed chat turn must never strand the request — fall back to the
       // old immediate behavior with everything the user has asked so far.
-      return userAsks();
+      return { directive: userAsks(), paths: [] };
     }
     const say = out.say?.trim() || (out.action === "reply" ? "…" : "");
     if (say) {
@@ -585,7 +599,12 @@ export async function runAmendChat(
       exchange.push({ speaker: "interviewer", text: say, phase: "amend" });
       persist?.(exchange);
     }
-    if (out.action === "revise") return out.directive?.trim() || userAsks();
+    if (out.action === "revise") {
+      return {
+        directive: out.directive?.trim() || userAsks(),
+        paths: (out.paths ?? []).map((p) => String(p).trim()).filter(Boolean),
+      };
+    }
     if (out.action === "drop") {
       // Withdrawn. The words were still said, so they stay in the record —
       // marked, so no later recompose can be steered by a request the user
@@ -598,7 +617,48 @@ export async function runAmendChat(
     exchange.push({ speaker: "user", text: answer, phase: "amend" });
     persist?.(exchange);
   }
-  return userAsks(); // cap reached — revise with everything the user asked
+  return { directive: userAsks(), paths: [] }; // cap reached — revise with everything asked
+}
+
+/**
+ * Invalidate and recompute: the artifact is composed again from the
+ * transcript — which by now contains the change conversation, so the words
+ * the client just said are ordinary source material — and then only the
+ * agreed parts of that fresh composition are kept. Everything outside the
+ * fence stays byte-for-byte what it was, so re-deriving one model cannot
+ * quietly empty the guides beside it.
+ */
+export async function runAmendRecompute(
+  pb: Playbook,
+  current: Record<string, unknown>,
+  change: AgreedChange,
+  recompose: (feedback: string) => Promise<Record<string, unknown>>,
+  exchange: ExchangeEntry[],
+  upstream: Record<string, unknown>,
+): Promise<AmendResult> {
+  if (change.paths.length === 0) return { content: current, changed: false, summary: "", blocked: "", rejected: [] };
+  const schema = artifactSchema(pb);
+  const { _verbatim_warnings: _prior, ...clean } = current;
+
+  const fresh = await recompose(change.directive);
+  const { next, applied, rejected } = adoptPaths(clean, fresh, change.paths, schema);
+  const refused = rejected.map((r) => `${r.op.path}: ${r.reason}`);
+  if (applied.length === 0 || JSON.stringify(next) === JSON.stringify(clean)) {
+    return { content: current, changed: false, summary: "", blocked: "", rejected: refused };
+  }
+
+  const live = exchange.filter((e) => e.phase !== "amend_withdrawn");
+  const verbatimSource = [
+    ...live.filter((e) => e.speaker === "user").map((e) => e.text),
+    ...stringValuesDeep(upstream),
+  ].join("\n");
+  const flagged = [...new Set([
+    ...verbatimViolations(next, schema, verbatimSource),
+    ...borrowedAcrossEntities(next, schema),
+  ])];
+  if (flagged.length > 0) (next as Record<string, unknown>)._verbatim_warnings = flagged;
+
+  return { content: next, changed: true, summary: "", blocked: "", rejected: refused };
 }
 
 /* ── the amend patch ────────────────────────────────────────────────────
@@ -676,7 +736,14 @@ export async function runAmendPatch(
   // A withdrawn amend stays in the record but never composes: the user took
   // those words back, and the composer quotes what it is given.
   const live = exchange.filter((e) => e.phase !== "amend_withdrawn");
-  const transcript = live.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
+  // The change conversation belongs in the source — the words the client just
+  // said are as quotable as anything from the interview — but it is marked,
+  // so a request to fix the draft is never mistaken for an answer about their
+  // life.
+  const transcript = live.map((e) => {
+    const who = e.speaker === "user" ? "user" : "interviewer";
+    return e.phase === "amend" ? `[about the draft] ${who}: ${e.text}` : `${who}: ${e.text}`;
+  }).join("\n");
   const verbatimSource = [
     ...live.filter((e) => e.speaker === "user").map((e) => e.text),
     ...stringValuesDeep(upstream),
@@ -774,18 +841,27 @@ export async function runConfirm(
             pb, opts.llm, current, act.text, io, opts.lang, opts.exchange ?? [], opts.persist,
           );
           if (settled === null) continue; // withdrawn — the draft stands
-          feedback = settled;
-          // A settled artifact is edited, not regenerated: the change was
-          // agreed sentence by sentence, and a rewrite is free to move things
-          // nobody discussed. Candidate steps are different — there the draft
-          // IS a wording, so it is composed again.
+          feedback = settled.directive;
+          // A settled artifact is not rewritten wholesale: the parts the
+          // change touches are composed again from the transcript, and the
+          // rest is left exactly as the client already approved it. If that
+          // moves nothing, the change is made as a direct edit instead —
+          // two ways to land it before anyone is told it cannot be done.
+          // Candidate steps are different: there the draft IS a wording.
           if (present === "structured_review" && pb.induce?.steps?.length) {
             io.note("(reworking it…)");
             try {
-              const amended = await runAmendPatch(
-                pb, opts.llm, current, feedback,
-                opts.exchange ?? [], opts.upstream ?? {}, opts.lang,
+              let amended = await runAmendRecompute(
+                pb, current, settled,
+                (directive) => reinduce(directive, undefined),
+                opts.exchange ?? [], opts.upstream ?? {},
               );
+              if (!amended.changed) {
+                amended = await runAmendPatch(
+                  pb, opts.llm, current, feedback,
+                  opts.exchange ?? [], opts.upstream ?? {}, opts.lang,
+                );
+              }
               if (amended.changed) {
                 current = amended.content;
                 existing = false;
@@ -799,7 +875,7 @@ export async function runConfirm(
                 opts.persist?.(opts.exchange ?? []);
                 continue;
               }
-            } catch { /* the patch step failed outright — rewrite instead */ }
+            } catch { /* both routes failed outright — rewrite instead */ }
           }
         }
         io.note("(reworking it…)");
