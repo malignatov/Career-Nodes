@@ -108,7 +108,12 @@ induce:
   steps:
     - id: extract
       task: >
-        Structure the models and guides with descriptors in the order spoken.
+        Structure the models with descriptors in the order spoken.
+        Guides are a different thing from models: a parent, or anyone else the
+        user names whom the guardrails record as a guide rather than a role
+        model, with the relationship they described. Someone listed as a model
+        is never also a guide, and when no such person was named, guides is an
+        empty array.
         Similarities and differences come only from the user's explicit
         comparison statements about THAT model — the answer they gave when
         asked about that model, or a statement naming it. Never carry a
@@ -154,6 +159,9 @@ induce:
                   items: { type: string, x-verbatim: true }
           guides:
             type: array
+            description: >
+              People recorded as guides rather than role models — parents,
+              chiefly. Empty when the user named none; never a copy of models.
             items:
               type: object
               properties:

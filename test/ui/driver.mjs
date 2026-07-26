@@ -5,6 +5,7 @@
  * Results land on window.__uiResults for the runner to collect.
  */
 import { STR, prose } from "../../public/i18n.js";
+import { makeRenderer } from "../../public/draft-view.js";
 
 const t = (key, ...args) => {
   const v = STR.en[key];
@@ -77,7 +78,7 @@ function makeCtx(journey) {
     isSettled: (s) => s === "authorized" || s === "stale",
     markVerbatim: (x) => esc(x), localizeNote: (x) => x,
     prose: (x) => prose(x, esc),
-    renderFields: () => "<div>draft body</div>", compiledHtml: (x) => esc(String(x)),
+    renderFields: makeRenderer({ esc, t, markVerbatim: (x) => esc(x) }), compiledHtml: (x) => esc(String(x)),
     exportPdf: async () => { spies.exports++; },
     setFlag: (name) => { spies.flags.push(name); journey.flags = { ...(journey.flags ?? {}), [name]: true }; },
     reload: () => { spies.reload++; },
@@ -483,6 +484,56 @@ test("writing keeps the end of the conversation in view", async () => {
   const last = [...document.querySelectorAll(".br7-say")].pop();
   const over = last.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom;
   expect(over <= 1, `the growing field cut off the newest words by ${over.toFixed(1)}px`);
+});
+
+test("the review reads as people, then the traits about all of them", async () => {
+  // Role models and guides are both lists of named blocks. Unlabelled they
+  // ran together as six anonymous names, and the artifact-wide traits under
+  // them looked like they belonged to whoever happened to be last — a tester
+  // asked, reasonably, whether he had ever said those things about Hitman.
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "role_models");
+  surface.review({
+    ...REVIEW,
+    mode: "structured_review",
+    draft: {
+      models: [
+        { name: "Archangel Michael", descriptors: [{ text: "Benevolent, unobtrusive, strong" }],
+          similarities: ["I am also can be counted on"], differences: ["I am more social"] },
+        { name: "J.S. Bach", descriptors: [{ text: "He was so emotional and honest" }],
+          similarities: ["Try to be honest always"], differences: ["I am not as productive"] },
+        { name: "Hitman", descriptors: [{ text: "He does the work so clean" }],
+          similarities: [], differences: [] },
+      ],
+      guides: [{ name: "Archangel Michael", relationship: "role model", descriptors: ["Benevolent"] }],
+      primacy_trait: "Benevolent",
+      repeated_traits: [{ trait: "Honest", echoes: ["honest", "honest always"] }],
+    },
+  });
+  await sleep(300);
+  const body = $("[data-review] .br7-review-body");
+  const secs = [...body.querySelectorAll(".dv-sec")];
+  const heads = secs.map((s) => s.querySelector(".field-label")?.textContent);
+  expect(heads.join("|") === "models|guides|primacy trait|repeated traits",
+    `every top-level field needs its own heading, got: ${heads.join("|")}`);
+
+  // A person's material lives inside that person, in interview order.
+  const michael = secs[0].querySelectorAll(".rm-block")[0];
+  const order = [...michael.querySelectorAll(".rm-sec")].map((e) => e.textContent);
+  expect(order.join("|") === `${t("rm_descriptors")}|${t("rm_similarities")}|${t("rm_differences")}`,
+    `wrong order inside a person: ${order.join("|")}`);
+  expect(michael.textContent.includes("I am more social"), "a person lost their material");
+  expect(!michael.textContent.includes("Bach"), "one person's block swallowed another");
+
+  // The traits are about all three, and must not read as the last one's.
+  const hitman = [...secs[0].querySelectorAll(".rm-block")].pop();
+  expect(hitman.textContent.includes("Hitman"), "the third model is missing");
+  expect(!hitman.textContent.includes("Benevolent"), "artifact-wide traits leaked into a person's block");
+  expect(secs[3].textContent.includes("Honest") && secs[3].textContent.includes("honest always"),
+    "the repeated trait lost its echoes");
 });
 
 test("the document never scrolls out from under the braid", async () => {

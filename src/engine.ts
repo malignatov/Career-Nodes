@@ -20,6 +20,8 @@ export interface ReviewPayload {
   warnings: string[];
   /** True when showing an already-authorized artifact (edit mode), until it is revised. */
   existing?: boolean;
+  /** Top-level fields in the order the playbook declares them, for the review. */
+  field_order?: string[];
 }
 
 export type ReviewAction =
@@ -847,6 +849,9 @@ export async function runConfirm(
         choice_field: confirm.choice_field,
         authorize_language: authLang,
         existing,
+        // The playbook decides what the client reads first; without this the
+        // review follows whatever order the composer happened to emit.
+        field_order: Object.keys((artifactSchema(pb).properties ?? {}) as Record<string, unknown>),
         ...collectVerbatim(pb, current),
       });
       if (act.action === "feedback" || act.action === "reprocess") {

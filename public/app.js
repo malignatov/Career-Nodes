@@ -1,4 +1,5 @@
 import { STR, PHASES, NODES, prose as proseFmt } from "/i18n.js";
+import { HIDDEN_KEYS, makeRenderer } from "/draft-view.js";
 
 const $ = (id) => document.getElementById(id);
 const journeyEl = $("journey");
@@ -636,116 +637,9 @@ function quotesIn(text, quotes) {
   return quotes.filter((q) => text.includes(q)).length;
 }
 
-/* Recursive human rendering of a structured draft — never raw JSON. */
-const HIDDEN_KEYS = new Set([
-  "_verbatim_warnings", "candidates",
-  "named_order", "spoken_order", "first_mentioned_rank", "order",
-]);
-
-/* Verbatim trichotomy: <mark> = verified user words; "assumed" = a string
- * the composer offered as a quote that verification could not find in the
- * user's words or their authorized artifacts; plain = connective tissue. */
-function flagged(value, quotes, warnings) {
-  const marked = markVerbatim(value, quotes);
-  if (warnings?.includes(value)) {
-    return `<span class="assumed">${marked}</span><span class="assumed-tag">${esc(t("assumed_tag"))}</span>`;
-  }
-  return marked;
-}
-
-function renderValue(value, quotes, warnings) {
-  if (value === null || value === undefined || value === "") return "";
-  if (typeof value === "string") return `<div class="field-value">${flagged(value, quotes, warnings)}</div>`;
-  if (typeof value === "number" || typeof value === "boolean") {
-    return `<div class="field-value">${esc(String(value))}</div>`;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return "";
-    if (isEntityList(value)) return renderEntityBlocks(value, quotes, warnings);
-    if (value.every((v) => typeof v === "string")) {
-      return `<ul>${value.map((v) => `<li>${flagged(v, quotes, warnings)}</li>`).join("")}</ul>`;
-    }
-    return value.map((v) => `<div class="sub-card">${renderValue(v, quotes, warnings)}</div>`).join("");
-  }
-  if (typeof value === "object") return renderFields(value, quotes, warnings);
-  return "";
-}
-
-/* Any list of titled things — role models, media, stories, recollections,
- * portrait movements, plan directions — reads as one block per entity: big
- * serif title, then its material. Titles must never get lost in a field dump. */
-const TITLE_KEYS = ["name", "title", "headline"];
-const ENTITY_SECTIONS = [
-  ["similarities", "rm_similarities"],
-  ["differences", "rm_differences"],
-  ["descriptors", "rm_descriptors"],
-];
-
-function entityTitle(v) {
-  for (const k of TITLE_KEYS) {
-    if (typeof v[k] === "string" && v[k].trim()) return k;
-  }
-  return null;
-}
-
-function isEntityList(value) {
-  return Array.isArray(value) && value.length > 0
-    && value.every((v) => v && typeof v === "object" && !Array.isArray(v))
-    && value.some((v) => entityTitle(v) !== null);
-}
-
-function renderEntityBlocks(list, quotes, warnings) {
-  return list.map((m) => {
-    const titleKey = entityTitle(m);
-    let h = titleKey ? `<div class="rm-name">${flagged(m[titleKey], quotes, warnings)}</div>` : "";
-    // Short scalar facts (a guide's relationship, a headline's verb) sit
-    // under the title; long prose falls through to the body renderer below.
-    // Nothing the user authorizes may vanish from the review.
-    const rest = [];
-    for (const [k, v] of Object.entries(m)) {
-      if (k === titleKey || HIDDEN_KEYS.has(k)) continue;
-      if (typeof v === "string" && v.trim() && v.length <= 90) {
-        h += `<div class="rm-rel">${flagged(v, quotes, warnings)}</div>`;
-      } else rest.push([k, v]);
-    }
-    for (const [field, key] of ENTITY_SECTIONS) {
-      const items = (m[field] ?? [])
-        .map((it) => (typeof it === "string" ? it : it?.text))
-        .filter(Boolean);
-      if (!items.length) continue;
-      h += `<div class="rm-sec">${esc(t(key))}</div>`
-        + items.map((it) => `<div class="rm-item">«<span>${flagged(it, quotes, warnings)}</span>»</div>`).join("");
-    }
-    for (const [k, v] of rest) {
-      if (ENTITY_SECTIONS.some(([f]) => f === k)) continue;
-      if (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "string")) {
-        h += `<div class="rm-sec">${esc(k.replaceAll("_", " "))}</div>`
-          + v.map((it) => `<div class="rm-item">«<span>${flagged(it, quotes, warnings)}</span>»</div>`).join("");
-        continue;
-      }
-      const rendered = renderValue(v, quotes, warnings);
-      if (!rendered) continue;
-      h += `<div class="rm-sec">${esc(k.replaceAll("_", " "))}</div>${rendered}`;
-    }
-    return `<div class="rm-block">${h}</div>`;
-  }).join("");
-}
-
-function renderFields(obj, quotes, warnings) {
-  const parts = [];
-  for (const [key, value] of Object.entries(obj)) {
-    if (HIDDEN_KEYS.has(key)) continue;
-    if (isEntityList(value)) {
-      parts.push(renderEntityBlocks(value, quotes, warnings)); // no field label — the titles carry it
-      continue;
-    }
-    const rendered = renderValue(value, quotes, warnings);
-    if (!rendered) continue;
-    parts.push(`<div class="field-label">${esc(key.replaceAll("_", " "))}</div>`);
-    parts.push(rendered);
-  }
-  return parts.join("");
-}
+/* Human rendering of a structured draft lives in draft-view.js — one
+ * renderer for the modal, the braid card, the woven passage and mobile. */
+const renderFields = makeRenderer({ esc, t, markVerbatim });
 
 function renderDraftBody() {
   const { payload, currentText, edited } = modal.review;
@@ -771,7 +665,7 @@ function renderDraftBody() {
     }
   } else {
     $("altList").hidden = true;
-    body.innerHTML = renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? []);
+    body.innerHTML = renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [], 0, payload.field_order);
   }
 
   const verify = $("verifyLine");

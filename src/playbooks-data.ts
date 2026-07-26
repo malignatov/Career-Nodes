@@ -1999,7 +1999,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the models and guides with descriptors in the order spoken. Similarities and differences come only from the user's explicit comparison statements about THAT model — the answer they gave when asked about that model, or a statement naming it. Never carry a comparison from one model to another, however well it would fit. When a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.\n",
+            "task": "Structure the models with descriptors in the order spoken. Guides are a different thing from models: a parent, or anyone else the user names whom the guardrails record as a guide rather than a role model, with the relationship they described. Someone listed as a model is never also a guide, and when no such person was named, guides is an empty array. Similarities and differences come only from the user's explicit comparison statements about THAT model — the answer they gave when asked about that model, or a statement naming it. Never carry a comparison from one model to another, however well it would fit. When a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.\n",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -2063,6 +2063,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                 },
                 "guides": {
                   "type": "array",
+                  "description": "People recorded as guides rather than role models — parents, chiefly. Empty when the user named none; never a copy of models.\n",
                   "items": {
                     "type": "object",
                     "properties": {

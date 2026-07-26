@@ -1953,7 +1953,7 @@
     } else if (candidates) {
       parts.push(`<div class="br7-review-body">${edited ? ctx.esc(currentText) : ctx.markVerbatim(currentText, payload.verified_quotes)}</div>`);
     } else {
-      parts.push(`<div class="br7-review-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [])}</div>`);
+      parts.push(`<div class="br7-review-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [], 0, payload.field_order)}</div>`);
     }
     if (payload.existing && L.node.status === "stale") parts.push(`<div class="br7-stale">${ctx.esc(t("stale_note"))}</div>`);
     if (edited) parts.push(`<div class="br7-verify"><span class="tick">✓</span> ${ctx.esc(t("edited_by_you"))}</div>`);
@@ -2094,7 +2094,7 @@
     const quotes = payload.verified_quotes ?? [];
     const story = candidates
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? []);
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], 0, payload.field_order);
     const frags = quotes.length
       ? `<div class="br7-fragments">${quotes
         .map((qt) => `<div class="br7-fragment">«<span>${ctx.esc(qt)}</span>»</div>`)
@@ -2657,7 +2657,7 @@
     } else if (candidates) {
       parts.push(`<div class="t5-draft-body">${edited ? ctx.esc(currentText) : ctx.markVerbatim(currentText, payload.verified_quotes)}</div>`);
     } else {
-      parts.push(`<div class="t5-draft-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [])}</div>`);
+      parts.push(`<div class="t5-draft-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [], 0, payload.field_order)}</div>`);
     }
     if (stale) parts.push(`<div class="t5-stale">${ctx.esc(t("stale_note"))}</div>`);
     if (edited) parts.push(`<div class="t5-verify"><span class="tick">✓</span> ${ctx.esc(t("edited_by_you"))}</div>`);

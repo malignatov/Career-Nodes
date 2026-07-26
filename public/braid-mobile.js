@@ -1144,7 +1144,7 @@ window.BraidM = (() => {
     wrap.style.display = "contents";
     const story = payload.mode === "candidates"
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? []);
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], 0, payload.field_order);
     let html = `<div class="bm-note">${esc(t("braid_m_draft_ready"))}</div><div class="bm-story">${story}</div>`;
     for (const qt of quotes) html += `<div class="bm-user bm-frag" data-big="1">«<span>${esc(qt)}</span>»</div>`;
     wrap.innerHTML = html;
@@ -1172,7 +1172,7 @@ window.BraidM = (() => {
     wrap.style.display = "contents";
     const story = payload.mode === "candidates"
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? []);
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], 0, payload.field_order);
     const hasRecord = Boolean(M.record?.length);
     let html = `<div class="bm-note${hasRecord ? " bm-hist-toggle" : ""}" data-mwhisper>${esc(t("braid_authored_whisper"))}${hasRecord ? "  ▸" : ""}</div>`;
     html += `<div class="bm-story">${story}</div>`;

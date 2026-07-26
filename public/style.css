@@ -521,6 +521,7 @@ body:has(#scrim:not([hidden])) {
 }
 .rm-block:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 .rm-name { font: 600 21px/1.15 Lora, serif; }
+.rm-trait .rm-name { font: 600 15px/1.25 Lora, serif; opacity: .9; }
 .rm-rel { font: italic 400 12.5px/1.4 Lora, serif; opacity: .6; }
 
 /* Composer-offered quotes that verification could not find in the user's
@@ -534,6 +535,16 @@ body:has(#scrim:not([hidden])) {
   font: 600 9.5px Karla, Manrope, sans-serif; letter-spacing: .12em;
   text-transform: uppercase; opacity: .55; margin-top: 9px;
 }
+
+/* One titled section per top-level field. Without the heading the models and
+   the guides ran together as six anonymous name-blocks, and the traits below
+   read as if they belonged to whoever happened to be last. */
+.dv-sec { display: block; }
+.dv-sec + .dv-sec { margin-top: 20px; padding-top: 16px; border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent); }
+.dv-sec > .field-label { margin-top: 0; opacity: .75; }
+/* A person's block sits inside its section, so the section's own rule draws
+   the separation and the dashes stay between people. */
+.dv-sec > .rm-block:first-of-type { border-top: none; padding-top: 2px; margin-top: 0; }
 .rm-item { font: 400 13.5px/1.6 Karla, Manrope, sans-serif; opacity: .85; margin-bottom: 5px; }
 
 #editArea { display: flex; flex-direction: column; gap: 8px; }
