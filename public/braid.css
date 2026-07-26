@@ -350,6 +350,8 @@ body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
 /* No blanket rule for .br-live: in-session it draws the CURRENT node too —
    recession is applied per-draw in the tick (background ensemble only). */
 .br-stage[data-sess] .br-label { opacity: 0 !important; pointer-events: none; }
+/* …except the step you are inside: its name is the only one that stays. */
+.br-stage[data-sess] .br-label[data-cur] { opacity: 1 !important; }
 .br-stage[data-sess] .br-omega { opacity: .06 !important; }
 .br-stage[data-sess] .br-plaque-line { opacity: 0 !important; }
 .br-stage[data-sess] [data-ping] { display: none !important; }

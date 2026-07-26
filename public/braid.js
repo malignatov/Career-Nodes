@@ -822,7 +822,9 @@
         const lny = nodeYf(j);
         l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
         l.style.transform = `translate(${withGrav(baseX(j, lny), lny, anchor).toFixed(1)}px, ${lny.toFixed(1)}px)`;
-        const ns = nameStation(active, lp.right, nodeR(j));
+        // In session the chat owns the right of the field, so the name
+        // takes the other side of its sphere rather than colliding with it.
+        const ns = nameStation(active, J.sess ? false : lp.right, nodeR(j));
         span.style.transition = instant ? "none" : "";
         span.style.transformOrigin = ns.origin;
         span.style.transform = `translate(${ns.dx}px, ${ns.dy}px) scale(${ns.scale})`;
@@ -902,7 +904,7 @@
         title: J.ctx.nodeTitle(wn),
         time: wake && !J.sess ? timeEl.textContent : "",
         line: wake && !J.sess ? plaque.querySelector(".br-plaque-line").textContent : "",
-        flip: labelPlace(nextIdx, anchor).right,
+        flip: J.sess ? false : labelPlace(nextIdx, anchor).right,
       };
     } else J.wake = null;
     // A waking focus draws its whole aura (glow, ping, sway) on the canvas —
@@ -2150,6 +2152,10 @@
     if (pth) pth.dataset.cur = "1";
     const nd = J.strip.querySelector(`.br-node[data-i="${j}"]`);
     if (nd) nd.dataset.cur = "1";
+    // The session's own node keeps its name (the rest of the field's names
+    // recede) — it is the only thing left naming the step you are inside.
+    const lb = J.strip.querySelector(`.br-label[data-i="${j}"]`);
+    if (lb) lb.dataset.cur = "1";
     const svg = J.strip.querySelector("svg");
     if (svg && !svg.querySelector("[data-knots]")) {
       const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
