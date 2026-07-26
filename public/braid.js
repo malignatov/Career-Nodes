@@ -850,9 +850,11 @@
     const nimbus = J.strip.querySelector(".br-nimbus");
     const titleEl = plaque.querySelector(".br-plaque-title");
     titleEl.textContent = J.ctx.nodeTitle(focused);
-    // The name is the node's own label now — it rises into this position
-    // rather than being handed over to a second element that flies in.
-    titleEl.style.display = J.status[J.focus] === "next" ? "" : "none";
+    // The name belongs to its node now — the label rises into place for a DOM
+    // node, the canvas paints it for the waking one. This third copy lived on
+    // the plaque, which travels between nodes: it was the ghost that appeared
+    // to carry a name from one sphere to another. It never shows again.
+    titleEl.style.display = "none";
     // Far-left locked nodes (strings splay left) would run the title off-frame:
     // flip it to the node's right. Caption stays right in both cases.
     const flip = !J.sess && anchor.nx < 372;
@@ -880,8 +882,12 @@
     // Plaque and nimbus ride the camera via inline transform. A WAKING focus
     // hands the whole plaque (name, time, caption) to the canvas, which rides
     // the sway with the old soft-follow — the DOM twin sleeps meanwhile.
-    plaque.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .5s ease`;
-    nimbus.style.transition = `transform ${tm.dur} ${tm.ease}, opacity .5s ease`;
+    // Nothing crosses the field: the caption and the glow belong to whichever
+    // node holds the focus, so they cut to it and fade there. Transitioning
+    // the transform made them fly between spheres — the same ghost the title
+    // was making, one element down.
+    plaque.style.transition = "opacity .5s ease";
+    nimbus.style.transition = "opacity .5s ease";
     const tx = `translate(${anchor.nx.toFixed(1)}px, ${anchor.py.toFixed(1)}px)`;
     plaque.style.transform = tx;
     nimbus.style.transform = tx;
