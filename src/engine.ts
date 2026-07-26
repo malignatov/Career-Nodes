@@ -219,6 +219,9 @@ export interface ElicitResult {
   aborted: boolean;
   /** The user skipped with nothing shared — the step closes gracefully. */
   skipped?: boolean;
+  /** Testing backdoor (/simulateAuthorize): close the node immediately with a
+   * schema-shaped empty object, no review. Never advertised in the UI. */
+  simulated?: boolean;
 }
 
 /** Schema-shaped empty content for a step the user chose to skip: every
@@ -308,6 +311,10 @@ export async function runElicit(
     for (;;) {
       const answer = await io.ask("you");
       if (answer.trim() === "/quit") return { exchange, userWords: userWords(exchange), aborted: true };
+      if (answer.trim() === "/simulateAuthorize") {
+        io.note("(simulated authorize — closing the node with an empty object)");
+        return { exchange, userWords: userWords(exchange), aborted: false, simulated: true };
+      }
       if (answer.trim() === "/skip") {
         // A skip before anything was shared ends the WHOLE interview — the
         // remaining topics would probe material that does not exist. The

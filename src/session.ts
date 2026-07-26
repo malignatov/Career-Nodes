@@ -148,6 +148,13 @@ export async function runPlaybookSession(
       }
       exchange = elicited.exchange;
       interviewSkipped = elicited.skipped === true;
+      if (elicited.simulated) {
+        // /simulateAuthorize testing backdoor: instant close, no review.
+        await saveArtifact(pb, skipContent(pb), exchange, store, "skipped");
+        await store.remove(sessionPath);
+        io.say(`Simulated authorize — node closed empty (${pb.id}).`);
+        return "authorized";
+      }
       await store.write(
         sessionPath,
         JSON.stringify(

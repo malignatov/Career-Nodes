@@ -121,6 +121,21 @@ test("skipMode review carries the skip language and plain-fields mode", async ()
   assert.deepEqual(out, empty);
 });
 
+test("/simulateAuthorize closes the node instantly — no review, no model call", async () => {
+  const { store, files } = memStore();
+  const io = {
+    say: () => {}, note: () => {},
+    ask: async () => "/simulateAuthorize",
+    review: async () => { throw new Error("the backdoor must not open a review"); },
+  };
+  const outcome = await runPlaybookSession(ER, llmNever, io as never, { store, autoResume: true });
+  assert.equal(outcome, "authorized");
+  const art = JSON.parse(files.get("er.json") ?? "{}") as Artifact;
+  assert.equal(art.origin, "skipped");
+  assert.deepEqual(art.content, { recollections: [], summary: "" });
+  assert.ok(!files.has("er.session.json"), "session file must be cleaned up");
+});
+
 test("full session: skip → empty artifact saved with origin skipped, session file removed", async () => {
   const { store, files } = memStore();
   const io = {
