@@ -376,7 +376,10 @@ export const PLAYBOOKS: Record<string, Playbook> =
           {
             "id": "difference",
             "goal": "The change, said in the user's own words.",
-            "opening": "And compared with the day you first answered that question — what's different now?\n",
+            "opening": "And compared with when you first answered that question — what's different now?\n",
+            "opening_i18n": {
+              "ru": "А если сравнить с твоим первым ответом на этот вопрос — что теперь иначе?\n"
+            },
             "probes": [
               {
                 "when": "the user answers abstractly",
@@ -390,6 +393,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
           {
             "id": "sendoff",
             "goal": "Hand the motto back and close.",
+            "terminal": true,
             "opening": "One last thing before you go.\n",
             "probes": [
               {
@@ -398,7 +402,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
               }
             ],
             "done_when": [
-              "The user has responded to the send-off in any way."
+              "Nothing to check — a terminal stage closes on delivery."
             ]
           }
         ]

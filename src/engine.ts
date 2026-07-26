@@ -309,6 +309,15 @@ export async function runElicit(
       if (exchange.some((e) => e.speaker === "user")) io.onTurn?.(exchange, i);
     }
 
+    // A terminal stage hands something back — the motto, the send-off — and is
+    // done the moment it is said. Waiting here would make the user answer a
+    // goodbye to be allowed to leave, and it buys the artifact nothing: no
+    // terminal stage contributes a field to any schema.
+    if (stage.terminal) {
+      anyDone = true;
+      continue;
+    }
+
     // No turn cap: the checklist alone ends a topic. The user can always
     // /skip a topic or leave (progress is saved), so a strict checker can't
     // trap anyone.

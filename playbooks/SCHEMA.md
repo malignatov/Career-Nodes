@@ -55,6 +55,12 @@ artifact records the playbook version that formed it).
   - `probes` — `when`/`then` pairs in natural language. Compiled into the stage
     prompt; the interviewer model applies them judgmentally. They are scaffolding,
     not branches the engine executes.
+  - `terminal` — optional. Marks a stage that **gives rather than asks** (the
+    closing send-off, which hands the motto back). The engine delivers the
+    utterance and ends elicitation immediately: no `io.ask`, no checker call,
+    `done_when` never evaluated. Use it only where a reply would add nothing to
+    the artifact — otherwise the user is made to answer a goodbye before the
+    step will close. Must be the last stage.
   - `done_when` — a checklist in natural language. After each user message a
     small **checker call** (separate from the interviewer, `model_tier: small`)
     evaluates the checklist against the transcript and returns booleans. The

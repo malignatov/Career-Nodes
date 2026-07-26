@@ -18,6 +18,10 @@ export interface Stage {
   opening_i18n?: Record<string, string>;
   probes?: Probe[];
   done_when: string[];
+  /** A stage that gives rather than asks (the closing send-off). The engine
+   * delivers its utterance and ends elicitation without waiting for a reply —
+   * `done_when` is never evaluated, because there is no answer to check. */
+  terminal?: boolean;
 }
 
 export interface InduceStep {

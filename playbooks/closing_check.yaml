@@ -64,9 +64,17 @@ elicit:
           partly, or not.
     - id: difference
       goal: The change, said in the user's own words.
+      # "when", not "the day": the book's cadence spreads this over sessions
+      # weeks apart, where "the day you first answered" is literally true. This
+      # journey can be finished in an afternoon — and was, in testing — so the
+      # neutral wording is the one that stays true at four hours and four weeks.
       opening: >
-        And compared with the day you first answered that question — what's
+        And compared with when you first answered that question — what's
         different now?
+      opening_i18n:
+        ru: >
+          А если сравнить с твоим первым ответом на этот вопрос — что теперь
+          иначе?
       probes:
         - when: the user answers abstractly
           then: Ask what they now do, or are about to do, that they weren't
@@ -75,6 +83,10 @@ elicit:
         - The user has named at least one concrete difference.
     - id: sendoff
       goal: Hand the motto back and close.
+      # The one stage in the whole journey that gives instead of asking. It ends
+      # when it is said: nothing here feeds the artifact, and asking the user to
+      # reply to a farewell only stands between them and the closing ceremony.
+      terminal: true
       opening: >
         One last thing before you go.
       probes:
@@ -83,7 +95,7 @@ elicit:
             their motto word for word from the motto artifact, and wish them
             well on the next chapter — briefly and warmly.
       done_when:
-        - The user has responded to the send-off in any way.
+        - Nothing to check — a terminal stage closes on delivery.
 
 induce:
   steps:
