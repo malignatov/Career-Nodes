@@ -725,8 +725,16 @@
     };
   }
 
-  /* The drawn radius of a node's sphere, which is what its name must clear. */
-  const nodeR = (j) => (J.status[j] === "next" ? 25 : J.status[j] === "done" ? 13 : 9);
+  /* The DRAWN radius of a node's sphere, which is what its name must clear.
+   * A weave flips the status to done at the very start, but the bead keeps its
+   * waking material for the whole travel and only shrinks at the solidify —
+   * so reading the status alone pulled the name in against a sphere that was
+   * still large, a second and a half early. */
+  const nodeR = (j) => {
+    const m = J.merge;
+    if (m && m.j === j && m.phase === "travel") return 25;
+    return J.status[j] === "next" ? 25 : J.status[j] === "done" ? 13 : 9;
+  };
 
   function labelPlace(j, anchor) {
     const ny = nodeYf(j);
@@ -869,8 +877,14 @@
           // canvas was holding it — the sway offset rides the SPAN, so
           // absorbing it never fights the node's own travel underneath.
           span.style.transition = "none";
-          span.style.transform = st !== "next" && J.lastAmp
-            ? `translate(${(ns.dx + J.lastAmp).toFixed(1)}px, ${ns.dy}px) scale(${ns.scale})`
+          // Start from the station the CANVAS was holding, not the new one:
+          // a woken bead is drawn at radius 25 and a woven one at 13, so the
+          // name's clearance drops ~19px at the weave. Pre-positioning at the
+          // new station spent that gap in a single frame — the name appeared
+          // to snap toward the node. Start where it was, and let it close.
+          const held = st !== "next" ? nameStation(active, J.sess ? false : lp.right, 25) : ns;
+          span.style.transform = st !== "next"
+            ? `translate(${(held.dx + (J.lastAmp || 0)).toFixed(1)}px, ${held.dy}px) scale(${held.scale})`
             : station;
           span.style.opacity = op;
           void span.offsetWidth;
@@ -1276,6 +1290,7 @@
       J.merge = { j: i, phase: "solid" };
       const core = J.strip && J.strip.querySelector(`.br-node[data-i="${i}"] [data-core]`);
       if (core) renderCore(core, "done", i);
+      layout(); // the bead shrinks here, so its name closes in with it
       if (J.focus === i) {
         const line = J.strip.querySelector(".br-plaque-line");
         if (line) line.textContent = J.ctx.t("braid_woven_in");
