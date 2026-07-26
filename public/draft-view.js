@@ -270,20 +270,13 @@ export function makeRenderer(ctx) {
     return notes.length ? `<div class="dr-empty">${notes.join(" · ")}</div>` : "";
   }
 
-  function helpCard() {
-    return `<div class="dr-card dr-help">`
-      + `<div><div class="dr-help-title">${esc(t("help_title"))}</div>`
-      + `<div class="dr-help-body">${esc(t("help_body"))}</div></div>`
-      + `<div class="dr-help-more" aria-hidden="true">+</div></div>`;
-  }
-
   /**
    * The readout. Every top-level field becomes a titled section of cards; the
    * salience fields are gathered into the pattern section after the people,
    * because they are about all of them and about none of them in particular.
    */
   function renderFields(obj, quotes, warnings, opts = {}) {
-    const { order, playbook, help } = opts;
+    const { order, playbook } = opts;
     const copyFor = SECTION_COPY[playbook] ?? {};
     const parts = [];
     let hasPattern = false;
@@ -298,7 +291,6 @@ export function makeRenderer(ctx) {
       parts.push(section(copyFor[key], key, body));
     }
     if (hasPattern) parts.push(renderPattern(obj, quotes, warnings));
-    if (help) parts.push(helpCard());
     parts.push(emptyNote(obj, order));
     return parts.join("");
   }

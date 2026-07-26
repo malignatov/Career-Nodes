@@ -671,7 +671,7 @@ function renderDraftBody() {
   } else {
     $("altList").hidden = true;
     body.innerHTML = renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [],
-      { order: payload.field_order, playbook: pract?.node?.id, help: true });
+      { order: payload.field_order, playbook: pract?.node?.id });
   }
 
   const verify = $("verifyLine");

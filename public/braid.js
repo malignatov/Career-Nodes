@@ -2141,7 +2141,7 @@
     const quotes = payload.verified_quotes ?? [];
     const story = candidates
       ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], { order: payload.field_order, playbook: L.node?.id, help: true });
+      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], { order: payload.field_order, playbook: L.node?.id });
     const frags = quotes.length
       ? `<div class="br7-fragments">${quotes
         .map((qt) => `<div class="br7-fragment">«<span>${ctx.esc(qt)}</span>»</div>`)

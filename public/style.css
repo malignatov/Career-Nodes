@@ -50,9 +50,6 @@
   --dr-sage-note: #6B7355;
   --dr-echo: #7A7264;
   --dr-echo-gm: #C4BAA4;
-  --dr-help-bg: #EAE5D8;
-  --dr-help-title: #6C6455;
-  --dr-help-body: #8C8272;
   --dr-tag-ink: #8A7430;
   --dr-tag-bg: #F1E7CE;
 }
@@ -77,9 +74,6 @@
   --dr-sage-note: #B7AE9E;
   --dr-echo: #9C9280;
   --dr-echo-gm: #6C6455;
-  --dr-help-bg: rgba(255, 255, 255, .035);
-  --dr-help-title: #B7AE9E;
-  --dr-help-body: #8C8272;
   --dr-tag-ink: #D8B96A;
   --dr-tag-bg: rgba(216, 185, 106, .14);
   --canvas: #1B1815;
@@ -637,19 +631,6 @@ body:has(#scrim:not([hidden])) {
   .dr-echo { font: 400 14.5px/1.55 Lora, serif; color: var(--dr-echo); margin-top: 8px; text-wrap: pretty; }
   .dr-echo + .dr-echo { margin-top: 5px; }
   .dr-echo .dr-gm { color: var(--dr-echo-gm); }
-
-  .dr-card.dr-help {
-    background: var(--dr-help-bg); border: none; padding: 22px 28px;
-    display: flex; align-items: flex-start; gap: 18px;
-  }
-  .dr-help-title { font: 600 15px Karla, Manrope, sans-serif; color: var(--dr-help-title); }
-  .dr-help-body { font: 400 13.5px/1.5 Karla, Manrope, sans-serif; color: var(--dr-help-body); margin-top: 4px; }
-  .dr-help-more {
-    flex: none; width: 22px; height: 22px; border-radius: 99px;
-    border: 1.5px solid var(--dr-soft); color: var(--dr-soft);
-    display: flex; align-items: center; justify-content: center;
-    font: 400 14px Karla, Manrope, sans-serif; line-height: 1;
-  }
 
   /* Declared fields the client left empty are said, not silently dropped. */
   .dr-empty {
