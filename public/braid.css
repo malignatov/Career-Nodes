@@ -266,11 +266,20 @@ body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
 .br-strip > svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 
 .br-node { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 20; cursor: pointer; }
+/* A node's name is ONE object that belongs to that node: the box sits on the
+   node's own centre and the span inside moves relative to it, never through
+   global space. transform-origin is the node-facing edge, so growing pushes
+   the name out of the sphere and shrinking pulls it back into it. */
 .br-label {
-  position: absolute; left: 0; top: 0; width: 180px;
-  font: 600 13.5px Lora, serif;
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
   cursor: pointer; z-index: 19;
+}
+.br-label > [data-lab] {
+  position: absolute; left: 0; top: 0; display: block; width: 300px;
+  font: 600 13.5px/1.18 Lora, serif;
   text-shadow: 0 1px 3px var(--t4ts3);
+  transition: transform .62s cubic-bezier(.3, .74, .2, 1),
+              opacity .34s ease, color .45s ease;
 }
 .br-nimbus { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 14; pointer-events: none; }
 .br-nimbus-glow {

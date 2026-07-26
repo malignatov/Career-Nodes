@@ -356,7 +356,7 @@
     const nodes = [];
     for (let j = 0; j < n; j++) {
       nodes.push(`<div class="br-node" data-i="${j}"><div data-pad hidden></div><div class="br-sway"><div data-core></div></div></div>`);
-      nodes.push(`<div class="br-label" data-i="${j}"></div>`);
+      nodes.push(`<div class="br-label" data-i="${j}"><span data-lab></span></div>`);
     }
     root.innerHTML = `
       <div class="br-frame">
@@ -673,10 +673,11 @@
       // from what's already woven, so the wait is the point. The interview
       // steps say nothing: they hang on the goal alone, never on each other,
       // and naming the step above them claimed an order that doesn't exist.
+      const span = el.firstElementChild;
       if (node.status === "planned" && node.kind === "derived") {
-        el.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(t("derived_sub"))}</div>`;
-      } else if (el.textContent !== nm || el.querySelector(".br-label-sub")) {
-        el.textContent = nm;
+        span.innerHTML = `<div>${esc(nm)}</div><div class="br-label-sub">${esc(t("derived_sub"))}</div>`;
+      } else if (span.textContent !== nm || span.querySelector(".br-label-sub")) {
+        span.textContent = nm;
       }
     });
     const inp = q7(".br7-input");
@@ -696,6 +697,22 @@
   const timing = () => Date.now() < J.slowUntil
     ? { dur: "1.7s", ease: "cubic-bezier(.3,.7,.15,1)", op: "1.3s" }
     : { dur: "1.05s", ease: "cubic-bezier(.32,.72,.16,1)", op: ".7s" };
+
+  /* The two stations a node's name can occupy, both measured from the node's
+   * own centre. Active: risen and full size, clear of the sphere. Inactive:
+   * small and tucked against its side. Scaling happens about the node-facing
+   * edge, so the two states are one continuous physical move — the name is
+   * drawn out of the node, or pulled back into it. */
+  function nameStation(active, right) {
+    const scale = active ? 1.92 : 1; // 13.5px → ~26px
+    return {
+      scale,
+      origin: right ? "0% 50%" : "100% 50%",
+      align: right ? "left" : "right",
+      dx: right ? (active ? 22 : 15) : (active ? -322 : -315),
+      dy: active ? -52 : -8,
+    };
+  }
 
   function labelPlace(j, anchor) {
     const ny = nodeYf(j);
@@ -788,24 +805,32 @@
       const l = J.strip.querySelector(`.br-label[data-i="${j}"]`);
       if (l) {
         const lp = labelPlace(j, anchor);
-        l.style.transition = instant ? "none" : "transform .7s cubic-bezier(.2,.9,.25,1), opacity .45s ease";
-        l.style.transform = `translate(${lp.x.toFixed(1)}px, ${lp.y.toFixed(1)}px)`;
-        l.style.textAlign = lp.right ? "left" : "right";
+        const span = l.firstElementChild;
+        const st = J.status[j];
+        const active = j === J.focus;
+        // The box rides the node; the name moves only relative to it.
+        const lny = nodeYf(j);
+        l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
+        l.style.transform = `translate(${withGrav(baseX(j, lny), lny, anchor).toFixed(1)}px, ${lny.toFixed(1)}px)`;
+        const ns = nameStation(active, lp.right);
+        span.style.transition = instant ? "none" : "";
+        span.style.transformOrigin = ns.origin;
+        span.style.transform = `translate(${ns.dx}px, ${ns.dy}px) scale(${ns.scale})`;
+        span.style.textAlign = ns.align;
         // Future phases recede: their labels dim further — the field's
         // stage structure is carried by depth, not by signposts. During the
         // overture every label steps back so the copy can speak.
-        l.style.opacity = (lp.opacity
+        span.style.opacity = ((active ? 1 : lp.opacity)
           * (J.nodes[j].sector > curSector ? 0.45 : 1)
           * (J.ov && !J.ovWake ? 0.3 : 1)).toFixed(2);
-        const st = J.status[j];
-        l.style.color = st === "done" ? "var(--t4lab1)" : st === "next" ? "var(--t4lab2)" : "var(--t4lab3)";
-        // The waking node oscillates, so a DOM label pinned to its resting
-        // place drifts out from under it (and collides with the sphere at the
-        // extremes). Its name rides the sway on the canvas instead; the box
-        // stays as the click target, invisible.
-        if (st === "next" && j !== J.focus) {
-          l.style.opacity = "0";
-          J.ride = { j, text: J.ctx.nodeTitle(J.nodes[j]) };
+        span.style.color = active ? "var(--t4ink2)"
+          : st === "done" ? "var(--t4lab1)" : st === "next" ? "var(--t4lab2)" : "var(--t4lab3)";
+        // The waking node oscillates, so a DOM name pinned to its resting
+        // place drifts out from under it. Its name rides the sway on the
+        // canvas instead; the box stays as the click target, invisible.
+        if (st === "next") {
+          span.style.opacity = "0";
+          if (!active) J.ride = { j, text: J.ctx.nodeTitle(J.nodes[j]) };
         }
       }
     }
@@ -817,6 +842,9 @@
     const nimbus = J.strip.querySelector(".br-nimbus");
     const titleEl = plaque.querySelector(".br-plaque-title");
     titleEl.textContent = J.ctx.nodeTitle(focused);
+    // The name is the node's own label now — it rises into this position
+    // rather than being handed over to a second element that flies in.
+    titleEl.style.display = J.status[J.focus] === "next" ? "" : "none";
     // Far-left locked nodes (strings splay left) would run the title off-frame:
     // flip it to the node's right. Caption stays right in both cases.
     const flip = !J.sess && anchor.nx < 372;
