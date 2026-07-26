@@ -100,6 +100,12 @@
   text-shadow: 0 1px 4px var(--bm-hal), 0 0 14px var(--bm-hal);
   pointer-events: auto;
 }
+/* Σ's last line: leaving is a real option here, said quietly. */
+.bm-ao-pause {
+  font: 400 12px/1.55 Karla, Manrope, sans-serif; color: var(--t4cnt2); text-wrap: pretty;
+  text-shadow: 0 1px 6px var(--t4ts2), 0 0 16px var(--t4ts2);
+}
+.bm-ao-pause[hidden], .bm-ao-body[hidden], .bm-ao-begin[hidden] { display: none; }
 .bm-root[data-sess] .bm-alpha { opacity: 0 !important; pointer-events: none !important; }
 
 /* ── Ω: the always-active omega + the reading ── */

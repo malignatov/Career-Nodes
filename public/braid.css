@@ -190,7 +190,17 @@ body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
   font: italic 500 15.5px Lora, serif; color: var(--acc); cursor: pointer;
   text-shadow: 0 1px 8px var(--t4ts1);
 }
+/* Σ's last line: leaving is a real option here, said quietly and not as a
+   control — nothing to press, nothing lost by closing the window. */
+.br-ao-pause {
+  font: 400 12.5px/1.6 Karla, Manrope, sans-serif; color: var(--t4cnt2); text-wrap: pretty;
+  text-shadow: 0 1px 6px var(--t4ts2), 0 0 18px var(--t4ts2);
+}
+.br-ao-pause[hidden], .br-ao-body[hidden], .br-ao-begin[hidden] { display: none; }
 .br-stage[data-sess] .br-alpha { opacity: 0 !important; pointer-events: none !important; }
+/* Σ: the copy stands mid-field, so every name steps back for as long as it
+   speaks — the beads and the braid keep their own weight. */
+.br-stage[data-sig] .br-label { opacity: .3; }
 
 /* ── Ω: always-active omega + the reading + the terminal state ── */
 .br-omega-glow {

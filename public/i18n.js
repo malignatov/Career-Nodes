@@ -96,6 +96,13 @@ export const STR = {
     braid_alpha_what: "This interview is about you: the heroes you admired, the scenes you return to, the motto you live by. Tell it your way — every word is kept exactly as you said it, and nothing is woven in without your yes.",
     braid_alpha_seven: "Seven conversations, about an hour — and the loose threads become a portrait, a formula, first steps. The other eight beads compose themselves from your words; you only read and approve.",
     braid_alpha_begin: "Begin where every braid begins — with the goal ↗",
+    braid_alpha_pause: "",
+    /* Σ — the interview is told; the braid turns to reading it back. */
+    braid_sigma_lead: "That's the whole telling — your goal, and five stories.",
+    braid_sigma_what: "Every word of it is on the braid exactly as you said it. Nothing was smoothed, nothing was added, and nothing was woven in without your yes.",
+    braid_sigma_seven: "What's left isn't more questions. The remaining beads compose themselves from what you've already said — how you see it, who you are, the portrait, the formula, first steps. You read them, and they settle only when you say so.",
+    braid_sigma_begin: "See what your words make ↗",
+    braid_sigma_pause: "Or stop here. Everything is saved, and the braid waits as long as you need — this is a good place to rest.",
     braid_omega_whisper: "Your story · sealed in your words",
     braid_omega_note: "This node cannot be woven inside the app — it is your life, conceived with meaning and purpose. The untold part begins now — go live it!",
     braid_think_pool: [
@@ -295,6 +302,12 @@ export const STR = {
     braid_alpha_what: "Это интервью — о тебе: о твоих героях, любимых историях и девизе, по которому ты живёшь. Рассказывай своими словами — они хранятся дословно, и ничто не вплетается без твоего «да».",
     braid_alpha_seven: "Семь разговоров, около часа — и свободные нити станут портретом, формулой, первыми шагами. Остальные восемь бусин сложатся сами — из твоих слов. Тебе — прочитать и подтвердить.",
     braid_alpha_begin: "Начни там, где начинается любой процесс, — с цели ↗",
+    braid_alpha_pause: "",
+    braid_sigma_lead: "Рассказ закончен — твоя цель и пять историй.",
+    braid_sigma_what: "Каждое слово лежит на косе ровно так, как ты его сказал. Ничего не сгладили, ничего не добавили, и ничто не вплеталось без твоего «да».",
+    braid_sigma_seven: "Дальше — не вопросы. Оставшиеся бусины сложатся сами из уже сказанного: как ты это видишь, кто ты, портрет, формула, первые шаги. Тебе — прочитать; они закрепятся, только когда ты скажешь.",
+    braid_sigma_begin: "Посмотреть, что сложилось из твоих слов ↗",
+    braid_sigma_pause: "Или остановись здесь. Всё сохранено, и коса подождёт столько, сколько нужно, — это хорошее место для паузы.",
     braid_omega_whisper: "Твоя история · твоими словами",
     braid_omega_note: "Этот узел не вплести в приложении — это твоя жизнь, задуманная со смыслом и целью. Нерассказанная часть начинается сейчас — действуй!",
     braid_think_pool: [

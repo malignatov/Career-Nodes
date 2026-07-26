@@ -181,7 +181,7 @@ window.BraidM = (() => {
 
   /* ── state ────────────────────────────────────────────────── */
 
-  const M = {
+  const M = { ovKind: "alpha",
     ctx: null, root: null, stage: null, strip: null,
     nodes: [], status: [], focus: 0, vp: 0,
     sess: null,               // null | "chat" | "review"
@@ -255,6 +255,7 @@ window.BraidM = (() => {
               <div class="bm-ao-body" data-ao="what"></div>
               <div class="bm-ao-body" data-ao="seven"></div>
               <div class="bm-ao-begin" data-ao="begin"></div>
+              <div class="bm-ao-pause" data-ao="pause"></div>
             </div>
             <div class="bm-omread" hidden>
               <div class="bm-om-whisper"></div>
@@ -525,7 +526,7 @@ window.BraidM = (() => {
         nd.classList.toggle("focus", j === f);
         nd.classList.toggle("bm-future", M.nodes[j].sector > curSector);
         core(nd.querySelector("[data-core]"), st, j, Boolean(M.merge && M.merge.j === j && M.merge.phase === "solid"));
-        nd.querySelector("[data-mping]").classList.toggle("on", st === "next" && !M.sess && !(M.ov && !M.ovWake));
+        nd.querySelector("[data-mping]").classList.toggle("on", st === "next" && !M.sess && !ovHoldM());
       }
     }
 
@@ -564,7 +565,7 @@ window.BraidM = (() => {
     // α: the focused text constellation is withheld until the overture wakes;
     // the wake blooms it in on the slow ceremony easing.
     const timeEl2 = q(".bm-time");
-    if (M.ov && !M.ovWake) {
+    if (ovHoldM()) {
       title.style.opacity = "0";
       prompt.style.opacity = "0";
       if (timeEl2) timeEl2.style.opacity = "0";
@@ -656,18 +657,39 @@ window.BraidM = (() => {
 
   function fillAoTexts() {
     const a = M.strip && M.strip.querySelector(".bm-alpha");
-    if (a) a.querySelectorAll("[data-ao]").forEach((el) => { el.textContent = t(`braid_alpha_${el.dataset.ao}`); });
+    if (a) a.querySelectorAll("[data-ao]").forEach((el) => {
+      el.textContent = t(`braid_${M.ovKind}_${el.dataset.ao}`);
+      el.hidden = !el.textContent; // α has no pause line; Σ does
+    });
   }
 
-  function alphaOpenM() {
+  /** α releases the withhold on wake; Σ holds it — its copy stands where the
+   *  focused caption would land, and two voices in one place is one too many. */
+  const ovHoldM = () => M.ov && (!M.ovWake || M.ovKind === "sigma");
+
+  /** The first step that composes itself instead of being told. */
+  const firstDerivedM = () => M.nodes.findIndex((n) => n.kind === "derived");
+
+  /** Σ: every conversation before the first composed step is settled. */
+  function interviewToldM() {
+    const d = firstDerivedM();
+    return d > 0 && M.nodes.slice(0, d).every((n) => M.ctx.isSettled(n.status));
+  }
+
+  function overtureOpenM(kind) {
+    M.ovKind = kind;
     M.ov = true;
     M.ovWake = false;
+    M.ovDone = false;
     const a = M.strip && M.strip.querySelector(".bm-alpha");
     if (!a) return;
     fillAoTexts();
+    // Strip coordinates, so the copy follows the bead its moment belongs to.
+    const at = kind === "sigma" ? firstDerivedM() : 0;
+    a.style.top = (NY(Math.max(0, at)) + 140) + "px";
     a.hidden = false;
     a.style.opacity = "1";
-    const dl = { lead: 0.3, what: 1.2, seven: 2.1, begin: 3.1 };
+    const dl = { lead: 0.3, what: 1.2, seven: 2.1, begin: 3.1, pause: 3.9 };
     a.querySelectorAll("[data-ao]").forEach((el) => {
       el.style.animation = "none";
       void el.offsetWidth;
@@ -693,8 +715,9 @@ window.BraidM = (() => {
     M.ovWake = true;
     if (first) M.ovPend = true;
     M.slowUntil = Date.now() + 1900;
-    if (M.focus !== 0) setFocus(0); else layout();
-    const core0 = M.strip && M.strip.querySelector('.bm-node[data-n="0"] [data-core]');
+    const at = Math.max(0, M.ovKind === "sigma" ? firstDerivedM() : 0);
+    if (M.focus !== at) setFocus(at); else layout();
+    const core0 = M.strip && M.strip.querySelector(`.bm-node[data-n="${at}"] [data-core]`);
     if (core0 && core0.animate) {
       core0.animate(
         [{ transform: "scale(1)" }, { transform: "scale(1.15)" }, { transform: "scale(1)" }],
@@ -713,7 +736,8 @@ window.BraidM = (() => {
       a.style.opacity = "0";
       setTimeout(() => { a.hidden = true; }, 1400);
     }
-    M.ctx?.setFlag?.("overture_done");
+    if (M.ovKind === "sigma") M.sgDone = true;
+    M.ctx?.setFlag?.(M.ovKind === "sigma" ? "sigma_done" : "overture_done");
   }
 
   function omegaLayoutM() {
@@ -1516,8 +1540,10 @@ window.BraidM = (() => {
     // α/Ω boot — mirrors the desktop braid.
     const flags = ctx.journey.flags ?? {};
     M.omDone = Boolean(flags.omega_done);
-    if (!flags.overture_done && ctx.journey.authorized === 0 && !M.ovDone && !M.ov) alphaOpenM();
-    else if (M.ov && ctx.journey.authorized > 0) aoDismissM();
+    M.sgDone = M.sgDone || Boolean(flags.sigma_done);
+    if (!flags.overture_done && ctx.journey.authorized === 0 && !M.ovDone && !M.ov) overtureOpenM("alpha");
+    else if (M.ov && M.ovKind === "alpha" && ctx.journey.authorized > 0) aoDismissM();
+    else if (!M.sgDone && !M.ov && !M.omega && interviewToldM()) overtureOpenM("sigma");
     if (rebuild && M.omega) omegaLayoutM();
   }
 

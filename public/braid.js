@@ -180,7 +180,7 @@
 
   const NY = (j) => 140 + j * 88;
 
-  const J = {
+  const J = { ovKind: "alpha",
     ctx: null, frame: null, stage: null, strip: null,
     nodes: [], status: [], focus: 0, vp: 0,
     merge: null, pendingNext: null, slowUntil: 0,
@@ -404,6 +404,7 @@
               <div class="br-ao-body" data-ao="what"></div>
               <div class="br-ao-body" data-ao="seven"></div>
               <div class="br-ao-begin" data-ao="begin"></div>
+              <div class="br-ao-pause" data-ao="pause"></div>
             </div>
             <div class="br-omread" hidden>
               <div class="br-om-whisper"></div>
@@ -675,7 +676,8 @@
     const alpha = J.strip.querySelector(".br-alpha");
     if (alpha) {
       alpha.querySelectorAll("[data-ao]").forEach((el) => {
-        el.textContent = t(`braid_alpha_${el.dataset.ao}`);
+        el.textContent = t(`braid_${J.ovKind}_${el.dataset.ao}`);
+        el.hidden = !el.textContent; // α has no pause line; Σ does
       });
     }
     J.strip.querySelectorAll(".br-label").forEach((el) => {
@@ -822,8 +824,11 @@
         p.setAttribute("stroke-width", st.width);
         // α: planned threads lift to .16 while the overture lives — the
         // field shows all fifteen strays instead of near-invisible ones.
+        // Woven threads keep their own weight: under Σ the braid is what the
+        // copy is congratulating, so it must not dim to make room.
         // The waking thread is the live canvas's alone — its svg twin hides.
-        p.style.opacity = J.status[j] === "next" ? "0" : J.ov ? ".16" : st.opacity;
+        p.style.opacity = J.status[j] === "next" ? "0"
+          : J.ov && J.status[j] !== "done" ? ".16" : st.opacity;
       }
       const nd = J.strip.querySelector(`.br-node[data-i="${j}"]`);
       if (nd) {
@@ -1011,7 +1016,7 @@
       // the α gates apply inside the draw, but ovPend must still arm them.
       plaque.style.opacity = "0";
       if (J.ovPend) { J.ovPend = false; J.glowT = performance.now(); }
-    } else if (J.ov && !J.ovWake) {
+    } else if (ovHold()) {
       plaque.style.opacity = "0";
     } else if (J.ovPend) {
       J.ovPend = false;
@@ -1025,7 +1030,7 @@
       // blindly painted the DOM plaque on top of its canvas twin.
       plaque.style.opacity = "0";
       requestAnimationFrame(() => {
-        if (!(J.ov && !J.ovWake) && J.status[J.focus] !== "next") plaque.style.opacity = "1";
+        if (!ovHold() && J.status[J.focus] !== "next") plaque.style.opacity = "1";
       });
     } else plaque.style.opacity = "1";
   }
@@ -1159,7 +1164,7 @@
         const light = document.documentElement.dataset.theme === "light";
         lg.filter = hov ? (light ? "brightness(.68) saturate(1.25)" : "brightness(1.4)") : "none";
         lg.globalAlpha = dim;
-        if (!(J.ov && !J.ovWake)) { // α withhold: the bare sphere, no aura
+        if (!ovHold()) { // α/Σ withhold: the bare sphere, no aura
           const bloom = (J.glowT ? clamp01((ts - J.glowT) / 1900) : 1)
             * (0.6 + 0.4 * (0.5 - 0.5 * Math.cos(ts * 2 * Math.PI / 6500))); // breatheGlow twin
           const aura = lg.createRadialGradient(cx0, ny, 0, cx0, ny, 100);
@@ -1391,14 +1396,54 @@
 
   /* ══ α / Ω — the overture and the closing ceremony ════════ */
 
-  function alphaOpen() {
+  /**
+   * While the copy speaks, the bead keeps only its material — no plaque, no
+   * caption, no aura. α releases that on wake, five seconds in. Σ holds it
+   * for as long as it is up: its column stands exactly where the caption
+   * would land, and two voices in one place is one too many.
+   */
+  const ovHold = () => J.ov && (!J.ovWake || J.ovKind === "sigma");
+
+  /** The first step that composes itself instead of being told. */
+  const firstDerived = () => J.nodes.findIndex((n) => n.kind === "derived");
+
+  /**
+   * Σ — the interview is told. Every conversation before the first derived
+   * step is settled, so the braid stops asking and starts reading back. Same
+   * layer as the overture, at the bead the client has just arrived at.
+   */
+  function interviewTold() {
+    const d = firstDerived();
+    return d > 0 && J.nodes.slice(0, d).every((n) => J.ctx.isSettled(n.status));
+  }
+
+  /**
+   * The copy takes the field. α opens on a virgin braid, Σ when the telling
+   * is done — one layer, one withhold, two moments. The kind picks the copy,
+   * the bead the invitation leads to, and the flag that retires it.
+   */
+  function overtureOpen(kind) {
+    J.ovKind = kind;
     J.ov = true;
     J.ovWake = false;
+    J.ovDone = false;
     const a = J.strip && J.strip.querySelector(".br-alpha");
     if (!a) return;
+    // The layer sits in strip coordinates, so it has to follow the bead the
+    // moment belongs to — the goal for α, the first composed step for Σ.
+    // α opens at the top of the strip and reads below the goal; Σ opens
+    // mid-field, where the camera holds its bead centred — so its copy starts
+    // above the bead's line and the last word still lands inside the frame.
+    const at = Math.max(0, kind === "sigma" ? firstDerived() : 0);
+    a.style.top = (NY(at) + (kind === "sigma" ? -120 : 140)) + "px";
     a.hidden = false;
     a.style.opacity = "1";
-    const dl = { lead: 0.3, what: 1.3, seven: 2.3, begin: 3.4 };
+    // Σ stands mid-field, among names it would otherwise be read through.
+    // Marking the stage is the lever that works here: the labels carry a
+    // transition, so a per-frame inline opacity never reaches the screen.
+    if (J.stage) { if (kind === "sigma") J.stage.dataset.sig = "1"; else delete J.stage.dataset.sig; }
+    updateTexts();
+    const dl = { lead: 0.3, what: 1.3, seven: 2.3, begin: 3.4, pause: 4.2 };
     a.querySelectorAll("[data-ao]").forEach((el) => {
       el.style.animation = "none";
       void el.offsetWidth;
@@ -1424,25 +1469,28 @@
     J.ovWake = true;
     if (first) J.ovPend = true;
     J.slowUntil = Date.now() + 1900;
-    if (J.focus !== 0) setFocus(0);
+    const at = Math.max(0, J.ovKind === "sigma" ? firstDerived() : 0);
+    if (J.focus !== at) setFocus(at);
     else layout();
     // The acknowledging pulse lives on the canvas with the rest of the
     // waking sphere's material (one-shot; the draw eases it over 700ms).
     J.pulseT = performance.now();
   }
 
-  /* The overture leaves on the first authorize and never returns. */
+  /* Either moment leaves on the next authorize and never returns. */
   function aoDismiss() {
     if (J.ovDone) return;
     J.ovDone = true;
     J.ov = false;
+    if (J.ovKind === "sigma") J.sgDone = true;
+    if (J.stage) delete J.stage.dataset.sig;
     clearTimeout(J.timers.aoWake);
     const a = J.strip && J.strip.querySelector(".br-alpha");
     if (a) {
       a.style.opacity = "0";
       setTimeout(() => { a.hidden = true; }, 1500);
     }
-    J.ctx?.setFlag?.("overture_done");
+    J.ctx?.setFlag?.(J.ovKind === "sigma" ? "sigma_done" : "overture_done");
   }
 
   /* Terminal camera + the pour styling — idempotent, called by layout()
@@ -1581,8 +1629,12 @@
     // completed one remembers the ceremony already played.
     const flags = ctx.journey.flags ?? {};
     J.omDone = Boolean(flags.omega_done);
-    if (!flags.overture_done && ctx.journey.authorized === 0 && !J.ovDone && !J.ov) alphaOpen();
-    else if (J.ov && ctx.journey.authorized > 0) aoDismiss(); // authorized elsewhere
+    J.sgDone = J.sgDone || Boolean(flags.sigma_done);
+    if (!flags.overture_done && ctx.journey.authorized === 0 && !J.ovDone && !J.ov) overtureOpen("alpha");
+    else if (J.ov && J.ovKind === "alpha" && ctx.journey.authorized > 0) aoDismiss(); // authorized elsewhere
+    // Σ arrives on the resync that follows the last interview weave, and on
+    // any later open until it is acknowledged.
+    else if (!J.sgDone && !J.ov && !J.omega && interviewTold()) overtureOpen("sigma");
     if (rebuild && J.omega) omegaLayout(); // a rebuild mid-rest re-applies the terminal camera
   }
 
@@ -1815,7 +1867,7 @@
   function drawWake(lg, ts, cx, ny, dim) {
     const w = J.wake;
     if (!w || !lg) return;
-    if (J.ov && !J.ovWake) return; // α withhold — the copy owns the field
+    if (ovHold()) return; // α/Σ withhold — the copy owns the field
     const p = J.paint || {};
     const bloom = (J.glowT ? Math.max(0, Math.min(1, (ts - J.glowT) / 1900)) : 1) * dim;
     if (bloom <= 0.01) return;
@@ -2993,7 +3045,7 @@
     /** Close any live inline session (ws included) — called by the app when
      * the braid stops being the active journey surface. */
     abortSession() { if (L.open) inlineAbort(); },
-    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext, hov: J.hovOn, hovK: J.hovK, nameP: J.nameP, ov: J.ov, ovWake: J.ovWake, wake: !!J.wake, think: !!J.think, sat: J.sat ? (J.sat.offT ? "fading" : "on") : null, thinkIdx: J.think && J.ctx ? (J.think.i + Math.floor(Math.max(0, (performance.now() - J.think.t0) / 2000))) % J.ctx.t("braid_think_pool").length : null }),
+    _debug: () => ({ raf: J.raf, sOpen: S.open, lOpen: L.open, sess: J.sess, sx: J.sx, focus: J.focus, status: J.status.join(","), knots: L.knots.length, syncs: J._syncs || 0, syncSkips: J._syncSkips || 0, merge: Boolean(J.merge), pendingNext: J.pendingNext, hov: J.hovOn, hovK: J.hovK, nameP: J.nameP, ov: J.ov, ovWake: J.ovWake, ovKind: J.ovKind, ovHold: ovHold(), wake: !!J.wake, think: !!J.think, sat: J.sat ? (J.sat.offT ? "fading" : "on") : null, thinkIdx: J.think && J.ctx ? (J.think.i + Math.floor(Math.max(0, (performance.now() - J.think.t0) / 2000))) % J.ctx.t("braid_think_pool").length : null }),
     _frame: (ts) => { if (J.loop) J.loop(ts); },
   };
 })();

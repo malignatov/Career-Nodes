@@ -719,6 +719,69 @@ test("the α overture: withheld field, wake on invitation, dismissal on first we
   await sleep(4500); // let the ceremony advance + resync settle
 });
 
+test("Σ holds back while a story is still untold", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 4 ? "authorized" : i === 5 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, {}));
+  render(ctx);
+  await sleep(300);
+  const layer = $(".br-alpha");
+  expect(!layer || layer.hidden, "Σ opened with an interview step still to tell");
+  expect(!debug().ov, "the field must not be withheld yet");
+});
+
+test("Σ: the telling ends, and the braid says what happens next", async () => {
+  // Six conversations settled — the goal and five stories — and the first
+  // step that composes itself is now waking.
+  const statuses = DEFS.map((_, i) => (i <= 5 ? "authorized" : i === 6 ? "available" : "planned"));
+  const { ctx, spies } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(300);
+  const layer = $(".br-alpha");
+  expect(layer && !layer.hidden, "Σ should open once the interview is told");
+  expect(debug().ov && !debug().ovWake, "Σ withholds the field like the overture does");
+  expect($('[data-ao="lead"]').textContent === t("braid_sigma_lead"),
+    `Σ is showing the wrong copy: ${$('[data-ao="lead"]').textContent}`);
+
+  // The copy speaks for the bead it stands beside: no plaque, no caption, no
+  // aura, for as long as Σ is up — its column lands exactly where the caption
+  // would go. α releases that on wake; Σ does not.
+  // (The plaque is hidden anyway while a waking bead holds focus — the hold
+  // is what keeps the CANVAS from painting its name over the column, so ask
+  // the state, not the DOM.)
+  await sleep(6000);
+  expect(debug().ovWake, "the wake timer should have fired by now");
+  expect(debug().ovHold, "Σ let the bead's name wake into its own column");
+
+  // It offers the way on, and it offers the way out.
+  expect($('[data-ao="begin"]').textContent === t("braid_sigma_begin"), "the invitation is missing");
+  const pause = $('[data-ao="pause"]');
+  expect(pause && !pause.hidden && pause.textContent === t("braid_sigma_pause"),
+    `the pause offer is missing: ${pause?.textContent}`);
+
+  // The braid the client just built keeps its weight — the copy makes room
+  // by dimming what is still loose, not what is already woven.
+  const woven = $('[data-s="0"]'), planned = $('[data-s="10"]');
+  expect(woven.style.opacity !== "0.16" && woven.style.opacity !== ".16",
+    `a woven thread dimmed under Σ: ${woven.style.opacity}`);
+  expect(planned.style.opacity === "0.16" || planned.style.opacity === ".16",
+    `a loose thread should lift to .16: ${planned.style.opacity}`);
+
+  // The invitation leads to the step that composes itself, not back to the goal.
+  $('[data-ao="begin"]').click();
+  await sleep(1300);
+  expect(debug().focus === 6, `the invitation went to ${debug().focus}, want the first derived step`);
+
+  // It retires on the next authorize, under its own flag, and never returns.
+  const surface = await openAndCapture(ctx, "perspective");
+  surface.review(REVIEW);
+  await sleep(200);
+  $("[data-review] [data-auth]").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  surface.done("authorized");
+  await sleep(2200); // seal 1.4s + stagger → the weave starts ≈ t0+1.75s
+  expect(spies.flags.includes("sigma_done"), `Σ never recorded itself: ${spies.flags.join(",")}`);
+  expect(!spies.flags.includes("overture_done"), "Σ must not retire the overture's flag");
+});
+
 test("the authorize ceremony: travel wireframe, solidify, promoted next bead, resync", async () => {
   const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
   const { ctx, spies } = makeCtx(makeJourney(statuses, { overture_done: true }));
