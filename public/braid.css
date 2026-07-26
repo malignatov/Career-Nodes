@@ -121,9 +121,13 @@
 /* The braid owns the whole viewport, but the card UI still lives in the
    document beneath it — without this, PageDown/Home/End scroll the PAGE and
    carry the braid away: the field appears to fly up and the chat reads as
-   empty until a restart. Lock the document while the braid is mounted. */
-html:has(#journey.braid-on),
-body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
+   empty until a restart. Lock the document while the braid is mounted.
+   Screen only: printToPDF paginates by letting the body grow, and this lock
+   clamped every export to a single page. */
+@media screen {
+  html:has(#journey.braid-on),
+  body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
+}
 
 .br-frame {
   position: relative;
