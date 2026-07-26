@@ -70,10 +70,16 @@ export async function runReviewSession(
       ? { ...content, candidates: [content[field]] }
       : { ...content };
 
+  // An amend conversation is written down as it happens. It used to reach
+  // disk only on authorization, so a client who talked a change through and
+  // then walked away came back to a record that ended at the interview.
+  const persist = (ex: ExchangeEntry[]) => {
+    void store.write(`${pb.id}.transcript.json`, JSON.stringify(ex, null, 2));
+  };
   const authorized = await runConfirm(
     pb, draft, io,
     (feedback, prior) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang, prior),
-    { existingFirst: true, llm, lang: opts.lang, exchange },
+    { existingFirst: true, llm, lang: opts.lang, exchange, upstream, persist },
   );
 
   await saveArtifact(pb, authorized, exchange, store);
@@ -197,10 +203,22 @@ export async function runPlaybookSession(
   }
 
   const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.lang);
+  // Same for a first-time draft, except the live session file is the record
+  // here — and it must keep saying the interview is over, or reopening the
+  // step would offer to resume a conversation that already finished.
+  const persist = (ex: ExchangeEntry[]) => {
+    void store.write(
+      sessionPath,
+      JSON.stringify(
+        { exchange: ex, stage_index: pb.elicit?.stages.length ?? 0, elicit_done: true } satisfies SessionState,
+        null, 2,
+      ),
+    );
+  };
   const authorized = await runConfirm(
     pb, draft, io,
     (feedback, prior) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang, prior),
-    { llm, lang: opts.lang, exchange },
+    { llm, lang: opts.lang, exchange, upstream, persist },
   );
 
   await saveArtifact(pb, authorized, exchange, store);

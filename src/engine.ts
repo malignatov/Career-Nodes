@@ -3,6 +3,7 @@ import type {
 } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
 import { borrowedAcrossEntities, gatherMarked, verbatimViolations } from "./verbatim.ts";
+import { applyOps, PATCH_SCHEMA, type PatchOp } from "./patch.ts";
 import { cfg } from "./config.ts";
 
 // Output ceiling for an induce step. Generous by default; env-tunable because
@@ -483,9 +484,12 @@ export async function runInduce(
   lang?: SessionLang,
   prior?: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const transcript = exchange.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
+  // A withdrawn amend stays in the record but never composes: the user took
+  // those words back, and the composer quotes what it is given.
+  const live = exchange.filter((e) => e.phase !== "amend_withdrawn");
+  const transcript = live.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
   const verbatimSource = [
-    ...exchange.filter((e) => e.speaker === "user").map((e) => e.text),
+    ...live.filter((e) => e.speaker === "user").map((e) => e.text),
     ...stringValuesDeep(upstream),
   ].join("\n");
   const draft: Record<string, unknown> = {};
@@ -524,6 +528,7 @@ export function amendChatSystem(pb: Playbook, lang?: SessionLang): string {
       '- action "drop" — the user withdrew the request or wants the draft kept as it is. `say` acknowledges briefly; the draft stays. Leave `directive` empty.',
     ].join("\n"),
     "The user's first request alone is never a confirmation — always reply at least once before revising. Never rewrite the draft yourself inside `say`, and never put changes into `directive` that the user did not agree to.",
+    "The passage may only hold the user's own words. If the change would need words they have not said — a comparison they never made, a feeling they never named — do not agree to supply them: ask for them, in their words, and settle the change around what they give you.",
     "Write `say` as plain prose — no markdown, no asterisks — and never name a schema field to the user: speak of the passage in their own terms.",
     lang ? `Write \`say\` in ${lang.instruction}.` : "",
   ].filter(Boolean).join("\n\n");
@@ -541,11 +546,15 @@ export async function runAmendChat(
   io: SessionIO,
   lang: SessionLang | undefined,
   exchange: ExchangeEntry[],
+  persist?: (exchange: ExchangeEntry[]) => void,
 ): Promise<string | null> {
   const start = exchange.length;
   exchange.push({ speaker: "user", text: firstComment, phase: "amend" });
+  persist?.(exchange);
   const userAsks = () =>
-    exchange.slice(start).filter((e) => e.speaker === "user").map((e) => e.text).join("\n");
+    exchange.slice(start)
+      .filter((e) => e.speaker === "user" && e.phase !== "amend_withdrawn")
+      .map((e) => e.text).join("\n");
 
   for (let turn = 0; turn < MAX_AMEND_TURNS; turn++) {
     const convo = exchange
@@ -574,19 +583,144 @@ export async function runAmendChat(
     if (say) {
       io.say(say);
       exchange.push({ speaker: "interviewer", text: say, phase: "amend" });
+      persist?.(exchange);
     }
     if (out.action === "revise") return out.directive?.trim() || userAsks();
     if (out.action === "drop") {
-      // Withdrawn: scrub the conversation from the exchange so the abandoned
-      // request can never steer a later recompose (the transcript feeds the
-      // composer verbatim). The on-screen chat keeps what was said.
-      exchange.length = start;
+      // Withdrawn. The words were still said, so they stay in the record —
+      // marked, so no later recompose can be steered by a request the user
+      // took back (the transcript feeds the composer verbatim).
+      for (const e of exchange.slice(start)) e.phase = "amend_withdrawn";
+      persist?.(exchange);
       return null;
     }
     const answer = await io.ask("you");
     exchange.push({ speaker: "user", text: answer, phase: "amend" });
+    persist?.(exchange);
   }
   return userAsks(); // cap reached — revise with everything the user asked
+}
+
+/* ── the amend patch ────────────────────────────────────────────────────
+ * An agreed change is applied as named edits, not a rewrite. The model that
+ * reads the request only has to say WHERE and WHAT; the code does the moving,
+ * and can therefore report exactly what happened — including "nothing", which
+ * used to come back as an unchanged draft and no explanation at all. */
+
+/**
+ * The shape of the whole artifact. An induce run has several steps and the
+ * saved object is their union, so a patch judged against one step's schema
+ * would call the other step's fields invented and refuse to touch them.
+ */
+export function artifactSchema(pb: Playbook): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  for (const st of pb.induce?.steps ?? []) {
+    const own = (st.output_schema as { properties?: Record<string, unknown> }).properties;
+    if (own) Object.assign(properties, own);
+  }
+  return { type: "object", properties };
+}
+
+export function amendPatchSystem(pb: Playbook, schema: Record<string, unknown>, lang?: SessionLang): string {
+  return [
+    `You are editing a settled artifact from the "${pb.title}" step of a career construction session. The user asked for a change and it has already been talked through and agreed with them. Your job is to say precisely which parts of the artifact change.`,
+    "Do not ask the user anything — that conversation is over. Where the agreed change leaves a detail open (exactly where to cut a quote, whether a section should be emptied or an item dropped), take the most faithful reading, make the edit, and tell them what you chose in `summary`.",
+    [
+      "Return JSON with:",
+      '- `ops` — the edits, smallest set that does the job. Each is `{ "op": "set" | "add" | "remove", "path": "...", "value": ... }`.',
+      '  Paths are dotted, with numbers for list positions: `models.2.similarities.0`, `guides.1.name`. To append to a list, end the path with `-`: `models.2.similarities.-`. To drop an item, `remove` its exact path.',
+      '  Touch nothing the user did not ask about. Do not restate unchanged parts.',
+      '- `summary` — one short sentence telling the user what you changed, in their own terms. Never name a schema field.',
+      '- `blocked` — leave empty when you made the edits. It has exactly one use: the change would need words the user never said. Then return NO ops and write, in one or two sentences, what you would need to hear. This text is shown to the user as the counselor speaking — address them as "you", never as "the user".',
+    ].join("\n"),
+    [
+      "The user has already agreed to this change — it is your instruction, and it needs no quote of its own. What needs quoting is only what ends up STORED in a field marked x-verbatim: every such string must be an exact quote of the user's own words, from the transcript or the upstream artifacts.",
+      "So: removing, reordering, renaming, or trimming are all free. Dividing one long quote into two shorter ones is free as well, as long as each part is still an unbroken stretch of what the user actually said — you are cutting their sentence, not rewriting it.",
+      "What you may never do is write in a quote the user never said, or move a phrase the user said about one person, story or favorite onto another. If the change needs words that are not in the transcript, make no edits and use `blocked` to say what you would need to hear from them.",
+      "",
+      "Two worked examples.",
+      'To break the stored quote "I can be counted on. And always finding strength to do right things" into two, cut it where the user paused: `[{"op":"set","path":"models.0.similarities.0","value":"I can be counted on"},{"op":"add","path":"models.0.similarities.-","value":"always finding strength to do right things"}]`. Both halves are still exactly what they said.',
+      'To empty a section the schema requires, set it to an empty list rather than removing the field: `[{"op":"set","path":"guides","value":[]}]`.',
+    ].join("\n"),
+    `The artifact's schema:\n${JSON.stringify(schema, null, 2)}`,
+    lang ? `Write \`summary\` and \`blocked\` in ${lang.instruction}.` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+export interface AmendResult {
+  content: Record<string, unknown>;
+  changed: boolean;
+  summary: string;
+  /** Why nothing changed, in the counselor's voice — empty when it did. */
+  blocked: string;
+  /** Edits the code refused, for the log; the user hears `blocked` instead. */
+  rejected: string[];
+}
+
+/**
+ * Applies an agreed change to the current draft. Returns the draft untouched
+ * when the change cannot be made honestly — with the reason, so the counselor
+ * can say it out loud rather than redrawing the same artifact in silence.
+ */
+export async function runAmendPatch(
+  pb: Playbook,
+  llm: LlmAdapter,
+  current: Record<string, unknown>,
+  directive: string,
+  exchange: ExchangeEntry[],
+  upstream: Record<string, unknown>,
+  lang?: SessionLang,
+): Promise<AmendResult> {
+  const schema = artifactSchema(pb);
+  const tier = pb.induce?.steps?.[0]?.model_tier ?? "small";
+  // A withdrawn amend stays in the record but never composes: the user took
+  // those words back, and the composer quotes what it is given.
+  const live = exchange.filter((e) => e.phase !== "amend_withdrawn");
+  const transcript = live.map((e) => `${e.speaker === "user" ? "user" : "interviewer"}: ${e.text}`).join("\n");
+  const verbatimSource = [
+    ...live.filter((e) => e.speaker === "user").map((e) => e.text),
+    ...stringValuesDeep(upstream),
+  ].join("\n");
+
+  const { _verbatim_warnings: _priorWarnings, ...clean } = current;
+  const raw = await llm.complete({
+    tier,
+    system: amendPatchSystem(pb, schema, lang),
+    messages: [{
+      role: "user",
+      content: `Transcript:\n${transcript}\n\nThe artifact as it stands:\n${JSON.stringify(clean, null, 2)}`
+        + `\n\nThe agreed change:\n${directive}`,
+    }],
+    jsonSchema: PATCH_SCHEMA,
+    maxTokens: INDUCE_MAX_TOKENS,
+    temperature: 0.2,
+  });
+  const out = JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as {
+    ops?: PatchOp[]; summary?: string; blocked?: string;
+  };
+
+  const ops = Array.isArray(out.ops) ? out.ops : [];
+  const blocked = (out.blocked ?? "").trim();
+  if (ops.length === 0) return { content: current, changed: false, summary: "", blocked, rejected: [] };
+
+  const { next, applied, rejected } = applyOps(clean, ops, schema);
+  const refused = rejected.map((r) => `${r.op.op} ${r.op.path}: ${r.reason}`);
+  // Nothing landed: the draft stands, and the user is told, not shown the
+  // same artifact again with no word about it. Ops that leave the artifact
+  // exactly as it was count as nothing landing — a summary claiming a change
+  // that did not happen is the same silence wearing a different face.
+  if (applied.length === 0 || JSON.stringify(next) === JSON.stringify(clean)) {
+    return { content: current, changed: false, summary: "", blocked, rejected: refused };
+  }
+
+  // The same discipline the composer answers to: an edit may not put words in
+  // the user's mouth, and may not lend one person's words to another.
+  const violations = verbatimViolations(next, schema, verbatimSource);
+  const borrowed = borrowedAcrossEntities(next, schema);
+  const flagged = [...new Set([...violations, ...borrowed])];
+  if (flagged.length > 0) (next as Record<string, unknown>)._verbatim_warnings = flagged;
+
+  return { content: next, changed: true, summary: (out.summary ?? "").trim(), blocked: "", rejected: refused };
 }
 
 function collectVerbatim(pb: Playbook, draft: Record<string, unknown>): { verified_quotes: string[]; warnings: string[] } {
@@ -601,7 +735,14 @@ export async function runConfirm(
   draft: Record<string, unknown>,
   io: SessionIO,
   reinduce: (feedback?: string, prior?: Record<string, unknown>) => Promise<Record<string, unknown>>,
-  opts: { existingFirst?: boolean; llm?: LlmAdapter; lang?: SessionLang; exchange?: ExchangeEntry[]; skipMode?: boolean } = {},
+  opts: {
+    existingFirst?: boolean; llm?: LlmAdapter; lang?: SessionLang;
+    exchange?: ExchangeEntry[]; skipMode?: boolean;
+    /** Sources for the patch step; without them an amend falls back to a rewrite. */
+    upstream?: Record<string, unknown>;
+    /** Called after each amend turn so a conversation left mid-way is still recorded. */
+    persist?: (exchange: ExchangeEntry[]) => void;
+  } = {},
 ): Promise<Record<string, unknown>> {
   const confirm = pb.confirm!;
   let current = draft;
@@ -629,9 +770,37 @@ export async function runConfirm(
         let feedback = act.action === "feedback" ? act.text : undefined;
         if (act.action === "feedback" && opts.llm) {
           // Talk the change through first; only a confirmed request revises.
-          const settled = await runAmendChat(pb, opts.llm, current, act.text, io, opts.lang, opts.exchange ?? []);
+          const settled = await runAmendChat(
+            pb, opts.llm, current, act.text, io, opts.lang, opts.exchange ?? [], opts.persist,
+          );
           if (settled === null) continue; // withdrawn — the draft stands
           feedback = settled;
+          // A settled artifact is edited, not regenerated: the change was
+          // agreed sentence by sentence, and a rewrite is free to move things
+          // nobody discussed. Candidate steps are different — there the draft
+          // IS a wording, so it is composed again.
+          if (present === "structured_review" && pb.induce?.steps?.length) {
+            io.note("(reworking it…)");
+            try {
+              const amended = await runAmendPatch(
+                pb, opts.llm, current, feedback,
+                opts.exchange ?? [], opts.upstream ?? {}, opts.lang,
+              );
+              if (amended.changed) {
+                current = amended.content;
+                existing = false;
+                if (amended.summary) io.say(amended.summary);
+                continue;
+              }
+              // Refused, honestly: say why rather than redraw the same thing.
+              if (amended.blocked) {
+                io.say(amended.blocked);
+                if (opts.exchange) opts.exchange.push({ speaker: "interviewer", text: amended.blocked, phase: "amend" });
+                opts.persist?.(opts.exchange ?? []);
+                continue;
+              }
+            } catch { /* the patch step failed outright — rewrite instead */ }
+          }
         }
         io.note("(reworking it…)");
         // A feedback revision hands the current draft over as `prior` so the

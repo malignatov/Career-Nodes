@@ -83,7 +83,7 @@ export function reconstructManualAnswers(
   }
   const answers: Record<string, string> = {};
   let current: string | null = null;
-  for (const e of exchange.filter((x) => x.phase !== "amend")) {
+  for (const e of exchange.filter((x) => !x.phase)) { // the interview itself, no amend turns
     if (e.speaker === "interviewer") {
       const sid = anchors.get(e.text.trim());
       if (!sid) return null;

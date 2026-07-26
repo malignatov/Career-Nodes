@@ -2051,14 +2051,15 @@
     // its own caps-whisper divider.
     let inAmend = false;
     for (const turn of L.record ?? []) {
-      if (turn.phase === "amend" && !inAmend) {
+      const isAmend = String(turn.phase ?? "").startsWith("amend");
+      if (isAmend && !inAmend) {
         const n = document.createElement("div");
         n.className = "br7-note";
         n.style.animation = "none";
         n.textContent = ctx.t("braid_amend_divider");
         w.appendChild(n);
       }
-      inAmend = turn.phase === "amend";
+      inAmend = isAmend;
       const d = document.createElement("div");
       d.className = turn.speaker === "user" ? "br7-user" : "br7-say";
       d.style.animation = "none";

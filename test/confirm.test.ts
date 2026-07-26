@@ -68,7 +68,7 @@ test("amend: conversation → confirm → reinduce gets the directive AND the cu
   assert.ok(said.includes("Warmer how — softer wording?"));
 });
 
-test("amend: drop scrubs the conversation from the exchange and never reinduces", async () => {
+test("amend: a withdrawn request is kept in the record, marked, and never reinduces", async () => {
   const { io } = makeIO(
     [{ action: "feedback", text: "change X" }, { action: "authorize" }],
     ["actually, never mind"],
@@ -78,16 +78,46 @@ test("amend: drop scrubs the conversation from the exchange and never reinduces"
     chatTurn({ action: "drop", say: "Kept as it is.", directive: "" }),
   ]);
   const exchange: ExchangeEntry[] = [{ speaker: "user", text: "kept interview turn" }];
+  const saves: number[] = [];
   let reinduced = 0;
   const out = await runConfirm(
     PB, { text: "v1" }, io as never,
     async () => { reinduced++; return { text: "v2" }; },
-    { llm, exchange },
+    { llm, exchange, persist: (ex) => saves.push(ex.length) },
   );
   assert.deepEqual(out, { text: "v1" }); // the draft stood
   assert.equal(reinduced, 0);
-  // the withdrawn conversation left no trace in the composition source
-  assert.deepEqual(exchange, [{ speaker: "user", text: "kept interview turn" }]);
+  // It was said, so it stays — marked, so no recompose can be steered by it.
+  assert.deepEqual(exchange.map((e) => [e.phase ?? "-", e.speaker, e.text]), [
+    ["-", "user", "kept interview turn"],
+    ["amend_withdrawn", "user", "change X"],
+    ["amend_withdrawn", "interviewer", "Change X to what?"],
+    ["amend_withdrawn", "user", "actually, never mind"],
+    ["amend_withdrawn", "interviewer", "Kept as it is."],
+  ]);
+  // …and it reached disk while it was happening, not only at authorization.
+  assert.ok(saves.length >= 4, `the amend was saved ${saves.length} times, want one per turn`);
+});
+
+test("amend: every turn is written down as it happens", async () => {
+  const { io } = makeIO(
+    [{ action: "feedback", text: "make it warmer" }, { action: "authorize" }],
+    ["yes, do it"],
+  );
+  const llm = makeLlm([
+    chatTurn({ action: "reply", say: "Warmer how?", directive: "" }),
+    chatTurn({ action: "revise", say: "Done.", directive: "soften it" }),
+  ]);
+  const exchange: ExchangeEntry[] = [];
+  // A client who talks a change through and then walks away used to come
+  // back to a record that ended at the interview.
+  const snapshots: string[][] = [];
+  await runConfirm(
+    PB, { text: "v1" }, io as never, async () => ({ text: "v2" }),
+    { llm, exchange, persist: (ex) => snapshots.push(ex.map((e) => e.text)) },
+  );
+  assert.deepEqual(snapshots[0], ["make it warmer"]);
+  assert.deepEqual(snapshots.at(-1), ["make it warmer", "Warmer how?", "yes, do it", "Done."]);
 });
 
 test("amend: a broken chat turn falls back to the raw request (old behavior)", async () => {

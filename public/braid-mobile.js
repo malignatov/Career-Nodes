@@ -1212,14 +1212,15 @@ window.BraidM = (() => {
     // The full session log, amends included, with a divider per amend run.
     let inAmend = false;
     for (const turn of M.record ?? []) {
-      if (turn.phase === "amend" && !inAmend) {
+      const isAmend = String(turn.phase ?? "").startsWith("amend");
+      if (isAmend && !inAmend) {
         const n = document.createElement("div");
         n.className = "bm-note";
         n.style.animation = "none";
         n.textContent = t("braid_amend_divider");
         w.appendChild(n);
       }
-      inAmend = turn.phase === "amend";
+      inAmend = isAmend;
       const d = document.createElement("div");
       d.className = turn.speaker === "user" ? "bm-user" : "bm-say";
       d.style.animation = "none";

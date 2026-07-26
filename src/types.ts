@@ -75,8 +75,10 @@ export interface ExchangeEntry {
   speaker: "interviewer" | "user";
   text: string;
   /** Turns from an amend conversation over a presented draft, as opposed to
-   * the original interview. Lets transcripts render the amend divider. */
-  phase?: "amend";
+   * the original interview. Lets transcripts render the amend divider.
+   * "amend_withdrawn" marks a request the user took back: it stays in the
+   * record, because it was said, but never feeds a recompose. */
+  phase?: "amend" | "amend_withdrawn";
 }
 
 export interface Artifact {
