@@ -120,7 +120,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   // One-shot UI milestone flags (α overture seen, Ω ceremony played).
   if (path === "/api/flag" && req.method === "POST") {
     const name = url.searchParams.get("name") ?? "";
-    if (!["overture_done", "sigma_done", "omega_done"].includes(name)) return json(res, 400, { error: "unknown flag" });
+    if (!["overture_done", "omega_done"].includes(name)) return json(res, 400, { error: "unknown flag" });
     let flags: Record<string, boolean> = {};
     const raw = await store.read("flags.json");
     if (raw !== null) { try { flags = JSON.parse(raw) as Record<string, boolean>; } catch { /* reset */ } }

@@ -670,12 +670,6 @@ window.BraidM = (() => {
   /** The first step that composes itself instead of being told. */
   const firstDerivedM = () => M.nodes.findIndex((n) => n.kind === "derived");
 
-  /** Σ: every conversation before the first composed step is settled. */
-  function interviewToldM() {
-    const d = firstDerivedM();
-    return d > 0 && M.nodes.slice(0, d).every((n) => M.ctx.isSettled(n.status));
-  }
-
   function overtureOpenM(kind) {
     M.ovKind = kind;
     M.ov = true;
@@ -736,8 +730,8 @@ window.BraidM = (() => {
       a.style.opacity = "0";
       setTimeout(() => { a.hidden = true; }, 1400);
     }
-    if (M.ovKind === "sigma") M.sgDone = true;
-    M.ctx?.setFlag?.(M.ovKind === "sigma" ? "sigma_done" : "overture_done");
+    if (M.ovKind === "sigma") M.sgDone = true; // in-memory: Σ never persists
+    else M.ctx?.setFlag?.("overture_done");
   }
 
   function omegaLayoutM() {
@@ -892,6 +886,12 @@ window.BraidM = (() => {
       const nx = Math.min(M.nodes.length - 1, j + 1);
       if (nx !== M.focus || M.pendNext != null) setFocus(nx); else layout();
       M.glideDur = null;
+      // Σ fires on the weave that completes the telling — live, in-memory,
+      // never resurrected by a reload. Only an interview weave lights it.
+      if (!M.sgDone && !M.omega) {
+        const d = firstDerivedM();
+        if (d > 0 && j < d && M.status.slice(0, d).every((st) => st === "done")) overtureOpenM("sigma");
+      }
     }, 3600);
   }
 
@@ -1540,10 +1540,8 @@ window.BraidM = (() => {
     // α/Ω boot — mirrors the desktop braid.
     const flags = ctx.journey.flags ?? {};
     M.omDone = Boolean(flags.omega_done);
-    M.sgDone = M.sgDone || Boolean(flags.sigma_done);
     if (!flags.overture_done && ctx.journey.authorized === 0 && !M.ovDone && !M.ov) overtureOpenM("alpha");
     else if (M.ov && M.ovKind === "alpha" && ctx.journey.authorized > 0) aoDismissM();
-    else if (!M.sgDone && !M.ov && !M.omega && interviewToldM()) overtureOpenM("sigma");
     if (rebuild && M.omega) omegaLayoutM();
   }
 

@@ -1334,6 +1334,14 @@
       // linear map makes the optimism safe; the resync confirms it.
       J.pendingNext = J.pendingNext ?? Math.min(J.nodes.length - 1, i + 1);
       setFocus(J.pendingNext);
+      // Σ fires HERE, on the weave that completes the telling — a live
+      // moment, not a stored one. Only an interview weave can light it
+      // (i < firstDerived), it latches in memory alone, and a page opened
+      // later with six done boots quiet: whoever reloads has moved on.
+      if (!J.sgDone && !J.omega) {
+        const d = firstDerived();
+        if (d > 0 && i < d && J.status.slice(0, d).every((st) => st === "done")) overtureOpen("sigma");
+      }
       // ALWAYS resync after a weave: the authorize changed server state even
       // when no already-known step wakes — the step this one just unlocked
       // only exists server-side. (Sequential unlocks otherwise paint stale
@@ -1408,16 +1416,6 @@
   const firstDerived = () => J.nodes.findIndex((n) => n.kind === "derived");
 
   /**
-   * Σ — the interview is told. Every conversation before the first derived
-   * step is settled, so the braid stops asking and starts reading back. Same
-   * layer as the overture, at the bead the client has just arrived at.
-   */
-  function interviewTold() {
-    const d = firstDerived();
-    return d > 0 && J.nodes.slice(0, d).every((n) => J.ctx.isSettled(n.status));
-  }
-
-  /**
    * The copy takes the field. α opens on a virgin braid, Σ when the telling
    * is done — one layer, one withhold, two moments. The kind picks the copy,
    * the bead the invitation leads to, and the flag that retires it.
@@ -1482,7 +1480,9 @@
     if (J.ovDone) return;
     J.ovDone = true;
     J.ov = false;
-    if (J.ovKind === "sigma") J.sgDone = true;
+    if (J.ovKind === "sigma") J.sgDone = true; // an in-memory latch — Σ is a
+    // live moment: the next weave retires it, and a reload simply never
+    // brings it back. Only α persists a flag.
     if (J.stage) delete J.stage.dataset.sig;
     clearTimeout(J.timers.aoWake);
     const a = J.strip && J.strip.querySelector(".br-alpha");
@@ -1490,7 +1490,7 @@
       a.style.opacity = "0";
       setTimeout(() => { a.hidden = true; }, 1500);
     }
-    J.ctx?.setFlag?.(J.ovKind === "sigma" ? "sigma_done" : "overture_done");
+    if (J.ovKind !== "sigma") J.ctx?.setFlag?.("overture_done");
   }
 
   /* Terminal camera + the pour styling — idempotent, called by layout()
@@ -1629,12 +1629,8 @@
     // completed one remembers the ceremony already played.
     const flags = ctx.journey.flags ?? {};
     J.omDone = Boolean(flags.omega_done);
-    J.sgDone = J.sgDone || Boolean(flags.sigma_done);
     if (!flags.overture_done && ctx.journey.authorized === 0 && !J.ovDone && !J.ov) overtureOpen("alpha");
     else if (J.ov && J.ovKind === "alpha" && ctx.journey.authorized > 0) aoDismiss(); // authorized elsewhere
-    // Σ arrives on the resync that follows the last interview weave, and on
-    // any later open until it is acknowledged.
-    else if (!J.sgDone && !J.ov && !J.omega && interviewTold()) overtureOpen("sigma");
     if (rebuild && J.omega) omegaLayout(); // a rebuild mid-rest re-applies the terminal camera
   }
 
@@ -1872,17 +1868,38 @@
     const bloom = (J.glowT ? Math.max(0, Math.min(1, (ts - J.glowT) / 1900)) : 1) * dim;
     if (bloom <= 0.01) return;
     const q = J.nameP;                       // 0 = tucked aside, 1 = risen
-    const right = !w.flip ? false : true;    // flip → the name sits to the right
     const r = 25; // the waking sphere
+    lg.save();
+    // The label pass names a side, but the canvas is the truth: it paints at
+    // the node's real x, and the risen name must fit ON the canvas there. If
+    // the preferred shoulder hasn't the room, the journey flips to the other
+    // one; the session cannot — the chat owns the right of the sphere — so it
+    // wraps the name into the room it has. Decided once per wake (±26 sway
+    // margin), so the choice never flutters with the oscillation.
+    lg.font = "600 13.5px Lora, serif";
+    if (!w._deck || w._g !== fontGen) {
+      const clear = nameStation(true, true, r).dx;   // painted px, symmetric
+      const sc1 = nameStation(true, true, r).scale;
+      const availL = Math.floor((cx - 26 - 6 - clear) / sc1); // base-font px
+      const availR = Math.floor((894 - cx - 26 - clear) / sc1);
+      let side = J.sess ? false : !!w.flip;
+      let room = side ? availR : availL;
+      const need = Math.min(300, Math.ceil(lg.measureText(w.title).width));
+      if (room < need) {
+        const other = side ? availL : availR;
+        if (!J.sess && other >= need) { side = !side; room = other; }
+        else if (J.sess && room < 56 && other > room) { side = !side; room = other; }
+      }
+      w._deck = { side, wrapW: Math.max(56, Math.min(300, room)) };
+      w._t = wrapLines(lg, w.title, w._deck.wrapW);
+      w._g = fontGen;
+    }
+    const right = w._deck.side;
     const s0 = nameStation(false, right, r), s1 = nameStation(true, right, r);
     const mix = (a, b) => a + (b - a) * q;
     const scale = mix(s0.scale, s1.scale);
     const dx = mix(s0.dx, s1.dx);
     const dy = mix(s0.dy, s1.dy);
-    lg.save();
-    // Line breaks are scale-invariant: the box and the type grow together.
-    lg.font = "600 13.5px Lora, serif";
-    if (!w._t || w._g !== fontGen) { w._t = wrapLines(lg, w.title, 300); w._g = fontGen; }
     const size = 13.5 * scale, lineH = 1.18 * size;
     const centreY = ny + dy + (w._t.length * 1.18 * 13.5) / 2;
     const top = centreY - (w._t.length * lineH) / 2;
