@@ -2152,7 +2152,7 @@
     say(text, anchor) {
       clearThink();
       if (anchor) inlineMsg("note", L.ctx.t("anchor_label"));
-      inlineMsg("say", text);
+      inlineMsg("say", text, L.ctx.prose?.(text)); // renders emphasis, keeps the words
     },
     note(text) {
       const localized = L.ctx.localizeNote(text);

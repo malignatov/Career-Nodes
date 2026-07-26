@@ -408,3 +408,16 @@ export const NODES = {
     closing_check: { title: "Получилось?", desc: "Твой запрос, зачитанный слово в слово. Решаешь ты." },
   },
 };
+
+/* The counselor writes prose, but a model will still reach for markdown now
+ * and then, and both braids render text literally — so *emphasis* arrived on
+ * screen wearing its asterisks. Display only: the transcript keeps every
+ * character it was given, and the verbatim checks still run on that. Only the
+ * counselor's own words pass through here; the client's show exactly as typed,
+ * so arithmetic like 5*8 and snake_case names are never touched. */
+export function prose(text, esc) {
+  return esc(String(text ?? ""))
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[\s(“"'])\*([^*\n]+)\*(?=[\s.,;:!?)”"']|$)/g, "$1<em>$2</em>")
+    .replace(/(^|[\s(“"'])_([^_\n]+)_(?=[\s.,;:!?)”"']|$)/g, "$1<em>$2</em>");
+}

@@ -101,6 +101,7 @@ export function interviewerSystem(
     `Anchor question for this topic (use this wording, adapted only lightly to the flow): ${stageOpening(stage, lang)}`,
     probes ? `Probe guidance:\n${probes}` : "",
     "Ask exactly one question per message and keep each message to a few sentences.",
+    "Write plain prose. No markdown, no asterisks, no bullets or headings — the client reads your words set as text, so any markup arrives on screen as literal characters. For emphasis, choose the word.",
     "Messages wrapped in [brackets] are stage directions from the application, not the user. Never mention them.",
     lang
       ? `Conduct the entire conversation in ${lang.instruction}. Translate the anchor question faithfully — keep its meaning intact.`
@@ -513,6 +514,7 @@ export function amendChatSystem(pb: Playbook, lang?: SessionLang): string {
       '- action "drop" — the user withdrew the request or wants the draft kept as it is. `say` acknowledges briefly; the draft stays. Leave `directive` empty.',
     ].join("\n"),
     "The user's first request alone is never a confirmation — always reply at least once before revising. Never rewrite the draft yourself inside `say`, and never put changes into `directive` that the user did not agree to.",
+    "Write `say` as plain prose — no markdown, no asterisks — and never name a schema field to the user: speak of the passage in their own terms.",
     lang ? `Write \`say\` in ${lang.instruction}.` : "",
   ].filter(Boolean).join("\n\n");
 }

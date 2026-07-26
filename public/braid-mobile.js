@@ -1242,7 +1242,7 @@ window.BraidM = (() => {
     say(text, anchor) {
       clearThink();
       if (anchor) msgEl("note", t("anchor_label"));
-      msgEl("say", text);
+      msgEl("say", text, M.ctx.prose?.(text));
     },
     note(text) {
       const localized = M.ctx.localizeNote(text);

@@ -1,4 +1,4 @@
-import { STR, PHASES, NODES } from "/i18n.js";
+import { STR, PHASES, NODES, prose as proseFmt } from "/i18n.js";
 
 const $ = (id) => document.getElementById(id);
 const journeyEl = $("journey");
@@ -116,7 +116,7 @@ function braidCtx() {
   return {
     journey, t, lang, theme, mode, profile, profiles, profileName,
     nodeTitle, nodeDesc, phaseLabel, esc, api, connect, wsSend,
-    currentNodeId, isSettled, markVerbatim, localizeNote, exportPdf,
+    currentNodeId, isSettled, markVerbatim, prose, localizeNote, exportPdf,
     renderFields, compiledHtml,
     wsLive: () => Boolean(ws),
     /** One-shot UI milestones (α seen, Ω played) — persisted per profile. */
@@ -486,10 +486,10 @@ function compiledHtml(compiled) {
 
 /* ── conversation ────────────────────────────────────── */
 
-function addMsg(cls, text) {
+function addMsg(cls, text, html) {
   const div = document.createElement("div");
   div.className = `msg ${cls}`;
-  div.textContent = text;
+  if (html !== undefined) div.innerHTML = html; else div.textContent = text;
   $("messages").appendChild(div);
   $("messages").scrollTop = $("messages").scrollHeight;
 }
@@ -529,7 +529,7 @@ const modalSurface = {
     // surface on the status line instead.
     if (modal?.view === "review") return setStatusLine(text);
     if (anchor) addMsg("note anchor", t("anchor_label"));
-    addMsg("say", text);
+    addMsg("say", text, prose(text));
   },
   note(text) {
     const localized = localizeNote(text);
@@ -620,6 +620,8 @@ function shortEntry(node) {
   const dict = STR[lang].short;
   return dict[node.id] ?? dict.default;
 }
+
+const prose = (text) => proseFmt(text, esc);
 
 function markVerbatim(text, quotes) {
   let html = esc(text);

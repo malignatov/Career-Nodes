@@ -4,7 +4,7 @@
  * the test plays the counselor through the captured session surface.
  * Results land on window.__uiResults for the runner to collect.
  */
-import { STR } from "../../public/i18n.js";
+import { STR, prose } from "../../public/i18n.js";
 
 const t = (key, ...args) => {
   const v = STR.en[key];
@@ -76,6 +76,7 @@ function makeCtx(journey) {
     currentNodeId: () => journey.nodes.find((n) => n.status === "available" || n.status === "in_progress")?.id ?? null,
     isSettled: (s) => s === "authorized" || s === "stale",
     markVerbatim: (x) => esc(x), localizeNote: (x) => x,
+    prose: (x) => prose(x, esc),
     renderFields: () => "<div>draft body</div>", compiledHtml: (x) => esc(String(x)),
     exportPdf: async () => { spies.exports++; },
     setFlag: (name) => { spies.flags.push(name); journey.flags = { ...(journey.flags ?? {}), [name]: true }; },
@@ -387,6 +388,38 @@ test("the name never blinks out when the canvas hands it back to the DOM", async
   await sleep(60);
   const handed = parseFloat(getComputedStyle(nextSpan()).opacity);
   expect(handed < 0.1, `the DOM name lingered beside its canvas copy (opacity ${handed})`);
+});
+
+test("the counselor's asterisks become emphasis, the client's survive as typed", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "favorite_media");
+  surface.say("completely open *and* a machine of **output**.");
+  await sleep(150);
+  const said = $(".br7-say");
+  expect(!said.textContent.includes("*"), `markdown reached the client: ${said.textContent}`);
+  expect(said.querySelector("em") && said.querySelector("strong"), "emphasis was not rendered");
+
+  // Not everything with a star is markup: arithmetic and code-ish words are
+  // the client's own text and must arrive exactly as written.
+  surface.say("I work 5*8 hours and read snake_case_names all day");
+  await sleep(150);
+  const plain = [...document.querySelectorAll(".br7-say")].pop();
+  expect(plain.textContent.includes("5*8"), `arithmetic was eaten: ${plain.textContent}`);
+  expect(plain.textContent.includes("snake_case_names"), `underscores were eaten: ${plain.textContent}`);
+
+  // And the client's own words are never re-rendered — they show as typed.
+  surface.ask("you");
+  await sleep(100);
+  const inp = $(".br7-input");
+  inp.value = "he said *nothing*";
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  await sleep(200);
+  const mine = [...document.querySelectorAll(".br7-user")].pop();
+  expect(mine.textContent.includes("*nothing*"), `the client's asterisks were altered: ${mine.textContent}`);
 });
 
 test("the document never scrolls out from under the braid", async () => {
