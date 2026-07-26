@@ -227,30 +227,6 @@
   }
 
   /* Caption anchor: 176px to the caption side of the focused node. */
-  /* Where a node IS this frame, not where the arithmetic says it will end up.
-   * CSS owns the field's motion; canvas paint has no transitions of its own,
-   * so it must hang off the same clock — otherwise everything painted sits at
-   * its destination while everything in the DOM is still travelling, and the
-   * two renderers visibly disagree. Reads only: the cursor-war rule forbids
-   * WRITES in the frame loop, and a transform read costs nothing here because
-   * the loop never dirties style. */
-  function livePos(el) {
-    if (!el) return null;
-    const tr = getComputedStyle(el).transform;
-    if (!tr || tr === "none") return null;
-    const m = new DOMMatrixReadOnly(tr);
-    return { x: m.m41, y: m.m42 };
-  }
-
-  /* The focused node's live position, in the shape withGrav() expects — so the
-   * whole field's gravity animates with the camera instead of snapping. */
-  function liveAnchor(strip) {
-    const p = livePos(strip.querySelector(`.br-node[data-i="${J.focus}"]`));
-    if (!p) return null;
-    const right = p.x < 450;
-    return { nx: p.x, right, px: right ? p.x + 176 : p.x - 176, py: p.y };
-  }
-
   function anchorFor(focus) {
     const nx = baseX(focus, NY(focus));
     const right = nx < 450;
@@ -1044,10 +1020,7 @@
         }
       }
       const j = J.status.indexOf("next");
-      // Paint against the field's LIVE geometry (see livePos): while a camera
-      // move or a ceremony is under way the DOM is mid-flight, and canvas
-      // measured from the final arithmetic would sit at the destination.
-      const anchor = liveAnchor(strip) ?? anchorFor(J.focus);
+      const anchor = anchorFor(J.focus);
       const live = strip.querySelector(".br-live");
       const lg = live && (live.__g || (live.__g = live.getContext("2d")));
       if (lg) {
@@ -1060,11 +1033,8 @@
         renderKnots(strip, j, anchor, 0);
         return;
       }
-      // The waking node's own live position: its DOM twin is invisible, but it
-      // is the element CSS is animating, so it is the honest source.
-      const wp = livePos(strip.querySelector(`.br-node[data-i="${j}"]`));
-      const ny = wp ? wp.y : nodeYf(j);
-      const nx0 = wp ? wp.x : withGrav(baseX(j, ny), ny, anchor);
+      const ny = nodeYf(j);
+      const nx0 = withGrav(baseX(j, ny), ny, anchor);
       const dir = Math.sign(braidX(j, ny) - nx0) || 1;
       const amp = 26 * (0.5 - 0.5 * Math.cos(ts * 2 * Math.PI / 6500)) * dir;
       const pts = sampleYs(ny).map((y) => {
