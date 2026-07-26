@@ -136,6 +136,13 @@ test("node statuses paint their materials, phases recede, counter reads the stag
   expect($(".br-count-phase").textContent === "Your stories · 1 of 5", `counter: ${$(".br-count-phase").textContent}`);
   expect($(".br-count-total").textContent === t("braid_woven_of", 2, 15), `total: ${$(".br-count-total").textContent}`);
   expect($(".br-plaque-time").textContent === t("braid_minutes", 5), `plaque time: ${$(".br-plaque-time").textContent}`);
+  // The caption and the glow hang off the focused node ITSELF. Hanging them
+  // on the raw pre-gravity anchor put them ~40px away, which is how far the
+  // caption jumped when the canvas (which draws node-relative) handed it back.
+  const xOf = (sel) => new DOMMatrixReadOnly(getComputedStyle($(sel)).transform).m41;
+  const nodeX = xOf('.br-node[data-i="2"]');
+  expect(Math.abs(xOf(".br-plaque") - nodeX) < 1, `the caption is ${(xOf(".br-plaque") - nodeX).toFixed(1)}px off its node`);
+  expect(Math.abs(xOf(".br-nimbus") - nodeX) < 1, `the glow is ${(xOf(".br-nimbus") - nodeX).toFixed(1)}px off its node`);
 });
 
 test("hover accelerates and brightens the waking sphere", async () => {

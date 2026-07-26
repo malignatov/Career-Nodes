@@ -792,6 +792,7 @@
     J.strip.style.transition = `transform ${tm.dur} ${tm.ease}`;
     J.strip.style.transform = `translate(${(J.sess ? J.sx : 0).toFixed(0)}px, ${stripY().toFixed(0)}px)`;
 
+    let focusPos = null;
     for (let j = 0; j < n; j++) {
       const p = J.strip.querySelector(`[data-s="${j}"]`);
       if (p) {
@@ -815,6 +816,7 @@
         renderCore(nd.querySelector("[data-core]"), J.status[j], j);
         const pad = nd.querySelector("[data-pad]");
         if (pad) pad.hidden = j !== nextIdx;
+        if (j === J.focus) focusPos = { x: nx, y: ny };
       }
       const l = J.strip.querySelector(`.br-label[data-i="${j}"]`);
       if (l) {
@@ -833,8 +835,16 @@
         const handoff = (J.wasWake === j) !== (st === "next");
         // The box rides the node; the name moves only relative to it.
         const lny = nodeYf(j);
+        const lx = withGrav(baseX(j, lny), lny, anchor);
+        if (handoff && st !== "next" && J.lastAmp) {
+          // Take the name back exactly where the canvas was holding it —
+          // mid-sway — then let it settle to rest instead of snapping there.
+          l.style.transition = "none";
+          l.style.transform = `translate(${(lx + J.lastAmp).toFixed(1)}px, ${lny.toFixed(1)}px)`;
+          void l.offsetWidth;
+        }
         l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
-        l.style.transform = `translate(${withGrav(baseX(j, lny), lny, anchor).toFixed(1)}px, ${lny.toFixed(1)}px)`;
+        l.style.transform = `translate(${lx.toFixed(1)}px, ${lny.toFixed(1)}px)`;
         // In session the chat owns the right of the field, so the name
         // takes the other side of its sphere rather than colliding with it.
         const ns = nameStation(active, J.sess ? false : lp.right, nodeR(j));
@@ -910,7 +920,11 @@
     J.wasCapCanvas = capCanvas;
     plaque.style.transition = capHandoff ? "none" : "opacity .5s ease";
     nimbus.style.transition = capHandoff ? "none" : "opacity .5s ease";
-    const tx = `translate(${anchor.nx.toFixed(1)}px, ${anchor.py.toFixed(1)}px)`;
+    // The caption belongs to its node, so it hangs off the node's REAL
+    // position — anchor.nx is the raw pre-gravity value and sits ~40px away,
+    // which is exactly how far the caption jumped when the canvas (which
+    // draws node-relative) handed it back at a weave.
+    const tx = `translate(${(focusPos ? focusPos.x : anchor.nx).toFixed(1)}px, ${(focusPos ? focusPos.y : anchor.py).toFixed(1)}px)`;
     plaque.style.transform = tx;
     nimbus.style.transform = tx;
     // The waking node's words are canvas-painted in BOTH states (it sways, and
@@ -1047,7 +1061,12 @@
       const ny = nodeYf(j);
       const nx0 = withGrav(baseX(j, ny), ny, anchor);
       const dir = Math.sign(braidX(j, ny) - nx0) || 1;
-      const amp = 26 * (0.5 - 0.5 * Math.cos(ts * 2 * Math.PI / 6500)) * dir;
+      // The sway eases in from nothing as a step wakes: the DOM held this
+      // name at rest, and the canvas picking it up mid-swing threw it
+      // sideways by up to the full amplitude in a single frame.
+      const swayIn = Math.min(1, Math.max(0, (ts - (J.wakeT || 0)) / 700));
+      const amp = 26 * (0.5 - 0.5 * Math.cos(ts * 2 * Math.PI / 6500)) * dir * swayIn;
+      J.lastAmp = amp; // the DOM settles from here when it takes the name back
       const pts = sampleYs(ny).map((y) => {
         const bell = Math.exp(-Math.pow((y - ny) / 170, 2));
         return [withGrav(baseX(j, y), y, anchor) + amp * bell, y];
