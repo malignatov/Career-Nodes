@@ -191,9 +191,13 @@
     sess: false, sx: 0, // inline session: camera X shift while the field recedes
   };
 
+  /* Neighbours of the focused step stand aside to make room for it — but a
+   * WOVEN bead does not: it is part of the braid now, and its place is fixed.
+   * Shoving it aside as the focus moved on made a just-woven bead slide back
+   * down the curve, reversing the travel it had only just finished. */
   const nodeYf = (j) => {
     const d = j - J.focus;
-    return NY(j) + (Math.abs(d) === 1 ? 44 * Math.sign(d) : 0);
+    return NY(j) + (Math.abs(d) === 1 && J.status[j] !== "done" ? 44 * Math.sign(d) : 0);
   };
 
   const spineX = (y) => 430 + 55 * Math.sin(y * 0.0026 + 0.8) + 25 * Math.sin(y * 0.0011);
@@ -740,7 +744,11 @@
     else if (right && lx + LW > FW - 12) { right = false; lx = nx - 194; }
     lx = Math.max(12, Math.min(FW - 12 - LW, lx));
     let squeezed = false;
-    if (Math.abs(j - J.focus) === 1 &&
+    // A neighbour whose name would crowd the focused step's title steps aside
+    // and fades. A WOVEN neighbour is exempt: it keeps its place on the braid
+    // now, so it sits at its natural spacing, and its short quiet name has
+    // nothing to duck — ducking it only made a just-woven step look erased.
+    if (Math.abs(j - J.focus) === 1 && J.status[j] !== "done" &&
       ((ny + 8 > anchor.py - 88 && ny - 10 < anchor.py - 50) ||
         (ny + 8 > anchor.py + 52 && ny - 10 < anchor.py + 120))) {
       right = nx >= anchor.nx;
