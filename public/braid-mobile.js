@@ -665,7 +665,7 @@ window.BraidM = (() => {
 
   /** α releases the withhold on wake; Σ holds it — its copy stands where the
    *  focused caption would land, and two voices in one place is one too many. */
-  const ovHoldM = () => M.ov && (!M.ovWake || M.ovKind === "sigma");
+  const ovHoldM = () => M.ov && !M.sess && (!M.ovWake || M.ovKind === "sigma");
 
   /** The first step that composes itself instead of being told. */
   const firstDerivedM = () => M.nodes.findIndex((n) => n.kind === "derived");

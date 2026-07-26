@@ -777,8 +777,27 @@ test("Σ fires on the weave that completes the telling, and the next weave retir
   await sleep(1300);
   expect(debug().focus === 6, `the invitation went to ${debug().focus}, want the first derived step`);
 
-  // The next weave retires it — no flag, ever: it either played or it didn't.
+  // Entering the seventh bead's session releases the hold: Σ's copy is
+  // CSS-hidden there, and the bead the client is talking to gets its name
+  // back — painted on the canvas, beside the chat.
   const pv = await openAndCapture(ctx, "perspective");
+  await sleep(400);
+  expect(debug().sess && !debug().ovHold, "Σ's withhold followed the client into the session");
+  {
+    const cv = $(".br-live"), g = cv.getContext("2d");
+    const seen = [];
+    const orig = g.fillText.bind(g);
+    g.fillText = function (txt, ...rest) {
+      if (typeof txt === "string" && /How|you|see/.test(txt)) seen.push(txt);
+      return orig(txt, ...rest);
+    };
+    const t0 = performance.now();
+    for (let k = 0; k < 40; k++) window.Braid._frame(t0 + k * 40);
+    g.fillText = orig;
+    expect(seen.length > 0, "the seventh bead's name never painted inside the session");
+  }
+
+  // The next weave retires it — no flag, ever: it either played or it didn't.
   pv.review(REVIEW);
   await sleep(200);
   $("[data-review] [data-auth]").dispatchEvent(new MouseEvent("click", { bubbles: true }));

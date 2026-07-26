@@ -1408,9 +1408,11 @@
    * While the copy speaks, the bead keeps only its material — no plaque, no
    * caption, no aura. α releases that on wake, five seconds in. Σ holds it
    * for as long as it is up: its column stands exactly where the caption
-   * would land, and two voices in one place is one too many.
+   * would land, and two voices in one place is one too many. A session
+   * releases the hold — the layer is CSS-hidden there, and the bead the
+   * client is talking to needs its name back.
    */
-  const ovHold = () => J.ov && (!J.ovWake || J.ovKind === "sigma");
+  const ovHold = () => J.ov && !J.sess && (!J.ovWake || J.ovKind === "sigma");
 
   /** The first step that composes itself instead of being told. */
   const firstDerived = () => J.nodes.findIndex((n) => n.kind === "derived");
