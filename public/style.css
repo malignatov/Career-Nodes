@@ -34,7 +34,6 @@
 
   /* Draft readout — the authorized artifact read as a product page.
      Paper set; the dark field swaps these below. */
-  --dr-card-bg: #FBF9F3;
   --dr-card-bd: #DDD6C6;
   --dr-ink: #2A2620;
   --dr-soft: #A99E8B;
@@ -58,7 +57,6 @@
   color-scheme: dark;
   /* The readout on the dark field: same geometry, the field's own materials.
      Never ship the paper palette onto #0d0c08. */
-  --dr-card-bg: #141309;
   --dr-card-bd: #3A362A;
   --dr-ink: #EFE8DA;
   --dr-soft: #8C8272;
@@ -569,8 +567,12 @@ body:has(#scrim:not([hidden])) {
   }
   .dv-sec > h3.field-label .dr-soft { color: var(--dr-soft); }
 
+  /* Outline only: the field shows through, and the border is the whole card.
+     The sage card keeps its fill on purpose — it is the one thing here that
+     is about all the people at once, so it should be the one thing that
+     reads as a surface rather than a frame. */
   .dr-card {
-    background: var(--dr-card-bg); border: 1px solid var(--dr-card-bd);
+    background: none; border: 1px solid var(--dr-card-bd);
     border-radius: 18px; padding: 26px 28px;
   }
   .dr-card + .dr-card { margin-top: 16px; }

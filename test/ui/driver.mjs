@@ -561,6 +561,12 @@ test("the readout reads as people, then the pattern about all of them", async ()
     const { width, height } = c.getBoundingClientRect();
     return Math.round(Math.min(parseFloat(getComputedStyle(c).borderTopLeftRadius), height / 2, width / 2));
   };
+  // Outline only: the field shows through a person's card, and the border
+  // is the whole card. The sage pattern card is the deliberate exception.
+  const cardBg = getComputedStyle(cards[0]).backgroundColor;
+  expect(/rgba\(0, 0, 0, 0\)|transparent/.test(cardBg), `a person's card has a fill: ${cardBg}`);
+  expect(getComputedStyle(cards[0]).borderTopWidth !== "0px", "the card lost its perimeter too");
+
   const radii = new Set(chips.map(corner));
   const heights = new Set(chips.map((c) => Math.round(c.getBoundingClientRect().height)));
   expect(heights.size > 1, "this only means something when the chips are different sizes");
