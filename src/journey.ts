@@ -48,7 +48,15 @@ export async function nodeStatus(id: string, store: Storage, playbooks: Playbook
     if (pb?.kind === "derived") {
       const own = (await authorizedAt(id, store)) ?? 0;
       for (const dep of pb.consumes) {
-        if (((await authorizedAt(dep, store)) ?? 0) > own) return "stale";
+        const at = await authorizedAt(dep, store);
+        // A source that was started over is gone, not merely older. What was
+        // built on it is no longer standing on anything the client approved.
+        if (at === null) {
+          if (await store.exists(`${dep}.json`)) continue; // present, just undated
+          if (dep !== "counseling_goal") return "stale";
+          continue;
+        }
+        if (at > own) return "stale";
       }
     }
     return "authorized";

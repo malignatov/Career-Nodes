@@ -517,6 +517,19 @@ body:has(#journey.braid-on) { overflow: hidden; height: 100%; }
 .br7-review-body .field-value, .br7-review-body li { font: 500 13.5px/1.6 Lora, serif; color: var(--t4ink); }
 .br7-review-body ul { margin: 2px 0 4px; padding-left: 18px; }
 .br7-review-body .sub-card { border-left: 2px solid var(--t5card-bd); padding-left: 10px; margin: 6px 0; }
+/* Starting a step over erases the client's own words, so it never wears the
+   accent — it reads as the quiet option until it is armed, and then as what
+   it is. */
+.br7-act.br7-danger { opacity: .62; }
+.br7-act.br7-danger:hover { opacity: .9; }
+/* Armed, the question takes its own line and goes last, so asking it
+   never shoves the step's real choices out of view. */
+.br7-act.br7-danger.armed {
+  opacity: 1; color: var(--t4ink); text-decoration: underline; text-underline-offset: 3px;
+  flex-basis: 100%; order: 1; text-align: right; margin-top: 6px;
+}
+.br7-tacts { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--t5card-bd); }
+
 .br7-verify { font: 400 10.5px Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
 .br7-verify .tick { color: var(--acc-text); }
 .br7-stale { font: 400 11px Karla, Manrope, sans-serif; color: var(--t4cnt); margin-top: 8px; }

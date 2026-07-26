@@ -445,6 +445,9 @@
               <div class="t5-twhat"></div>
               <div class="t5-tlabel" data-l2></div>
               <div class="t5-tmono"></div>
+              <!-- Reachable in every state a step can be in, including one
+                   stranded half-way through its conversation. -->
+              <div class="br7-tacts"></div>
             </div>
           </div>
         </div>
@@ -1921,12 +1924,56 @@
     }
   }
 
+  /**
+   * Starting a step over erases the client's own words for it, so the button
+   * asks twice: the first press arms it and says what will go, the second
+   * does it. Five seconds of quiet disarms it again.
+   */
+  function armReset(btn, id, label) {
+    const t = L.ctx.t;
+    if (!btn.classList.contains("armed")) {
+      btn.classList.add("armed");
+      btn.textContent = t("braid_start_over_confirm");
+      const back = setTimeout(() => {
+        if (!btn.isConnected || !btn.classList.contains("armed")) return;
+        btn.classList.remove("armed");
+        btn.textContent = label;
+      }, 5000);
+      L.timers.push(back);
+      return;
+    }
+    btn.disabled = true;
+    const ctx = L.ctx;
+    ctx.closeWs();
+    inlineClose();
+    // The node loses its material, so the whole field has to be told: the bead
+    // goes back to unwoven and anything derived from it stops being settled.
+    ctx.resetNode(id);
+  }
+
+  /** The reset control, wherever a node's own choices are offered. */
+  function resetButton(ctx, extra = "") {
+    return `<button class="br7-act br7-danger${extra}" data-reset>${ctx.esc(ctx.t("braid_start_over"))}</button>`;
+  }
+
+  function wireReset(root, id) {
+    const btn = root.querySelector("[data-reset]");
+    if (!btn) return;
+    const label = btn.textContent;
+    btn.addEventListener("click", () => armReset(btn, id, label));
+  }
+
   function toggleInlineTransparency() {
     const tp = q7(".br7-tpanel");
     if (!tp) return;
     if (tp.hidden) {
       tp.querySelector(".t5-twhat").textContent = L.tWhat;
       tp.querySelector(".t5-tmono").innerHTML = L.tCompiled;
+      const acts = tp.querySelector(".br7-tacts");
+      if (acts && L.node) {
+        acts.innerHTML = resetButton(L.ctx);
+        wireReset(acts, L.node.id);
+      }
     }
     tp.hidden = !tp.hidden;
   }
@@ -2108,12 +2155,14 @@
       `<div class="br7-story">${story}</div>` +
       frags +
       `<div class="br7-acts"><button class="br7-act" data-amend>${ctx.esc(t("braid_amend"))}</button>` +
+      resetButton(ctx) +
       `<button class="br7-act accent" data-continue>${ctx.esc(t("braid_continue"))}</button></div>`;
     box.appendChild(wrap);
     box.scrollTop = box.scrollHeight;
     if (hasRecord) {
       wrap.querySelector("[data-whisper]").addEventListener("click", toggleHist);
     }
+    wireReset(wrap, L.node.id);
 
     wrap.querySelector("[data-amend]").addEventListener("click", () => {
       if (!ctx.wsLive()) return inlineConnLost();

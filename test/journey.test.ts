@@ -120,3 +120,58 @@ test("nodeStatus: derived steps and the closing check still wait for their sourc
   assert.equal(await nodeStatus("perspective", store, look), "planned");
   assert.equal(await nodeStatus("closing_check", store, look), "planned");
 });
+
+/* ── starting a step over ────────────────────────────────── */
+
+/** A store backed by a plain map of filename → contents. */
+const mapStore = (files: Record<string, string>) => ({
+  read: async (p: string) => files[p] ?? null,
+  write: async (p: string, v: string) => { files[p] = v; },
+  exists: async (p: string) => p in files,
+  remove: async (p: string) => { delete files[p]; },
+  list: async () => Object.keys(files),
+} as unknown as Storage);
+
+const artifact = (at: string) => JSON.stringify({ authorized_at: at, content: {} });
+
+test("nodeStatus: a derived step whose source was started over is no longer settled", async () => {
+  const look = (id: string) => BOOK[id] ?? null;
+  const files: Record<string, string> = {
+    "early_recollections.json": artifact("2026-01-01T00:00:00.000Z"),
+    "perspective.json": artifact("2026-01-02T00:00:00.000Z"),
+  };
+  const store = mapStore(files);
+  assert.equal(await nodeStatus("perspective", store, look), "authorized");
+
+  // The client starts the recollections over. What was composed from them is
+  // not merely out of date — it is standing on nothing they approved.
+  delete files["early_recollections.json"];
+  assert.equal(await nodeStatus("perspective", store, look), "stale");
+});
+
+test("nodeStatus: the goal is context, so starting IT over unsettles nothing downstream", async () => {
+  const look = (id: string) => BOOK[id] ?? null;
+  const files: Record<string, string> = {
+    "early_recollections.json": artifact("2026-01-01T00:00:00.000Z"),
+    "perspective.json": artifact("2026-01-02T00:00:00.000Z"),
+    "counseling_goal.json": artifact("2026-01-01T00:00:00.000Z"),
+  };
+  const store = mapStore(files);
+  delete files["counseling_goal.json"];
+  assert.equal(await nodeStatus("perspective", store, look), "authorized");
+});
+
+test("nodeStatus: a step started over reads as untouched again", async () => {
+  const look = (id: string) => BOOK[id] ?? null;
+  const files: Record<string, string> = {
+    "role_models.json": artifact("2026-01-01T00:00:00.000Z"),
+    "role_models.transcript.json": "[]",
+  };
+  const store = mapStore(files);
+  assert.equal(await nodeStatus("role_models", store, look), "authorized");
+  // Reset removes every file the step owns — artifact, draft, session, record.
+  for (const suffix of [".json", ".session.json", ".draft.json", ".transcript.json"]) {
+    delete files[`role_models${suffix}`];
+  }
+  assert.equal(await nodeStatus("role_models", store, look), "available");
+});

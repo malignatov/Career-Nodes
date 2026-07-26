@@ -258,6 +258,13 @@
 .bm-acts { align-self: center; display: flex; gap: 22px; margin-top: 8px; font: 600 13px Karla, Manrope, sans-serif; animation: mfloatIn .5s both; }
 .bm-act { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--bm-cnt); }
 .bm-act.accent { color: var(--acc); }
+.bm-act.bm-danger { opacity: .62; }
+/* Armed, the question takes its own line and goes last, so asking it
+   never shoves the step's real choices out of view. */
+.bm-act.bm-danger.armed {
+  opacity: 1; color: var(--t4ink); text-decoration: underline; text-underline-offset: 3px;
+  flex-basis: 100%; order: 1; text-align: right; margin-top: 6px;
+}
 .bm-act:disabled { opacity: .4; }
 
 .bm-comp, .bm-authbar {

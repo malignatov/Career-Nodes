@@ -140,6 +140,11 @@ function braidCtx() {
       await fetch(api("/api/reset"), { method: "POST" });
       await loadJourney();
     },
+    /** One step back to untouched: its artifact, its draft, its conversation. */
+    async resetNode(id) {
+      await fetch(api(`/api/reset?node=${encodeURIComponent(id)}`), { method: "POST" });
+      await loadJourney();
+    },
     closeWs() {
       if (ws) { ws.onclose = null; ws.close(); ws = null; }
     },

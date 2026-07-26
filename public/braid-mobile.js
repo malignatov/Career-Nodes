@@ -1179,6 +1179,7 @@ window.BraidM = (() => {
     for (const qt of quotes) html += `<div class="bm-user bm-frag" data-big="1">«<span>${esc(qt)}</span>»</div>`;
     const nextIdx = M.status.indexOf("next");
     html += `<div class="bm-acts"><button class="bm-act" data-mamend>${esc(t("braid_amend"))}</button>`
+      + `<button class="bm-act bm-danger" data-mreset>${esc(t("braid_start_over"))}</button>`
       + (nextIdx >= 0 ? `<button class="bm-act accent" data-mcont>${esc(t("braid_m_continue"))}</button>` : "")
       + "</div>";
     wrap.innerHTML = html;
@@ -1186,6 +1187,26 @@ window.BraidM = (() => {
     box.scrollTop = 0;
     setSessNote(t("braid_m_st_woven"));
     if (hasRecord) wrap.querySelector("[data-mwhisper]").addEventListener("click", toggleHist);
+    // Starting over erases the client's own words, so the button asks twice:
+    // the first tap arms it and says what will go, the second does it.
+    const rst = wrap.querySelector("[data-mreset]");
+    const rstLabel = rst.textContent;
+    rst.addEventListener("click", () => {
+      if (!rst.classList.contains("armed")) {
+        rst.classList.add("armed");
+        rst.textContent = t("braid_start_over_confirm");
+        setTimeout(() => {
+          if (!rst.isConnected || !rst.classList.contains("armed")) return;
+          rst.classList.remove("armed");
+          rst.textContent = rstLabel;
+        }, 5000);
+        return;
+      }
+      rst.disabled = true;
+      const id = M.nodes[M.idx].id;
+      exitSession(false);
+      M.ctx.resetNode(id);
+    });
     wrap.querySelector("[data-mamend]").addEventListener("click", () => {
       if (!M.ctx.wsLive()) return connLost();
       M.sess = "chat";

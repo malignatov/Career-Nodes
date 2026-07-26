@@ -65,7 +65,7 @@ function makeJourney(statuses, flags = {}) {
 }
 
 function makeCtx(journey) {
-  const spies = { reload: 0, flags: [], sent: [], exports: 0 };
+  const spies = { reload: 0, flags: [], sent: [], exports: 0, resets: [] };
   const ctx = {
     journey, t, lang: "en", theme: "light", mode: "client",
     profile: "test", profiles: [], profileName: () => "Test",
@@ -82,6 +82,7 @@ function makeCtx(journey) {
     exportPdf: async () => { spies.exports++; },
     setFlag: (name) => { spies.flags.push(name); journey.flags = { ...(journey.flags ?? {}), [name]: true }; },
     reload: () => { spies.reload++; },
+    resetNode: (id) => { spies.resets.push(id); },
     stopDictation: () => {}, voice: { enabled: () => false },
     actions: [],
   };
@@ -534,6 +535,35 @@ test("the review reads as people, then the traits about all of them", async () =
   expect(!hitman.textContent.includes("Benevolent"), "artifact-wide traits leaked into a person's block");
   expect(secs[3].textContent.includes("Honest") && secs[3].textContent.includes("honest always"),
     "the repeated trait lost its echoes");
+});
+
+test("starting a step over asks twice before it erases anything", async () => {
+  window.__net["/api/session/favorite_story"] = { exchange: [{ speaker: "user", text: "the story" }] };
+  const statuses = DEFS.map((_, i) => (i <= 3 ? "authorized" : i === 4 ? "available" : "planned"));
+  const { ctx, spies } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "favorite_story");
+  await sleep(200);
+  surface.review({ ...REVIEW, existing: true });
+  await sleep(400);
+  const btn = $("[data-reset]");
+  expect(btn, "a settled step offers no way to start over");
+  const resting = btn.textContent;
+
+  // One press only arms it — the client's words are still there.
+  btn.click();
+  await sleep(100);
+  expect(spies.resets.length === 0, "one press erased the step");
+  expect(btn.classList.contains("armed") && btn.textContent !== resting,
+    "the armed press must say what is about to happen");
+
+  // The second press is the one that means it.
+  btn.click();
+  await sleep(200);
+  expect(spies.resets.join() === "favorite_story",
+    `wrong step reset: ${spies.resets.join() || "(none)"}`);
+  delete window.__net["/api/session/favorite_story"];
 });
 
 test("the document never scrolls out from under the braid", async () => {
