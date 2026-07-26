@@ -348,6 +348,28 @@ test("a stray click never costs work: unsent words hold the session, and outlive
   expect(!debug().lOpen, "with nothing at stake, clicking the field should still leave");
 });
 
+test("the name never blinks out when the canvas hands it back to the DOM", async () => {
+  // While a step wakes, its name is canvas paint; the moment it is woven the
+  // DOM label takes over. If that label fades in, the name is simply absent
+  // for a third of a second — it read as the name vanishing and reappearing
+  // at the far end of the weave.
+  const waking = DEFS.map((_, i) => (i === 0 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(waking, { overture_done: true }));
+  render(ctx);
+  await sleep(600); // past the .34s fade
+  const span = () => $('.br-label[data-i="0"] [data-lab]');
+  const yielded = parseFloat(getComputedStyle(span()).opacity);
+  expect(yielded < 0.05, `a waking step's DOM name must yield to the canvas (opacity ${yielded})`);
+
+  // Weave it: the same journey with the step authorized.
+  const woven = DEFS.map((_, i) => (i === 0 ? "authorized" : i === 1 ? "available" : "planned"));
+  const { ctx: ctx2 } = makeCtx(makeJourney(woven, { overture_done: true }));
+  render(ctx2);
+  await sleep(60); // one frame's grace, far inside any fade
+  const op = parseFloat(getComputedStyle(span()).opacity);
+  expect(op > 0.9, `the name blinked out during the hand-off (opacity ${op})`);
+});
+
 test("the document never scrolls out from under the braid", async () => {
   const { ctx } = makeCtx(makeJourney(DEFS.map(() => "planned"), { overture_done: true }));
   root.classList.add("braid-on"); // app.js does this in the real client

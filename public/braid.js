@@ -227,6 +227,30 @@
   }
 
   /* Caption anchor: 176px to the caption side of the focused node. */
+  /* Where a node IS this frame, not where the arithmetic says it will end up.
+   * CSS owns the field's motion; canvas paint has no transitions of its own,
+   * so it must hang off the same clock — otherwise everything painted sits at
+   * its destination while everything in the DOM is still travelling, and the
+   * two renderers visibly disagree. Reads only: the cursor-war rule forbids
+   * WRITES in the frame loop, and a transform read costs nothing here because
+   * the loop never dirties style. */
+  function livePos(el) {
+    if (!el) return null;
+    const tr = getComputedStyle(el).transform;
+    if (!tr || tr === "none") return null;
+    const m = new DOMMatrixReadOnly(tr);
+    return { x: m.m41, y: m.m42 };
+  }
+
+  /* The focused node's live position, in the shape withGrav() expects — so the
+   * whole field's gravity animates with the camera instead of snapping. */
+  function liveAnchor(strip) {
+    const p = livePos(strip.querySelector(`.br-node[data-i="${J.focus}"]`));
+    if (!p) return null;
+    const right = p.x < 450;
+    return { nx: p.x, right, px: right ? p.x + 176 : p.x - 176, py: p.y };
+  }
+
   function anchorFor(focus) {
     const nx = baseX(focus, NY(focus));
     const right = nx < 450;
@@ -822,6 +846,10 @@
         const span = l.firstElementChild;
         const st = J.status[j];
         const active = j === J.focus;
+        // The frame the canvas hands this name back to the DOM, it must be
+        // there ALREADY — fading in over a third of a second is what made the
+        // name vanish and reappear at the far end of a weave.
+        const handoff = J.wasWake === j && st !== "next";
         // The box rides the node; the name moves only relative to it.
         const lny = nodeYf(j);
         l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
@@ -829,7 +857,7 @@
         // In session the chat owns the right of the field, so the name
         // takes the other side of its sphere rather than colliding with it.
         const ns = nameStation(active, J.sess ? false : lp.right, nodeR(j));
-        span.style.transition = instant ? "none" : "";
+        span.style.transition = instant || handoff ? "none" : "";
         span.style.transformOrigin = ns.origin;
         span.style.transform = `translate(${ns.dx}px, ${ns.dy}px) scale(${ns.scale})`;
         span.style.textAlign = ns.align;
@@ -847,6 +875,7 @@
         if (st === "next") {
           span.style.opacity = "0";
         }
+        if (handoff) { void span.offsetWidth; span.style.transition = ""; } // commit, then let motion resume
       }
     }
 
@@ -900,6 +929,7 @@
     // The waking node's words are canvas-painted in BOTH states (it sways, and
     // no transition may run beside a cursor) — so the state is kept whether or
     // not it holds the focus, and the painter interpolates between the two.
+    J.wasWake = nextIdx;
     if (nextIdx >= 0) {
       const wn = J.nodes[nextIdx];
       const wake = nextIdx === J.focus;
@@ -1014,7 +1044,10 @@
         }
       }
       const j = J.status.indexOf("next");
-      const anchor = anchorFor(J.focus);
+      // Paint against the field's LIVE geometry (see livePos): while a camera
+      // move or a ceremony is under way the DOM is mid-flight, and canvas
+      // measured from the final arithmetic would sit at the destination.
+      const anchor = liveAnchor(strip) ?? anchorFor(J.focus);
       const live = strip.querySelector(".br-live");
       const lg = live && (live.__g || (live.__g = live.getContext("2d")));
       if (lg) {
@@ -1023,13 +1056,15 @@
         live.__drawn = j >= 0 || !!J.sat;
       }
       if (j < 0) {
-        const fny = nodeYf(J.focus);
-        drawWait(lg, ts, withGrav(baseX(J.focus, fny), fny, anchor), fny);
+        drawWait(lg, ts, anchor.nx, anchor.py);
         renderKnots(strip, j, anchor, 0);
         return;
       }
-      const ny = nodeYf(j);
-      const nx0 = withGrav(baseX(j, ny), ny, anchor);
+      // The waking node's own live position: its DOM twin is invisible, but it
+      // is the element CSS is animating, so it is the honest source.
+      const wp = livePos(strip.querySelector(`.br-node[data-i="${j}"]`));
+      const ny = wp ? wp.y : nodeYf(j);
+      const nx0 = wp ? wp.x : withGrav(baseX(j, ny), ny, anchor);
       const dir = Math.sign(braidX(j, ny) - nx0) || 1;
       const amp = 26 * (0.5 - 0.5 * Math.cos(ts * 2 * Math.PI / 6500)) * dir;
       const pts = sampleYs(ny).map((y) => {
