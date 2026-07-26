@@ -993,7 +993,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
               }
             ],
             "done_when": [
-              "Each named favorite has at least one attraction stated in the user's own words."
+              "Each of the two or three favorites named earlier has at least one attraction, stated in the user's own words about THAT favorite — an attraction given for one favorite never counts for another."
             ]
           }
         ]
@@ -1043,6 +1043,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                       },
                       "attractions": {
                         "type": "array",
+                        "x-own": true,
                         "minItems": 1,
                         "items": {
                           "type": "string",
@@ -1989,7 +1990,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
               }
             ],
             "done_when": [
-              "A similarity or difference has been noted for each model."
+              "Each of the three models has a similarity or a difference, taken from the user's own words about THAT model — a comparison made about one model never counts for another."
             ]
           }
         ]
@@ -1998,7 +1999,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
         "steps": [
           {
             "id": "extract",
-            "task": "Structure the models and guides with descriptors in the order spoken. Similarities and differences come only from the user's explicit comparison statements; when a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.\n",
+            "task": "Structure the models and guides with descriptors in the order spoken. Similarities and differences come only from the user's explicit comparison statements about THAT model — the answer they gave when asked about that model, or a statement naming it. Never carry a comparison from one model to another, however well it would fit. When a model was never compared in the transcript, leave its similarities and differences as empty arrays — never infer or paraphrase them from descriptors or other material.\n",
             "model_tier": "small",
             "temperature": 0.2,
             "output_schema": {
@@ -2043,6 +2044,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                       },
                       "similarities": {
                         "type": "array",
+                        "x-own": true,
                         "items": {
                           "type": "string",
                           "x-verbatim": true
@@ -2050,6 +2052,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
                       },
                       "differences": {
                         "type": "array",
+                        "x-own": true,
                         "items": {
                           "type": "string",
                           "x-verbatim": true

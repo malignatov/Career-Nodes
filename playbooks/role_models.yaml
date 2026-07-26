@@ -100,7 +100,9 @@ elicit:
         - when: all three models have been compared
           then: Optionally ask what all three have in common.
       done_when:
-        - A similarity or difference has been noted for each model.
+        - Each of the three models has a similarity or a difference, taken from
+          the user's own words about THAT model — a comparison made about one
+          model never counts for another.
 
 induce:
   steps:
@@ -108,9 +110,12 @@ induce:
       task: >
         Structure the models and guides with descriptors in the order spoken.
         Similarities and differences come only from the user's explicit
-        comparison statements; when a model was never compared in the
-        transcript, leave its similarities and differences as empty arrays —
-        never infer or paraphrase them from descriptors or other material.
+        comparison statements about THAT model — the answer they gave when
+        asked about that model, or a statement naming it. Never carry a
+        comparison from one model to another, however well it would fit. When
+        a model was never compared in the transcript, leave its similarities
+        and differences as empty arrays — never infer or paraphrase them from
+        descriptors or other material.
       model_tier: small
       temperature: 0.2
       output_schema:
@@ -135,11 +140,17 @@ induce:
                     properties:
                       text: { type: string, x-verbatim: true }
                       spoken_order: { type: integer }
+                # x-own: a comparison belongs to the model it was made about.
+                # The code flags any that appear under two models (see
+                # borrowedAcrossEntities) — verbatim cannot, since a borrowed
+                # line is still the client's own sentence.
                 similarities:
                   type: array
+                  x-own: true
                   items: { type: string, x-verbatim: true }
                 differences:
                   type: array
+                  x-own: true
                   items: { type: string, x-verbatim: true }
           guides:
             type: array

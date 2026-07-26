@@ -2,7 +2,7 @@ import type {
   Artifact, ChatTurn, ExchangeEntry, InduceStep, Playbook, Stage,
 } from "./types.ts";
 import type { LlmAdapter } from "./llm.ts";
-import { gatherMarked, verbatimViolations } from "./verbatim.ts";
+import { borrowedAcrossEntities, gatherMarked, verbatimViolations } from "./verbatim.ts";
 import { cfg } from "./config.ts";
 
 // Output ceiling for an induce step. Generous by default; env-tunable because
@@ -459,6 +459,16 @@ async function runInduceStep(
     if (violations.length > 0) {
       (result as Record<string, unknown>)._verbatim_warnings = violations;
     }
+  }
+  // Words the client said about one model, story or favorite must not be
+  // attributed to another. Verbatim cannot see this — a borrowed comparison is
+  // still the client's own sentence — so the code compares siblings and flags
+  // what was shared. Flagged, never deleted: the client decides whether it
+  // belongs (they may well have said it of both).
+  const borrowed = borrowedAcrossEntities(result, step.output_schema);
+  if (borrowed.length > 0) {
+    const prior = ((result as Record<string, unknown>)._verbatim_warnings ?? []) as string[];
+    (result as Record<string, unknown>)._verbatim_warnings = [...new Set([...prior, ...borrowed])];
   }
   return result;
 }

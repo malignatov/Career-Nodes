@@ -966,6 +966,10 @@ window.BraidM = (() => {
     inp.style.height = h + "px";
     // The chat floor rides up with the growing field (see .bm-chat bottom).
     if (M.root) M.root.style.setProperty("--bm-grow", (h - 42) + "px");
+    // The floor just moved: without this the newest words stay behind the
+    // field the client is typing into, and look truncated mid-sentence.
+    const box = q(".bm-msgs");
+    if (box) box.scrollTop = box.scrollHeight;
   }
 
   /* Three pulsing dots + a rotating phrase while the counselor reads or
@@ -1219,7 +1223,10 @@ window.BraidM = (() => {
       const d = document.createElement("div");
       d.className = turn.speaker === "user" ? "bm-user" : "bm-say";
       d.style.animation = "none";
-      d.textContent = turn.text;
+      // The record reads like the conversation did: the counselor's emphasis
+      // renders, the client's words stay exactly as they were typed.
+      if (turn.speaker === "user") d.textContent = turn.text;
+      else d.innerHTML = M.ctx?.prose?.(turn.text) ?? esc(turn.text);
       w.appendChild(d);
     }
     note.after(w);

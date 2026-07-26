@@ -1631,6 +1631,10 @@
     // The transcript floor rides up with the growing field — the two must
     // never superimpose on the transparent stage.
     if (J.stage) J.stage.style.setProperty("--br7-grow", (h - 38) + "px");
+    // The floor just moved: without this the newest words slide behind the
+    // field the client is typing into, and look truncated mid-sentence.
+    const box = q7(".br7-msgs");
+    if (box) pinBottom(box);
   }
 
   /** Unsent words currently in the composer (empty string when none). */
@@ -2058,7 +2062,10 @@
       const d = document.createElement("div");
       d.className = turn.speaker === "user" ? "br7-user" : "br7-say";
       d.style.animation = "none";
-      d.textContent = turn.text;
+      // The record reads like the conversation did: the counselor's emphasis
+      // renders, the client's words stay exactly as they were typed.
+      if (turn.speaker === "user") d.textContent = turn.text;
+      else d.innerHTML = ctx.prose?.(turn.text) ?? ctx.esc(turn.text);
       w.appendChild(d);
     }
     note.after(w);

@@ -77,8 +77,9 @@ elicit:
             the world, the activity, the stories — or whether it truly is the
             people alone.
       done_when:
-        - Each named favorite has at least one attraction stated in the user's
-          own words.
+        - Each of the two or three favorites named earlier has at least one
+          attraction, stated in the user's own words about THAT favorite — an
+          attraction given for one favorite never counts for another.
 
 induce:
   steps:
@@ -111,6 +112,7 @@ induce:
                   enum: [tv, series, game, youtube, website, magazine, journal, newsletter, podcast, other]
                 attractions:
                   type: array
+                  x-own: true   # said about THIS favorite, not a sibling
                   minItems: 1
                   items: { type: string, x-verbatim: true }
                 named_order: { type: integer }

@@ -11,8 +11,15 @@
   <main id="journey"></main>
   <script>
     // Deterministic network: the braid's playbook/session fetches resolve
-    // fast and empty instead of touching anything.
-    window.fetch = async () => ({ ok: false, json: async () => ({}) });
+    // fast and empty instead of touching anything. A scenario that needs a
+    // real reply parks one in __net under the path it will be asked for.
+    window.__net = {};
+    window.fetch = async (url) => {
+      const body = window.__net[String(url)];
+      return body === undefined
+        ? { ok: false, json: async () => ({}) }
+        : { ok: true, json: async () => body };
+    };
   </script>
   <script src="../../public/braid.js"></script>
   <script type="module" src="./driver.mjs"></script>

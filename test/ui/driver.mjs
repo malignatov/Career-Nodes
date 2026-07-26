@@ -422,6 +422,69 @@ test("the counselor's asterisks become emphasis, the client's survive as typed",
   expect(mine.textContent.includes("*nothing*"), `the client's asterisks were altered: ${mine.textContent}`);
 });
 
+test("the unfolded record reads like the conversation did", async () => {
+  // A second rendering path, and it read raw: the client opened a woven step
+  // and saw the counselor's asterisks printed as characters.
+  window.__net["/api/session/favorite_story"] = {
+    exchange: [
+      { speaker: "interviewer", text: "you were *completely* open" },
+      { speaker: "user", text: "he said *nothing*" },
+    ],
+  };
+  const statuses = DEFS.map((_, i) => (i <= 3 ? "authorized" : i === 4 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "favorite_story");
+  await sleep(200); // the saved session lands before the passage is built
+  surface.review({ ...REVIEW, existing: true });
+  await sleep(400);
+  const toggle = $("[data-whisper]");
+  expect(toggle && toggle.classList.contains("br7-hist-toggle"), "the whisper never became a toggle");
+  toggle.click();
+  await sleep(150);
+  const replayed = $("[data-hist] .br7-say");
+  expect(replayed, "the transcript never unfolded");
+  expect(!replayed.textContent.includes("*"), `markdown reached the record: ${replayed.textContent}`);
+  expect(replayed.querySelector("em"), "emphasis was not rendered in the record");
+  const replayedMine = $("[data-hist] .br7-user");
+  expect(replayedMine.textContent.includes("*nothing*"),
+    `the client's asterisks were altered in the record: ${replayedMine.textContent}`);
+  delete window.__net["/api/session/favorite_story"];
+});
+
+test("writing keeps the end of the conversation in view", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "favorite_media");
+  const para = (i) => `Turn ${i}. ` + "A counselor's answer runs several lines on this stage, ".repeat(4);
+  for (let i = 0; i < 8; i++) surface.say(para(i));
+  surface.ask("you");
+  await sleep(900); // let the transcript's own settle timers finish first
+  const box = $(".br7-msgs");
+  const inp = $(".br7-input");
+  const atEnd = () => box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
+  expect(box.scrollHeight > box.clientHeight, "transcript must overflow for this to mean anything");
+  expect(atEnd(), "the transcript should open at the end");
+
+  // The field grows as the client writes, and the transcript floor rides up
+  // with it. The last thing the counselor said was left behind the rising
+  // floor, clipped mid-sentence, and the client had to scroll to find it.
+  box.scrollTop = 0;
+  inp.value = Array.from({ length: 8 }, (_, i) => `line ${i} of what the client is writing`).join("\n");
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  await sleep(700);
+  expect(inp.offsetHeight > 60, `the field never grew (${inp.offsetHeight}px)`);
+  expect(atEnd(),
+    `writing left the end of the conversation off-screen by ` +
+    `${(box.scrollHeight - box.clientHeight - box.scrollTop).toFixed(1)}px`);
+  const last = [...document.querySelectorAll(".br7-say")].pop();
+  const over = last.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom;
+  expect(over <= 1, `the growing field cut off the newest words by ${over.toFixed(1)}px`);
+});
+
 test("the document never scrolls out from under the braid", async () => {
   const { ctx } = makeCtx(makeJourney(DEFS.map(() => "planned"), { overture_done: true }));
   root.classList.add("braid-on"); // app.js does this in the real client
