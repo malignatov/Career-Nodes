@@ -825,7 +825,12 @@
         // The frame the canvas hands this name back to the DOM, it must be
         // there ALREADY — fading in over a third of a second is what made the
         // name vanish and reappear at the far end of a weave.
-        const handoff = J.wasWake === j && st !== "next";
+        // Ownership of this name changes in BOTH directions: the canvas takes
+        // it when the step wakes, and gives it back when the step is woven.
+        // Whichever way it goes, the outgoing copy must leave in the same
+        // frame the incoming one arrives — a fade means both are on screen
+        // at once, in two different places, and the name reads as doubled.
+        const handoff = (J.wasWake === j) !== (st === "next");
         // The box rides the node; the name moves only relative to it.
         const lny = nodeYf(j);
         l.style.transition = instant ? "none" : `transform ${tm.dur} ${tm.ease}`;
@@ -897,8 +902,14 @@
     // node holds the focus, so they cut to it and fade there. Transitioning
     // the transform made them fly between spheres — the same ghost the title
     // was making, one element down.
-    plaque.style.transition = "opacity .5s ease";
-    nimbus.style.transition = "opacity .5s ease";
+    // Same hand-off rule for the caption: when the canvas takes the focused
+    // node's words (or hands them back), the plaque must not linger through a
+    // fade beside the copy that has already arrived.
+    const capCanvas = fst === "next";
+    const capHandoff = J.wasCapCanvas !== capCanvas;
+    J.wasCapCanvas = capCanvas;
+    plaque.style.transition = capHandoff ? "none" : "opacity .5s ease";
+    nimbus.style.transition = capHandoff ? "none" : "opacity .5s ease";
     const tx = `translate(${anchor.nx.toFixed(1)}px, ${anchor.py.toFixed(1)}px)`;
     plaque.style.transform = tx;
     nimbus.style.transform = tx;

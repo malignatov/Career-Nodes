@@ -368,6 +368,18 @@ test("the name never blinks out when the canvas hands it back to the DOM", async
   await sleep(60); // one frame's grace, far inside any fade
   const op = parseFloat(getComputedStyle(span()).opacity);
   expect(op > 0.9, `the name blinked out during the hand-off (opacity ${op})`);
+
+  // …and the other way. When the canvas TAKES a name, the DOM copy has to go
+  // in the same frame: a fade leaves both on screen at once, in two different
+  // places, and the name reads as doubled.
+  const nextSpan = () => $('.br-label[data-i="2"] [data-lab]');
+  expect(parseFloat(getComputedStyle(nextSpan()).opacity) > 0.1, "step 3 should own its name in the DOM here");
+  const waking2 = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx: ctx3 } = makeCtx(makeJourney(waking2, { overture_done: true }));
+  render(ctx3);
+  await sleep(60);
+  const handed = parseFloat(getComputedStyle(nextSpan()).opacity);
+  expect(handed < 0.1, `the DOM name lingered beside its canvas copy (opacity ${handed})`);
 });
 
 test("the document never scrolls out from under the braid", async () => {
