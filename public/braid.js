@@ -1774,6 +1774,7 @@
     if (J.sat && !J.sat.offT) J.sat.offT = performance.now();
   }
 
+
   /* Canvas text measured before its webfont lands wraps against fallback
    * metrics — and a cached wrap would keep those wrong line breaks forever
    * (first run on a cold font cache, i.e. every new Windows install). Bump
@@ -1869,7 +1870,10 @@
    * on the LIVE sphere position, dots and the rotating phrase on the loader's
    * inline canvas in the chat. */
   function drawWait(lg, ts, px, py) {
-    if (J.sat && lg && !REDUCED) {
+    // Session-scoped by construction: nothing the wait state does can put a
+    // ring on the field once the conversation is closed (the weave ceremony
+    // included — it runs with J.sess already false).
+    if (J.sat && lg && !REDUCED && J.sess) {
       let a = Math.min(1, ((J.sat.offT || ts) - J.sat.onT) / 700);
       if (J.sat.offT) a *= Math.max(0, 1 - (ts - J.sat.offT) / 700);
       if (J.sat.offT && a <= 0) J.sat = null;
@@ -1899,7 +1903,7 @@
         lg.restore();
         lg.globalAlpha = 1;
       }
-    } else if (J.sat && J.sat.offT) J.sat = null;
+    } else if (J.sat && (J.sat.offT || !J.sess)) J.sat = null;
     const cv = J.frame && J.frame.querySelector("[data-thinkcv]");
     if (cv && J.think && cv.getContext) {
       const g = cv.__g || (cv.__g = cv.getContext("2d"));

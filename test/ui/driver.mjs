@@ -273,6 +273,27 @@ test("thinking dots, rotating phrase, and Saturn rings live through a wait", asy
   expect(debug().sat !== "on", `rings must fade when words arrive, state: ${debug().sat}`);
 });
 
+test("the rings belong to the conversation and never follow it out", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "favorite_media");
+  surface.note("(inducing: extract…)");
+  await sleep(150);
+  expect(debug().sat === "on", `rings should be orbiting during the wait, state: ${debug().sat}`);
+
+  // Leaving mid-wait. The .7s release used to keep painting after the session
+  // was already closed, so the rings rode the camera back out and orbited a
+  // bead on the open field.
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  await sleep(120);
+  expect(!debug().sess, "the session should be closed");
+  expect(debug().sat === null, `rings outlived the conversation: ${debug().sat}`);
+  await sleep(500);
+  expect(debug().sat === null, `rings came back on the field: ${debug().sat}`);
+});
+
 test("alternative wordings: selection replaces the original, survives the click, authorizes as chosen", async () => {
   const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
   const { ctx, spies } = makeCtx(makeJourney(statuses, { overture_done: true }));
