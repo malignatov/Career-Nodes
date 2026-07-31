@@ -185,6 +185,15 @@ export class OpenAICompatAdapter implements LlmAdapter {
       // The allowlist fails CLOSED: providers added to the pool later get no
       // traffic until explicitly vetted. The ignore-list remains as a
       // secondary tool when no allowlist is set.
+      // Latency pinning: the demo lives or dies on time-to-first-answer, and
+      // one host (DeepInfra, ~2s) beats the rest of the pool (5-6s). order
+      // says "try this one first, every request"; the allowlist stays the
+      // fence around who may serve at all. When the pinned host rate-limits,
+      // OpenRouter falls through in-request — a slow answer instead of a
+      // dead demo. LLM_ALLOW_PROVIDERS with a single name is the HARD lock.
+      const order = (cfg("LLM_ORDER_PROVIDERS") ?? "")
+        .split(",").map((s) => s.trim()).filter(Boolean);
+      if (order.length > 0) provider.order = order;
       const allow = (cfg("LLM_ALLOW_PROVIDERS") ?? "")
         .split(",").map((s) => s.trim()).filter(Boolean);
       if (allow.length > 0) {

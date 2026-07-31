@@ -65,3 +65,27 @@ test("a sustained outage exhausts the retries and reports the last status", asyn
     assert.equal(calls.n, 4, "three backoffs → four attempts, then the truth");
   } finally { globalThis.fetch = realFetch; }
 });
+
+test("the pinned host leads every request, inside the vetted fence", async () => {
+  const realFetch = globalThis.fetch;
+  process.env.LLM_ORDER_PROVIDERS = "DeepInfra";
+  process.env.LLM_ALLOW_PROVIDERS = "DeepInfra,BaseTen,AtlasCloud";
+  let sent: Record<string, unknown> = {};
+  globalThis.fetch = (async (_url: unknown, init: { body: string }) => {
+    sent = JSON.parse(init.body);
+    return ok("ready");
+  }) as unknown as typeof fetch;
+  try {
+    await new OpenAICompatAdapter("openrouter").complete({
+      tier: "small", system: "s", messages: [{ role: "user", content: "u" }],
+    });
+    const provider = sent.provider as { order?: string[]; only?: string[] };
+    assert.deepEqual(provider.order, ["DeepInfra"], "the demo's host must be asked first, every request");
+    assert.deepEqual(provider.only, ["DeepInfra", "BaseTen", "AtlasCloud"],
+      "the fence must survive the ordering — order is preference, only is permission");
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.LLM_ORDER_PROVIDERS;
+    delete process.env.LLM_ALLOW_PROVIDERS;
+  }
+});

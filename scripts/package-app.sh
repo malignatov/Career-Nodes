@@ -26,7 +26,7 @@ cp "$ROOT/package.json" "$ROOT/package-lock.json" "$STAGE/server/"
 if [ -f "$ROOT/.env" ]; then
   # Bake ONLY what the app needs at runtime. Never the management key (it can
   # mint keys against the account) and not the unused Anthropic key.
-  grep -E "^(LLM_PROVIDER|LLM_API_KEY|LLM_ZDR|LLM_ALLOW_PROVIDERS|LLM_IGNORE_PROVIDERS|LLM_SMALL_|LLM_LARGE_|OPENAI_API_KEY)" "$ROOT/.env" > "$STAGE/server/.env" || true
+  grep -E "^(LLM_PROVIDER|LLM_API_KEY|LLM_ZDR|LLM_ALLOW_PROVIDERS|LLM_IGNORE_PROVIDERS|LLM_ORDER_PROVIDERS|LLM_SORT|LLM_RETRY_MS|LLM_SMALL_|LLM_LARGE_|OPENAI_API_KEY)" "$ROOT/.env" > "$STAGE/server/.env" || true
   echo "note: baked into the bundle: $(cut -d= -f1 "$STAGE/server/.env" | tr '\n' ' ')"
 else
   echo "warning: no .env found — recipients will have no API key"
