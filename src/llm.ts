@@ -196,18 +196,34 @@ export class OpenAICompatAdapter implements LlmAdapter {
       }
       body.provider = provider;
     }
-    const res = await fetch(`${ep.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${ep.apiKey}`,
-        "x-title": "Career Counseling",
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`LLM request failed: ${res.status} ${await res.text()}`);
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    return data.choices?.[0]?.message?.content ?? "";
+    // A pinned provider means provider hiccups are OURS to ride out: with
+    // LLM_ALLOW_PROVIDERS locked to one host there is no fallback routing,
+    // and DeepInfra rate-limits in bursts (measured clearing within ~20s).
+    // Retry the retriable errors with patience instead of surfacing a 429
+    // into the middle of somebody's interview.
+    const RETRY_MS = (cfg("LLM_RETRY_MS") ?? "2000,5000,12000")
+      .split(",").map((n) => Math.max(0, Number(n) || 0));
+    for (let attempt = 0; ; attempt++) {
+      const res = await fetch(`${ep.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${ep.apiKey}`,
+          "x-title": "Career Counseling",
+        },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        return data.choices?.[0]?.message?.content ?? "";
+      }
+      const text = await res.text();
+      const retriable = res.status === 429 || res.status >= 500;
+      if (!retriable || attempt >= RETRY_MS.length) {
+        throw new Error(`LLM request failed: ${res.status} ${text}`);
+      }
+      await new Promise((r) => setTimeout(r, RETRY_MS[attempt]));
+    }
   }
 }
 
