@@ -1793,6 +1793,7 @@
       : { type: "answer", text };
     if (!L.ctx.wsSend(payload)) return inlineConnLost();
     inp.value = "";
+    L.ctx.voice?.sent?.(); // the dictation turn went with the message
     L.draft = "";
     saveDraft(""); // sent — the stored copy has served its purpose
     autosize(inp);
@@ -2768,6 +2769,7 @@
       : { type: "answer", text };
     if (!S.ctx.wsSend(payload)) return connLost();
     inp.value = "";
+    S.ctx.voice?.sent?.();
     composeEnable(false);
     msg("user", text);
     if (S.composerMode === "amend") {

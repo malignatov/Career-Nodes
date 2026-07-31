@@ -6,6 +6,7 @@
  */
 import { STR, prose } from "../../public/i18n.js";
 import { makeRenderer } from "../../public/draft-view.js";
+import { makeVoiceBuffer } from "../../public/voice-buffer.js";
 
 const t = (key, ...args) => {
   const v = STR.en[key];
@@ -83,7 +84,7 @@ function makeCtx(journey) {
     setFlag: (name) => { spies.flags.push(name); journey.flags = { ...(journey.flags ?? {}), [name]: true }; },
     reload: () => { spies.reload++; },
     resetNode: (id) => { spies.resets.push(id); },
-    stopDictation: () => {}, voice: { enabled: () => false },
+    stopDictation: () => {}, voice: { enabled: () => false, sent: () => { spies.voiceSent = (spies.voiceSent || 0) + 1; } },
     actions: [],
   };
   return { ctx, spies };
@@ -239,6 +240,31 @@ test("the pointer field: sway never sheds the cursor, décor never owns a hit", 
   expect(decorHits.length === 0, `décor svg owns hits: ${decorHits.join(" ")}`);
 });
 
+test("dictation: words already sent never repaint into the cleared field", async () => {
+  const buf = makeVoiceBuffer();
+  // The client dictates. Deltas accumulate into the field.
+  expect(buf.insert("u1", "I want", false, "") === "I want", "first delta");
+  expect(buf.insert("u1", " honest work", false, "I want") === "I want honest work", "second delta");
+
+  // Enter — the message goes out and the composer clears. Mid-utterance.
+  buf.sent();
+
+  // The rest of that utterance keeps streaming: a straggler delta, then the
+  // final carrying the WHOLE sentence again. Before the fix this repainted
+  // the sent words into the emptied input.
+  expect(buf.insert("u1", " today", false, "") === null, "a straggler delta must be dropped");
+  expect(buf.insert("u1", "I want honest work today", true, "") === null,
+    "the final must not resurrect the sent words");
+
+  // The next utterance lands in the clean field as its own turn.
+  expect(buf.insert("u2", "And also", false, "") === "And also", "the next utterance starts clean");
+  expect(buf.insert("u2", "And also joy", true, "And also") === "And also joy", "its final replaces its turn");
+
+  // Dictating into text typed by hand still appends with a space.
+  const b2 = makeVoiceBuffer();
+  expect(b2.insert("u3", "dictated", false, "typed") === "typed dictated", "hand-typed text keeps its space");
+});
+
 test("thinking dots, rotating phrase, and Saturn rings live through a wait", async () => {
   const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
   const { ctx, spies } = makeCtx(makeJourney(statuses, { overture_done: true }));
@@ -254,6 +280,7 @@ test("thinking dots, rotating phrase, and Saturn rings live through a wait", asy
   inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   await sleep(150);
   expect(spies.sent.some((x) => x.type === "answer"), "answer never sent");
+  expect(spies.voiceSent >= 1, "sending must consume the dictation turn (ctx.voice.sent)");
   // The wait ensemble is canvas state now (cursor-war rule): assert the
   // loader row + its inline canvas, and the rotation/ring clocks via debug.
   expect($("[data-think]"), "thinking row missing after send");

@@ -1086,6 +1086,7 @@ window.BraidM = (() => {
       if (!M.ctx.wsSend(payload)) return connLost();
     }
     inp.value = "";
+    M.ctx.voice?.sent?.(); // the dictation turn went with the message
     M.draft = "";
     autosize(inp);
     compose(false);

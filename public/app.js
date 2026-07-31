@@ -1,5 +1,6 @@
 import { STR, PHASES, NODES, prose as proseFmt } from "/i18n.js";
 import { HIDDEN_KEYS, makeRenderer } from "/draft-view.js";
+import { makeVoiceBuffer } from "/voice-buffer.js";
 
 const $ = (id) => document.getElementById(id);
 const journeyEl = $("journey");
@@ -134,6 +135,7 @@ function braidCtx() {
       active: () => Boolean(voice),
       start(el) { startVoice(el); },
       stop() { stopVoice(); },
+      sent() { voiceSent(); },
     },
     reload: loadJourney,
     async reset() {
@@ -617,6 +619,7 @@ $("composer").addEventListener("submit", (e) => {
   addMsg("user", text);
   ws.send(JSON.stringify({ type: "answer", text }));
   $("input").value = "";
+  voiceSent();
   disableComposer();
 });
 
@@ -756,6 +759,7 @@ $("amendBox").addEventListener("submit", (e) => {
   if (!text || !ws) return;
   ws.send(JSON.stringify({ type: "review_action", action: "feedback", text }));
   $("amendInput").value = "";
+  voiceSent();
   $("amendBox").classList.add("busy");
   // The note opens a conversation; the counselor's reply lands on the status
   // line, and "revising…" comes from the server when it actually revises.
@@ -1191,6 +1195,7 @@ $("practAmendBox").addEventListener("submit", (e) => {
   const text = $("practAmendInput").value.trim();
   if (!text || !pract) return;
   $("practAmendInput").value = "";
+  voiceSent();
   compose(text);
 });
 
@@ -1387,8 +1392,8 @@ async function startVoice(target) {
   const mute = ctx.createGain();
   mute.gain.value = 0;
   voice = {
-    ws: sock, ctx, node, stream, target,
-    base: "", turn: "", itemId: null, ready: false, finishing: false, finishTimer: null,
+    ws: sock, ctx, node, stream, target, buf: makeVoiceBuffer(),
+    ready: false, finishing: false, finishTimer: null,
   };
 
   node.onaudioprocess = (ev) => {
@@ -1423,16 +1428,18 @@ async function startVoice(target) {
 /** Deltas stream in live; the final transcript replaces the whole turn. */
 function insertVoice(item, text, isFinal) {
   const el = voice.target;
-  if (voice.itemId !== item) {
-    voice.itemId = item;
-    voice.turn = "";
-    voice.base = el.value && !/\s$/.test(el.value) ? `${el.value} ` : el.value;
-  }
-  voice.turn = isFinal ? text : voice.turn + text;
-  el.value = voice.base + voice.turn;
-  if (isFinal) voice.itemId = null;
+  const next = voice.buf.insert(item, text, isFinal, el.value);
+  if (next === null) return; // that utterance was sent — its rest is consumed
+  el.value = next;
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.scrollTop = el.scrollHeight;
+}
+
+/** A composer just sent and cleared: the dictation turn must not survive it —
+ * without this, the sent words repaint into the emptied field (the stream's
+ * final event carries the whole utterance again). */
+function voiceSent() {
+  voice?.buf.sent();
 }
 
 function stopVoice(force = false) {
