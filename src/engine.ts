@@ -4,6 +4,7 @@ import type {
 import type { LlmAdapter } from "./llm.ts";
 import { borrowedAcrossEntities, gatherMarked, verbatimViolations } from "./verbatim.ts";
 import { adoptPaths, applyOps, PATCH_SCHEMA, type PatchOp } from "./patch.ts";
+import { extractJson } from "./jsonish.ts";
 import { cfg } from "./config.ts";
 
 // Output ceiling for an induce step. Generous by default; env-tunable because
@@ -193,7 +194,7 @@ export async function checkStageDone(
     },
   });
   try {
-    const parsed = JSON.parse(raw) as { results: CheckerItem[]; skip_requested?: boolean; skip_quote?: string };
+    const parsed = extractJson(raw) as { results: CheckerItem[]; skip_requested?: boolean; skip_quote?: string };
     // Every checklist item must be covered and pass — a shorter answer fails.
     const done = stage.done_when.every((_, i) =>
       parsed.results.some((r) => r.index === i && checkerItemOk(r)));
@@ -285,6 +286,24 @@ export async function runElicit(
       // just wait for the answer to the question the user already saw.
       skipGenerate = true;
       resuming = false;
+    } else if (resuming && exchange[exchange.length - 1]?.speaker === "user") {
+      // The session died between an answer and its verdict. Judge the answer
+      // FIRST: welcoming the user back into a topic they already finished is
+      // how the counselor and the counter drifted apart — the model spoke the
+      // transition itself while the checker kept grading the old checklist,
+      // and the step read as stuck. If the verdict says done, the next stage
+      // opens through its own transition turn, counter and checklist agreed.
+      resuming = false;
+      const verdict = await checkStageDone(llm, stage, exchange);
+      materialSeen ||= verdict.evidence;
+      if (verdict.done || verdict.skip) {
+        anyDone ||= verdict.done;
+        continue;
+      }
+      messages.push({
+        role: "user",
+        content: "[The session was interrupted earlier and has just been resumed. Welcome the user back in one short sentence and continue this topic where it left off.]",
+      });
     } else {
       messages.push({
         role: "user",
@@ -456,7 +475,7 @@ async function runInduceStep(
       maxTokens: INDUCE_MAX_TOKENS,
       temperature: step.temperature,
     });
-    return JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as Record<string, unknown>;
+    return extractJson(raw) as Record<string, unknown>;
   };
 
   let result = await attempt("");
@@ -614,7 +633,7 @@ export async function runAmendChat(
         jsonSchema: AMEND_TURN_SCHEMA,
         temperature: 0.4,
       });
-      out = JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as typeof out;
+      out = extractJson(raw) as typeof out;
     } catch {
       // A failed chat turn must never strand the request — fall back to the
       // old immediate behavior with everything the user has asked so far.
@@ -789,7 +808,7 @@ export async function runAmendPatch(
     maxTokens: INDUCE_MAX_TOKENS,
     temperature: 0.2,
   });
-  const out = JSON.parse(raw.replace(/^```(json)?\n?|\n?```$/g, "")) as {
+  const out = extractJson(raw) as {
     ops?: PatchOp[]; summary?: string; blocked?: string;
   };
 
