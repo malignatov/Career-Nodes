@@ -10,6 +10,10 @@ interface SessionState {
   exchange: ExchangeEntry[];
   stage_index: number;
   elicit_done?: boolean;
+  /** The suggested object as last shown. A session that dies during review
+   * re-sends exactly this on reopen — nothing the user never authorized may
+   * silently recompose into different words. */
+  draft?: Record<string, unknown>;
 }
 
 export type SessionOutcome = "authorized" | "aborted" | "blocked";
@@ -120,6 +124,7 @@ export async function runPlaybookSession(
 
   let exchange: ExchangeEntry[] = [];
   let interviewSkipped = false;
+  let savedDraft: Record<string, unknown> | undefined;
 
   if (pb.elicit) {
     let resume: SessionState | undefined;
@@ -140,6 +145,7 @@ export async function runPlaybookSession(
 
     if (resume?.elicit_done) {
       exchange = resume.exchange;
+      savedDraft = resume.draft; // the object as last shown, if review had begun
       io.note("(the conversation was already finished — going straight to the draft)");
     } else {
       const elicited = await runElicit(
@@ -202,23 +208,34 @@ export async function runPlaybookSession(
     return "authorized";
   }
 
-  const draft = await runInduce(pb, llm, exchange, upstream, io, undefined, opts.lang);
-  // Same for a first-time draft, except the live session file is the record
-  // here — and it must keep saying the interview is over, or reopening the
-  // step would offer to resume a conversation that already finished.
-  const persist = (ex: ExchangeEntry[]) => {
+  // The suggested object is re-SENT on reopen, never recomposed: a death
+  // during review must bring back the exact words the user was reading.
+  let lastDraft: Record<string, unknown> | undefined = savedDraft;
+  const writeSession = (ex: ExchangeEntry[]) => {
     void store.write(
       sessionPath,
       JSON.stringify(
-        { exchange: ex, stage_index: pb.elicit?.stages.length ?? 0, elicit_done: true } satisfies SessionState,
+        {
+          exchange: ex, stage_index: pb.elicit?.stages.length ?? 0,
+          elicit_done: true, ...(lastDraft ? { draft: lastDraft } : {}),
+        } satisfies SessionState,
         null, 2,
       ),
     );
   };
+  const draft = lastDraft
+    ?? await runInduce(pb, llm, exchange, upstream, io, undefined, opts.lang);
+  if (!lastDraft) {
+    lastDraft = draft;
+    writeSession(exchange); // composed — from here on, reopening re-sends this
+  }
   const authorized = await runConfirm(
     pb, draft, io,
     (feedback, prior) => runInduce(pb, llm, exchange, upstream, io, feedback, opts.lang, prior),
-    { llm, lang: opts.lang, exchange, upstream, persist },
+    {
+      llm, lang: opts.lang, exchange, upstream, persist: writeSession,
+      persistDraft: (d) => { lastDraft = d; writeSession(exchange); },
+    },
   );
 
   await saveArtifact(pb, authorized, exchange, store);

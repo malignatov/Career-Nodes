@@ -855,6 +855,9 @@ export async function runConfirm(
     upstream?: Record<string, unknown>;
     /** Called after each amend turn so a conversation left mid-way is still recorded. */
     persist?: (exchange: ExchangeEntry[]) => void;
+    /** Called whenever the presented draft changes, so a death during review
+     * re-sends exactly what the user was reading — never a recomposition. */
+    persistDraft?: (draft: Record<string, unknown>) => void;
   } = {},
 ): Promise<Record<string, unknown>> {
   const confirm = pb.confirm!;
@@ -914,6 +917,7 @@ export async function runConfirm(
               if (amended.changed) {
                 current = amended.content;
                 existing = false;
+                opts.persistDraft?.(current);
                 if (amended.summary) io.say(amended.summary);
                 continue;
               }
@@ -935,6 +939,7 @@ export async function runConfirm(
         // testing). Reprocess deliberately recomposes from sources alone.
         current = await reinduce(feedback, act.action === "feedback" ? current : undefined);
         existing = false;
+        opts.persistDraft?.(current);
         continue;
       }
       if (present === "candidates") {
