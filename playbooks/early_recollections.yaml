@@ -94,8 +94,13 @@ elicit:
             to work one in.
         - when: a headline is settled
           then: Move to the next story's headline.
+      # "the stories that were TOLD", never "the three": this step is
+      # skippable and a client may share one story, or two. A count fixed at
+      # three deadlocked the stage — headlines could never all exist, the
+      # checker could never pass, and the interview had no way forward.
       done_when:
-        - Each of the three stories has a headline the user approved.
+        - Each story that was actually told has a headline the user approved —
+          one story means one headline, two mean two.
         - Each headline contains a verb.
 
 induce:

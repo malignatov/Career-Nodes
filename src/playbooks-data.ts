@@ -797,7 +797,7 @@ export const PLAYBOOKS: Record<string, Playbook> =
               }
             ],
             "done_when": [
-              "Each of the three stories has a headline the user approved.",
+              "Each story that was actually told has a headline the user approved — one story means one headline, two mean two.",
               "Each headline contains a verb."
             ]
           }
