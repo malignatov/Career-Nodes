@@ -538,28 +538,17 @@
       } else if (acc < -34) { acc = 0; setFocus(J.focus - 1); }
     }, { passive: false });
 
-    // Third exit (with Esc and the node-as-button): click empty field to leave —
-    // the open transparency panel closes first, then the session.
+    // Clicking the field is NOT an exit any more. It was the top cause of
+    // accidental leave-and-reopen churn — a hand resting wrong ended an
+    // interview. Two exits remain, both deliberate: Esc and ← Journey.
+    // A field click keeps exactly one job: folding an open transparency
+    // panel away (clicks on the panel or its button stay the panel's own).
     J.stage.addEventListener("click", (e) => {
       if (!J.sess || L.closing) return;
-      // Clicking UI that re-renders on click (alternative wording, review
-      // actions) detaches the target before this handler runs; closest()
-      // would then miss the chat and close the session out from under it.
       if (!e.target || !e.target.isConnected) return;
-      // The click that follows a node press must never count as a click-out:
-      // opening shifts the camera, so the node slides out from under the
-      // cursor and this click's target is no longer the node.
-      if (Date.now() - (J.__pd || 0) < 700) return;
-      // The whole session column counts as "inside" — the empty space under
-      // the messages and around the composer is where a hand naturally rests,
-      // and losing an interview to a stray click there is indefensible.
-      if (e.target.closest(".br7-canvas,.br7-chat,.br7-comp,.br7-info,.br7-exit,.br7-tpanel,.br7-mic,.br-node")) return;
+      if (e.target.closest(".br7-tpanel,.br7-info")) return;
       const tp = q7(".br7-tpanel");
-      if (tp && !tp.hidden) { tp.hidden = true; return; }
-      // Work in flight is never discarded by a click: unsent words, or an
-      // amend conversation mid-settlement. Esc and ← Journey still leave.
-      if (L.open && (composerText() || L.composerMode === "amend")) return;
-      if (L.open) { L.ctx.closeWs(); inlineClose(); L.ctx.reload(); }
+      if (tp && !tp.hidden) tp.hidden = true;
     });
 
     J.stage.addEventListener("mousemove", (e) => {

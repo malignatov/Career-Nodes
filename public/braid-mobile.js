@@ -375,14 +375,14 @@ window.BraidM = (() => {
       const dy = e.clientY - pd.y;
       if (M.sess) {
         if (pd.moved) return;
-        // Tapping UI that re-renders on tap detaches the target before this
-        // handler runs; closest() would miss the chat and exit the session.
+        // Tap-out no longer exits — ‹ Journey (and Esc) are the deliberate
+        // ways out; an accidental tap must not end an interview. A field tap
+        // folds the transparency panel; the node still toggles it.
         if (!e.target || !e.target.isConnected) return;
-        if (e.target.closest(".bm-chat,.bm-comp,.bm-authbar,.bm-info,.bm-tpanel,.bm-exit,.bm-sesshead,.bm-mic")) return;
+        if (e.target.closest(".bm-tpanel,.bm-info")) return;
         const tp = q(".bm-tpanel");
         if (tp && tp.classList.contains("on")) { tp.classList.remove("on"); return; }
-        if (e.target.closest(".bm-node")) { toggleTransparency(); return; }
-        exitSession();
+        if (e.target.closest(".bm-node")) toggleTransparency();
         return;
       }
       if (M.omega) {

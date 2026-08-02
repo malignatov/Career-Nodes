@@ -371,11 +371,17 @@ test("a stray click never costs work: unsent words hold the session, and outlive
   surface.ask("you");
   await sleep(150);
 
-  // A click on the bare field, mid-thought, must not close the interview.
+  // A click on the bare field is not an exit AT ALL any more — with words in
+  // flight or without. Esc and ← Journey are the only ways out; a resting
+  // hand must never end an interview (accidental exits were the top source
+  // of leave-and-reopen churn).
+  const strip = $(".br-strip");
+  strip.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 40, clientY: 400 }));
+  await sleep(250);
+  expect(debug().lOpen, "a stray click on an empty composer closed the session");
   const inp = $(".br7-input");
   inp.value = "my grandfather, who fixed everything himself";
   inp.dispatchEvent(new Event("input", { bubbles: true }));
-  const strip = $(".br-strip");
   strip.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 40, clientY: 400 }));
   await sleep(250);
   expect(debug().lOpen, "a stray click discarded a session with unsent words in it");
@@ -398,17 +404,16 @@ test("a stray click never costs work: unsent words hold the session, and outlive
   try { stored = localStorage.getItem(`cc_draft_${id}`); } catch { /* ignore */ }
   expect(stored && stored.includes("grandfather"), `the draft was not kept for the return (${stored})`);
 
-  // …and an empty composer keeps the click-out affordance intact.
+  // …and the reopen brings the kept draft back.
   const surface2 = await openAndCapture(ctx, id);
   surface2.ask("you");
   await sleep(150);
   const inp2 = $(".br7-input");
   expect(inp2.value.includes("grandfather"), "the kept draft did not come back on reopen");
-  inp2.value = "";
-  inp2.dispatchEvent(new Event("input", { bubbles: true }));
-  $(".br-strip").dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 40, clientY: 400 }));
-  await sleep(400);
-  expect(!debug().lOpen, "with nothing at stake, clicking the field should still leave");
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  for (let i = 0; i < 20 && debug().sess; i++) await sleep(150);
+  await sleep(200);
+  expect(!debug().lOpen, "Escape is the way out");
 });
 
 test("the name never blinks out when the canvas hands it back to the DOM", async () => {
