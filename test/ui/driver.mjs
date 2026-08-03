@@ -416,6 +416,42 @@ test("a stray click never costs work: unsent words hold the session, and outlive
   expect(!debug().lOpen, "Escape is the way out");
 });
 
+test("one press on the sphere is one toggle — the trailing click must not fold the panel", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  await openAndCapture(ctx, "favorite_media");
+  await sleep(600);
+
+  // The browser delivers a press as pointerdown THEN click. The pointerdown
+  // toggles the transparency panel; the click bubbles to the stage, whose
+  // fold-the-panel job must recognize its own press and stand down.
+  const pad = $('.br-node[data-i="2"] [data-pad]') ?? $('.br-node[data-i="2"]');
+  const press = () => {
+    pad.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    pad.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  };
+  press();
+  await sleep(250);
+  const tp = $(".br7-tpanel");
+  expect(tp && !tp.hidden, "one press must leave the panel OPEN — it opened and folded again");
+
+  // A click elsewhere on the field still folds it (that is the click's one job)…
+  await sleep(700); // past the press window
+  $(".br-strip").dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 40, clientY: 400 }));
+  await sleep(150);
+  expect(tp.hidden, "a field click should fold the open panel");
+
+  // …and a second full press toggles it open again: press is the unit.
+  await sleep(700);
+  press();
+  await sleep(250);
+  expect(!tp.hidden, "the second press should open the panel again");
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  await sleep(400);
+});
+
 test("the name never blinks out when the canvas hands it back to the DOM", async () => {
   // While a step wakes, its name is canvas paint; the moment it is woven the
   // DOM label takes over. If that label fades in, the name is simply absent

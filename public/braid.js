@@ -546,7 +546,13 @@
     J.stage.addEventListener("click", (e) => {
       if (!J.sess || L.closing) return;
       if (!e.target || !e.target.isConnected) return;
-      if (e.target.closest(".br7-tpanel,.br7-info")) return;
+      // The trailing click of a node press: the pointerdown just TOGGLED the
+      // panel, and this click arrives ~instantly after — folding here makes
+      // one press on the sphere read as two. Same window the node handlers
+      // use, plus the node itself: the sphere sways, so the trailing click
+      // can land beside the pad it pressed.
+      if (Date.now() - (J.__pd || 0) < 700) return;
+      if (e.target.closest(".br7-tpanel,.br7-info,.br-node")) return;
       const tp = q7(".br7-tpanel");
       if (tp && !tp.hidden) tp.hidden = true;
     });
