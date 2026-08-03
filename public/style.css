@@ -634,6 +634,17 @@ body:has(#scrim:not([hidden])) {
   .dr-echo + .dr-echo { margin-top: 5px; }
   .dr-echo .dr-gm { color: var(--dr-echo-gm); }
 
+  /* Old decisions fold; new text never does. The summary speaks in the
+     whisper's voice and the native marker is ours. */
+  .dr-echoes { margin-top: 18px; max-width: 560px; }
+  .dr-echoes > summary {
+    cursor: pointer; list-style: none;
+    font: 600 10.5px Karla, Manrope, sans-serif; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--dr-soft);
+  }
+  .dr-echoes > summary::-webkit-details-marker { display: none; }
+  .dr-echoes[open] > summary { margin-bottom: 12px; }
+
   /* Declared fields the client left empty are said, not silently dropped. */
   .dr-empty {
     font: 400 12.5px Karla, Manrope, sans-serif; color: var(--dr-soft);

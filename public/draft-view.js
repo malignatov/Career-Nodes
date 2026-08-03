@@ -41,6 +41,16 @@ const SECTION_COPY = {
 /** The salience pass: artifact-wide, so it reads as its own section. */
 const PATTERN_FIELDS = ["primacy_trait", "repeated_traits"];
 
+/**
+ * Fields that repeat what the review already shows, or restate words the
+ * client authorized in EARLIER nodes — folded by default. The rule that
+ * makes this safe (and killed the general fold): only old decisions may
+ * collapse. The node's own new text never does. Verified for the portrait:
+ * every movement text appears verbatim inside full_portrait, and key_quotes
+ * are upstream echoes.
+ */
+const ECHO_FIELDS = { life_portrait: new Set(["movements", "key_quotes"]) };
+
 /** Declared fields whose emptiness is worth saying out loud. */
 const EMPTY_COPY = { guides: "empty_guides", shared_by_all: "empty_shared" };
 
@@ -278,7 +288,9 @@ export function makeRenderer(ctx) {
   function renderFields(obj, quotes, warnings, opts = {}) {
     const { order, playbook } = opts;
     const copyFor = SECTION_COPY[playbook] ?? {};
+    const echoes = ECHO_FIELDS[playbook];
     const parts = [];
+    const echoed = [];
     let hasPattern = false;
 
     for (const [key, value] of ordered(obj, order)) {
@@ -288,9 +300,15 @@ export function makeRenderer(ctx) {
         ? renderEntityBlocks(value, quotes, warnings, { field: key, primacy: obj.primacy_trait })
         : wrapCard(renderValue(value, quotes, warnings));
       if (!body) continue;
-      parts.push(section(copyFor[key], key, body));
+      (echoes?.has(key) ? echoed : parts).push(section(copyFor[key], key, body));
     }
     if (hasPattern) parts.push(renderPattern(obj, quotes, warnings));
+    // The node's own text first and always open; the repeats and the already-
+    // authorized words fold after it. Native <details>, so every surface —
+    // review card, woven passage, mobile sheet — gets the toggle for free.
+    if (echoed.length) {
+      parts.push(`<details class="dr-echoes"><summary>${esc(t("review_echoes"))}</summary>${echoed.join("")}</details>`);
+    }
     parts.push(emptyNote(obj, order));
     return parts.join("");
   }

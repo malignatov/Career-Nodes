@@ -720,6 +720,49 @@ test("the readout reads as people, then the pattern about all of them", async ()
     `empty-state footnote: ${empty?.textContent}`);
 });
 
+test("the portrait shows its own text; the repeats fold — and print never hides them", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 10 ? "authorized" : i === 11 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "life_portrait");
+  surface.review({
+    ...REVIEW,
+    mode: "structured_review",
+    // The composer emits movements FIRST — the review must not.
+    field_order: ["movements", "full_portrait", "key_quotes"],
+    draft: {
+      movements: [{ title: "Self", text: "You watch for what is possible." }],
+      full_portrait: "You watch for what is possible. And you keep going.",
+      key_quotes: ["I see what is possible"],
+    },
+  });
+  await sleep(300);
+  const body = $("[data-review] .br7-review-body");
+
+  // The node's own new text: visible, first, never folded.
+  const echoes = body.querySelector("details.dr-echoes");
+  expect(echoes && !echoes.open, "the repeats must start folded");
+  const beforeFold = body.innerHTML.indexOf("And you keep going");
+  const foldAt = body.innerHTML.indexOf("<details");
+  expect(beforeFold >= 0 && beforeFold < foldAt, "full_portrait must render before the fold, whatever order the composer chose");
+  expect(echoes.textContent.includes("Self") && echoes.textContent.includes("I see what is possible"),
+    "movements and key_quotes belong inside the fold");
+  expect(!body.textContent.replace(echoes.textContent, "").includes("I see what is possible"),
+    "the echoes must not ALSO render outside the fold");
+
+  // One click opens them — native details, no wiring to break.
+  echoes.querySelector("summary").click();
+  await sleep(100);
+  expect(echoes.open, "the summary must open the fold");
+
+  // A step with no echo config renders exactly as before.
+  surface.review({ ...REVIEW, mode: "structured_review", field_order: ["sketch"],
+    draft: { sketch: "A composed passage." } });
+  await sleep(300);
+  expect(!$("[data-review] details.dr-echoes"), "only configured steps fold");
+});
+
 test("guides that were named render as people, never as the empty footnote", async () => {
   const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
   const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
