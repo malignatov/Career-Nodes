@@ -1069,10 +1069,25 @@ window.BraidM = (() => {
     }
   }
 
+  /** A lost connection is a pause, not an exit: one retry block, reconnect
+   *  in place — the engine resumes exactly where the session stood. */
   function connLost() {
     compose(false);
-    msgEl("note", t("conn_closed"));
     q(".bm-authorize") && (q(".bm-authorize").disabled = false);
+    const box = q(".bm-msgs");
+    if (!box || box.querySelector("[data-mretry]")) return;
+    const d = document.createElement("div");
+    d.dataset.mretry = "1";
+    d.className = "bm-note bm-retry";
+    d.innerHTML = `${esc(t("conn_closed"))} <button class="bm-act accent" data-mretry-btn>${esc(t("conn_retry"))}</button>`;
+    d.querySelector("[data-mretry-btn]").addEventListener("click", () => {
+      if (!M.open) return;
+      d.remove();
+      showThink();
+      M.ctx.connect(M.nodes[M.idx].id, { resuming: true, review: M.reviewing, surface });
+    });
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
   }
 
   function send() {
@@ -1351,8 +1366,7 @@ window.BraidM = (() => {
     },
     closed() {
       if (!M.open || M.closing || M.merge) return;
-      compose(false);
-      msgEl("note", t("conn_closed"));
+      connLost();
     },
   };
 

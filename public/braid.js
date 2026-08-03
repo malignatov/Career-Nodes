@@ -1759,9 +1759,34 @@
     L.knots.push([NY(L.idx) + 52 + n * 46, big]);
   }
 
+  /**
+   * A lost connection is a pause, not an exit. The words are all saved and
+   * the engine resumes exactly where it stood (a pending answer gets judged,
+   * a pending draft is re-sent) — so the honest offer is a button, not an
+   * instruction to leave and come back. One block, however many times the
+   * socket flaps.
+   */
   function inlineConnLost() {
     inlineCompose(false);
-    inlineMsg("note", L.ctx.t("conn_closed"));
+    clearThink();
+    const box = q7(".br7-msgs");
+    if (!box || box.querySelector("[data-retry]")) return;
+    const t = L.ctx.t;
+    const d = document.createElement("div");
+    d.dataset.retry = "1";
+    d.className = "br7-note br7-retry";
+    d.innerHTML = `${L.ctx.esc(t("conn_closed"))} <button class="br7-act accent" data-retry-btn>${L.ctx.esc(t("conn_retry"))}</button>`;
+    d.querySelector("[data-retry-btn]").addEventListener("click", () => {
+      if (!L.open) return;
+      d.remove();
+      showThink();
+      // resuming: the engine picks the session up where it stood — the
+      // groundwork (verdict-first resume, the re-sent draft) is what makes
+      // an in-place reconnect safe.
+      L.ctx.connect(L.node.id, { resuming: true, review: L.reviewing, surface: inlineSurface });
+    });
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
   }
 
   /* Engine process notes (inducing/revising) update one whisper in place
@@ -2355,8 +2380,7 @@
     closed() {
       if (!L.open || L.closing) return;
       clearThink(); // a drop mid-LLM-turn must not leave the dots pulsing
-      inlineCompose(false);
-      inlineMsg("note", L.ctx.t("conn_closed"));
+      inlineConnLost();
     },
   };
 

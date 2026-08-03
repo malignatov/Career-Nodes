@@ -568,6 +568,11 @@
 .br7-act.accent { color: var(--acc-text); }
 .br7-act.active { color: var(--t4ink); }
 .br7-act:disabled { opacity: .4; cursor: default; }
+/* The reconnect offer sits in the whisper's voice, its button in the acts' —
+   nothing alarming, just the way on. */
+.br7-retry { display: flex; align-items: center; gap: 12px; }
+.br7-retry .br7-act { font: 600 12px Karla, Manrope, sans-serif; }
+
 .br7-authlang { font: 400 10.5px/1.5 Karla, Manrope, sans-serif; color: var(--t4cnt2); margin-top: 8px; }
 
 /* Review-in-place: a woven bead reads its authored story back — the serif

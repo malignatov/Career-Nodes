@@ -66,13 +66,13 @@ function makeJourney(statuses, flags = {}) {
 }
 
 function makeCtx(journey) {
-  const spies = { reload: 0, flags: [], sent: [], exports: 0, resets: [] };
+  const spies = { reload: 0, flags: [], sent: [], exports: 0, resets: [], connects: [] };
   const ctx = {
     journey, t, lang: "en", theme: "light", mode: "client",
     profile: "test", profiles: [], profileName: () => "Test",
     nodeTitle: (n) => n.title, nodeDesc: (n) => n.desc, phaseLabel: (s) => s.label,
     esc, api: (p) => p,
-    connect: (id, opts) => { ctx._surface = opts.surface; },
+    connect: (id, opts) => { spies.connects.push({ id, resuming: Boolean(opts.resuming), review: Boolean(opts.review) }); ctx._surface = opts.surface; },
     wsSend: (m) => { spies.sent.push(m); return true; },
     wsLive: () => true, closeWs: () => { ctx._surface = null; },
     currentNodeId: () => journey.nodes.find((n) => n.status === "available" || n.status === "in_progress")?.id ?? null,
@@ -414,6 +414,43 @@ test("a stray click never costs work: unsent words hold the session, and outlive
   for (let i = 0; i < 20 && debug().sess; i++) await sleep(150);
   await sleep(200);
   expect(!debug().lOpen, "Escape is the way out");
+});
+
+test("a dropped connection offers a retry — reconnect in place, chat intact", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx, spies } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "favorite_media");
+  surface.say("Tell me about what you keep returning to.");
+  surface.ask("you");
+  await sleep(200);
+
+  // The socket drops mid-session. The words stay; the session stays open;
+  // and the offer is a button, not an instruction to leave and come back.
+  surface.closed();
+  surface.closed(); // a flapping socket must not stack a second offer
+  await sleep(200);
+  expect(debug().lOpen, "a dropped connection must not close the session");
+  const blocks = document.querySelectorAll("[data-retry]");
+  expect(blocks.length === 1, `want exactly one retry offer, got ${blocks.length}`);
+  expect($(".br7-say"), "the conversation must still be on screen");
+
+  // One click reconnects IN PLACE: same node, resuming, same surface.
+  $("[data-retry-btn]").click();
+  await sleep(200);
+  expect(!$("[data-retry]"), "the offer should clear once taken");
+  const last = spies.connects.at(-1);
+  expect(spies.connects.length === 2 && last.id === "favorite_media" && last.resuming === true,
+    `retry must reconnect the same node with resuming: ${JSON.stringify(spies.connects)}`);
+  expect(debug().lOpen, "the session survives the reconnect");
+
+  // The engine resumes where it stood — the composer comes back with the ask.
+  ctx._surface.ask("you");
+  await sleep(150);
+  expect(!$(".br7-input").disabled, "the composer must wake on resume");
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  await sleep(400);
 });
 
 test("one press on the sphere is one toggle — the trailing click must not fold the panel", async () => {

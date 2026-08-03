@@ -264,6 +264,7 @@
 .bm-acts { align-self: center; display: flex; gap: 22px; margin-top: 8px; font: 600 13px Karla, Manrope, sans-serif; animation: mfloatIn .5s both; }
 .bm-act { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--bm-cnt); }
 .bm-act.accent { color: var(--acc); }
+.bm-retry { display: flex; align-items: center; gap: 10px; }
 .bm-act.bm-danger { opacity: .62; }
 /* Armed, the question takes its own line and goes last, so asking it
    never shoves the step's real choices out of view. */
