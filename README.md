@@ -5,7 +5,7 @@ counseling (*Career Counseling*, 2nd ed., APA 2019) as a journey across a map of
 artifacts — with an AI interviewer working under narrow, fully visible
 instructions, or with no AI at all.
 
-The demo: https://youtu.be/x-0nSnVcpaM
+The demo: https://youtu.be/Y9_lWPKX6_s
 
 ## Attribution
 
