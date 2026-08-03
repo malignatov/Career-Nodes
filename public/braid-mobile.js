@@ -1190,12 +1190,28 @@ window.BraidM = (() => {
     const wrap = document.createElement("div");
     wrap.dataset.mdraft = "1";
     wrap.style.display = "contents";
-    const story = payload.mode === "candidates"
-      ? ctx.markVerbatim(payload.candidates[0] ?? "", quotes)
-      : ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], { order: payload.field_order, playbook: M.nodes[M.idx]?.id });
+    const opts = { order: payload.field_order, playbook: M.nodes[M.idx]?.id };
+    let story;
+    if (payload.mode === "candidates") {
+      story = ctx.markVerbatim(payload.candidates[0] ?? "", quotes);
+    } else {
+      // Two levels: the short of it first; the quote pile behind a fold.
+      // Composer-authored strings always ride the digest, never the fold.
+      const full = ctx.renderFields(payload.draft, quotes, payload.warnings ?? [], opts);
+      const gist = ctx.renderDigest?.(payload.draft, quotes, payload.warnings ?? [], opts);
+      story = gist
+        ? `${gist}<div class="bm-note bm-hist-toggle" data-mfold-toggle>${esc(t("review_full"))}</div><div data-mfold hidden>${full}</div>`
+        : full;
+    }
     let html = `<div class="bm-note">${esc(t("braid_m_draft_ready"))}</div><div class="bm-story">${story}</div>`;
     for (const qt of quotes) html += `<div class="bm-user bm-frag" data-big="1">«<span>${esc(qt)}</span>»</div>`;
     wrap.innerHTML = html;
+    const ft = wrap.querySelector("[data-mfold-toggle]");
+    if (ft) ft.addEventListener("click", () => {
+      const fold = wrap.querySelector("[data-mfold]");
+      fold.hidden = !fold.hidden;
+      ft.textContent = t(fold.hidden ? "review_full" : "review_fold");
+    });
     box.appendChild(wrap);
     box.scrollTop = box.scrollHeight;
     M.scriptDone = true;

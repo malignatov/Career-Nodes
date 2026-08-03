@@ -1,5 +1,5 @@
 import { STR, PHASES, NODES, prose as proseFmt } from "/i18n.js";
-import { HIDDEN_KEYS, makeRenderer } from "/draft-view.js";
+import { HIDDEN_KEYS, makeDigest, makeRenderer } from "/draft-view.js";
 import { makeVoiceBuffer } from "/voice-buffer.js";
 
 const $ = (id) => document.getElementById(id);
@@ -119,7 +119,7 @@ function braidCtx() {
     journey, t, lang, theme, mode, profile, profiles, profileName,
     nodeTitle, nodeDesc, phaseLabel, esc, api, connect, wsSend,
     currentNodeId, isSettled, markVerbatim, prose, localizeNote, exportPdf,
-    renderFields, compiledHtml,
+    renderFields, renderDigest, compiledHtml,
     wsLive: () => Boolean(ws),
     /** One-shot UI milestones (α seen, Ω played) — persisted per profile. */
     setFlag(name) {
@@ -648,6 +648,7 @@ function quotesIn(text, quotes) {
 /* Human rendering of a structured draft lives in draft-view.js — one
  * renderer for the modal, the braid card, the woven passage and mobile. */
 const renderFields = makeRenderer({ esc, t, markVerbatim });
+const renderDigest = makeDigest({ esc, t });
 
 function renderDraftBody() {
   const { payload, currentText, edited } = modal.review;

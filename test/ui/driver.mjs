@@ -7,6 +7,7 @@
 import { STR, prose } from "../../public/i18n.js";
 import { makeRenderer } from "../../public/draft-view.js";
 import { makeVoiceBuffer } from "../../public/voice-buffer.js";
+import { makeDigest } from "../../public/draft-view.js";
 
 const t = (key, ...args) => {
   const v = STR.en[key];
@@ -79,7 +80,7 @@ function makeCtx(journey) {
     isSettled: (s) => s === "authorized" || s === "stale",
     markVerbatim: (x) => esc(x), localizeNote: (x) => x,
     prose: (x) => prose(x, esc),
-    renderFields: makeRenderer({ esc, t, markVerbatim: (x) => esc(x) }), compiledHtml: (x) => esc(String(x)),
+    renderFields: makeRenderer({ esc, t, markVerbatim: (x) => esc(x) }), renderDigest: makeDigest({ esc, t }), compiledHtml: (x) => esc(String(x)),
     exportPdf: async () => { spies.exports++; },
     setFlag: (name) => { spies.flags.push(name); journey.flags = { ...(journey.flags ?? {}), [name]: true }; },
     reload: () => { spies.reload++; },
@@ -655,6 +656,8 @@ test("the readout reads as people, then the pattern about all of them", async ()
   });
   await sleep(300);
   const body = $("[data-review] .br7-review-body");
+  const foldT = body.querySelector("[data-fold-toggle]");
+  if (foldT) { foldT.click(); await sleep(100); } // inspect the full level
   const secs = [...body.querySelectorAll(".dv-sec")];
   const heads = secs.map((s) => s.querySelector(".field-label")?.textContent);
   expect(heads.length === 2, `want a people section and a pattern section, got: ${heads.join("|")}`);
@@ -718,6 +721,63 @@ test("the readout reads as people, then the pattern about all of them", async ()
   const empty = body.querySelector(".dr-empty");
   expect(empty && empty.textContent === `${t("empty_guides")} · ${t("empty_shared")}`,
     `empty-state footnote: ${empty?.textContent}`);
+});
+
+test("the review leads with the short of it, and no paraphrase hides below the fold", async () => {
+  const statuses = DEFS.map((_, i) => (i <= 1 ? "authorized" : i === 2 ? "available" : "planned"));
+  const { ctx } = makeCtx(makeJourney(statuses, { overture_done: true }));
+  render(ctx);
+  await sleep(200);
+  const surface = await openAndCapture(ctx, "role_models");
+  surface.review({
+    ...REVIEW,
+    mode: "structured_review",
+    field_order: ["models", "primacy_trait"],
+    warnings: ["he is relentlessly driven"],
+    draft: {
+      models: [
+        { name: "Archangel Michael", named_order: 1, descriptors: [{ text: "Benevolent" }],
+          similarities: ["I can be counted on"], differences: [] },
+        { name: "J.S. Bach", named_order: 2, descriptors: [{ text: "honest" }],
+          similarities: ["he is relentlessly driven"], differences: [] },
+      ],
+      primacy_trait: "Benevolent",
+    },
+  });
+  await sleep(300);
+  const body = $("[data-review] .br7-review-body");
+
+  // Level one: the names and the pattern, a couple of lines.
+  const digest = body.querySelector(".dr-digest");
+  expect(digest, "the review must lead with the short of it");
+  expect(digest.textContent.includes("Archangel Michael") && digest.textContent.includes("J.S. Bach"),
+    "the digest must name the people");
+  expect(digest.textContent.includes("Benevolent"), "the digest must carry the pattern");
+
+  // The composer's phrasing can NEVER sink below the fold: an unexpanded
+  // Authorize must only ever approve what is on screen.
+  const fold = body.querySelector("[data-fold]");
+  expect(fold && fold.hidden, "the quote pile starts folded");
+  expect(digest.textContent.includes("he is relentlessly driven"),
+    "every paraphrase-flagged string must sit in the digest, above the fold");
+  expect($("[data-review] [data-auth]"), "Authorize stays reachable while folded");
+
+  // Level two on request, and it folds back.
+  const toggle = body.querySelector("[data-fold-toggle]");
+  toggle.click();
+  await sleep(100);
+  expect(!fold.hidden, "the toggle must open the full readout");
+  expect(fold.querySelector(".rm-name"), "the full level carries the person cards");
+  toggle.click();
+  await sleep(100);
+  expect(fold.hidden, "and fold it away again");
+
+  // Steps whose review is composer prose never fold — nothing unread hides.
+  surface.review({ ...REVIEW, mode: "structured_review", field_order: ["sketch"],
+    draft: { sketch: "A long composed passage about who you are." } });
+  await sleep(300);
+  const body2 = $("[data-review] .br7-review-body");
+  expect(!body2.querySelector("[data-fold]"), "derived prose must render flat — the text IS what needs reading");
 });
 
 test("guides that were named render as people, never as the empty footnote", async () => {
