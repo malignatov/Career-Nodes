@@ -505,9 +505,9 @@ export const PLAYBOOKS: Record<string, Playbook> =
       "kind": "conversation",
       "sector": "goal",
       "title": "Counseling goal",
-      "purpose": "Say what you want out of this, in your own words. Everything after this gets built around that answer — and at the very end it's read back to you to ask: did we get there? Nothing here gets analyzed. We restate what you said, and you check the restatement. You can change the goal later; your original wording is kept either way, for that last step.\n",
+      "purpose": "Say what you'd like to get out of this — in your own words, however rough. \"I don't know yet\" is a real answer: sorting that out is what this is for. Nothing you say gets analyzed or judged. We restate your request, you fix the restatement, and every later step is built only from words you've approved. At the very end your request is read back to you to ask: did we get there? You can change it along the way — your original words stay saved.\n",
       "purpose_i18n": {
-        "ru": "Скажи своими словами, чего ты хочешь от всего этого. Дальше всё строится вокруг твоего ответа — а в самом конце он зачитывается тебе обратно с вопросом: получилось? Здесь ничего не анализируется. Мы пересказываем то, что ты сказал, а ты проверяешь пересказ. Запрос можно поменять позже; исходная формулировка сохраняется в любом случае — для последнего шага.\n"
+        "ru": "Скажи, чего тебе хочется от этого процесса, — своими словами, пусть даже самыми приблизительными. «Пока не знаю» — тоже настоящий ответ: за тем и идём. Сказанное здесь не анализируется и не оценивается. Мы пересказываем твой запрос, ты поправляешь пересказ — и каждый дальнейший шаг собирается только из слов, которые ты принял. В самом конце запрос зачитывается тебе обратно с вопросом: получилось? По пути его можно поменять — исходная формулировка сохранится.\n"
       },
       "consumes": [],
       "invalidates": [
@@ -533,11 +533,19 @@ export const PLAYBOOKS: Record<string, Playbook> =
           {
             "id": "open",
             "goal": "Capture the request in the user's own words.",
+            "opening_preamble": "A couple of things first. There are no right or wrong answers here, and you don't need to know what you want yet — untangling that is what this process is for. Everything we build along the way is put together from your own words, and nothing counts until you say it does.\n",
+            "opening_preamble_i18n": {
+              "ru": "Пара слов перед началом. Здесь нет правильных и неправильных ответов, и не обязательно уже знать, чего ты хочешь, — как раз это мы и будем распутывать. Всё, что появится дальше, собирается из твоих слов, и ничто не идёт в дело без твоего «да».\n"
+            },
             "opening": "How can this process be useful to you as you construct your career?\n",
             "opening_i18n": {
               "ru": "Чем этот процесс может быть полезен тебе в построении твоей карьеры?\n"
             },
             "probes": [
+              {
+                "when": "the user says they don't know what they want, hesitates, or worries about answering \"wrong\"",
+                "then": "Normalize it first — not knowing yet is the very reason to be here, and there is no wrong answer. Then invite whatever rough version they have; a fragment counts."
+              },
               {
                 "when": "the answer is a single broad phrase (\"figure things out\", \"career change\", \"find my path\")",
                 "then": "Ask what would make this genuinely worth their time."

@@ -16,6 +16,11 @@ export interface Stage {
   opening: string;
   /** Translated anchor wording, keyed by language code (e.g. ru). */
   opening_i18n?: Record<string, string>;
+  /** Optional plain-language warm-up spoken before the anchor question in the
+   * baked opener (first stage only). UI-side framing for the client — it never
+   * becomes part of the anchor and is never model-generated. */
+  opening_preamble?: string;
+  opening_preamble_i18n?: Record<string, string>;
   probes?: Probe[];
   done_when: string[];
   /** A stage that gives rather than asks (the closing send-off). The engine

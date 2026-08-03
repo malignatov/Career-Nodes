@@ -48,6 +48,12 @@ artifact records the playbook version that formed it).
     load-bearing). May contain `{{placeholders}}` filled by the engine.
   - `opening_i18n` — optional translated anchor wordings keyed by language code
     (`ru: …`). Used verbatim for the session's language when present.
+  - `opening_preamble` / `opening_preamble_i18n` — optional plain-language
+    warm-up spoken between the greeting and the anchor question in the baked
+    opener (meaningful on the first stage only). Client-facing framing — lower
+    the stakes, name that "I don't know" is a valid answer — never part of the
+    anchor itself: interviewer prompts, translations, and the practitioner
+    script view all keep the pure anchor.
     The **first stage's opener is baked, not generated**: the engine emits
     greeting + anchor question deterministically (no model call), seeds it into
     the transcript as the interviewer's first turn, and flags it to the UI as an

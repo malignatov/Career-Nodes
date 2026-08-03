@@ -57,6 +57,14 @@ export function stageOpening(stage: Stage, lang?: SessionLang): string {
   return (localized ?? stage.opening).trim();
 }
 
+/** The warm-up line spoken before the first anchor question, localized.
+ * Kept separate from stageOpening so the anchor stays pure everywhere else
+ * (interviewer prompts, practitioner script view, translations). */
+export function stagePreamble(stage: Stage, lang?: SessionLang): string | undefined {
+  const localized = lang ? stage.opening_preamble_i18n?.[lang.code] : undefined;
+  return (localized ?? stage.opening_preamble)?.trim() || undefined;
+}
+
 /** The step's user-facing "what happens here" text, in the session language.
  * Never reaches a model prompt — the purpose is shown, not compiled. */
 export function playbookPurpose(pb: Playbook, lang?: SessionLang): string {
@@ -276,7 +284,13 @@ export async function runElicit(
     if (i === 0 && exchange.length === 0) {
       // The session opener is deterministic: the anchor question is meant to be
       // asked of everyone, verbatim — no model call, no latency, no variation.
-      const opener = `${GREETINGS[lang?.code ?? "en"] ?? GREETINGS.en}\n\n${stageOpening(stage, lang)}`;
+      // A preamble, when the playbook carries one, lands between greeting and
+      // anchor: the frame softens, the question itself never changes.
+      const opener = [
+        GREETINGS[lang?.code ?? "en"] ?? GREETINGS.en,
+        stagePreamble(stage, lang),
+        stageOpening(stage, lang),
+      ].filter(Boolean).join("\n\n");
       messages.push({ role: "assistant", content: opener });
       exchange.push({ speaker: "interviewer", text: opener });
       (io.sayAnchor ?? io.say)(opener);
