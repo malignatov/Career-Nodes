@@ -743,9 +743,11 @@ test("the portrait shows its own text; the repeats fold — and print never hide
   // The node's own new text: visible, first, never folded.
   const echoes = body.querySelector("details.dr-echoes");
   expect(echoes && !echoes.open, "the repeats must start folded");
-  const beforeFold = body.innerHTML.indexOf("And you keep going");
+  const ownText = body.innerHTML.indexOf("And you keep going");
   const foldAt = body.innerHTML.indexOf("<details");
-  expect(beforeFold >= 0 && beforeFold < foldAt, "full_portrait must render before the fold, whatever order the composer chose");
+  expect(foldAt >= 0 && foldAt < ownText, "the provenance line leads; the portrait's own text follows, open");
+  const ownEl = [...body.querySelectorAll(".field-value")].find((e) => e.textContent.includes("And you keep going"));
+  expect(ownEl && !echoes.contains(ownEl), "the portrait's own text must not live inside the fold");
   expect(echoes.textContent.includes("Self") && echoes.textContent.includes("I see what is possible"),
     "movements and key_quotes belong inside the fold");
   expect(!body.textContent.replace(echoes.textContent, "").includes("I see what is possible"),

@@ -303,11 +303,12 @@ export function makeRenderer(ctx) {
       (echoes?.has(key) ? echoed : parts).push(section(copyFor[key], key, body));
     }
     if (hasPattern) parts.push(renderPattern(obj, quotes, warnings));
-    // The node's own text first and always open; the repeats and the already-
-    // authorized words fold after it. Native <details>, so every surface —
-    // review card, woven passage, mobile sheet — gets the toggle for free.
+    // The fold line sits at the TOP, worded as provenance — an invitation to
+    // look underneath, never a verdict on the artifact. The node's own text
+    // stays open below it. Native <details>, so every surface — review card,
+    // woven passage, mobile sheet — gets the toggle for free.
     if (echoed.length) {
-      parts.push(`<details class="dr-echoes"><summary>${esc(t("review_echoes"))}</summary>${echoed.join("")}</details>`);
+      parts.unshift(`<details class="dr-echoes"><summary>${esc(t("review_echoes"))}</summary>${echoed.join("")}</details>`);
     }
     parts.push(emptyNote(obj, order));
     return parts.join("");
