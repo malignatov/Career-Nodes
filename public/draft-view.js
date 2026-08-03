@@ -88,46 +88,6 @@ function descriptorTexts(list) {
     .map((d) => d.text);
 }
 
-/* The interview dumps — the reviews Sima read diagonally. Only these fold:
- * their long part is the client's OWN quotes, safe to tuck behind a level.
- * Derived prose steps never fold — there the composer's text IS the thing
- * that needs reading, and hiding it would let an unread paraphrase through. */
-const FOLD_PLAYBOOKS = new Set(["role_models", "early_recollections", "favorite_media"]);
-
-/**
- * The short of it: two or three lines a person can actually check — the
- * names, the pattern, and EVERY string the composer authored (paraphrase
- * flags), which must never sink below the fold. Returns null where the
- * two-level review doesn't apply; the caller then renders flat, as today.
- */
-export function makeDigest(ctx) {
-  const { esc, t } = ctx;
-  return function digest(obj, quotes, warnings, opts = {}) {
-    if (!FOLD_PLAYBOOKS.has(opts.playbook)) return null;
-    const lines = [];
-    for (const [key, value] of ordered(obj, opts.order)) {
-      if (HIDDEN_KEYS.has(key) || PATTERN_FIELDS.includes(key)) continue;
-      if (!isEntityList(value)) continue;
-      const names = value.map((v) => v[entityTitle(v)]).filter(Boolean);
-      if (names.length) {
-        lines.push(`<div class="dg-line"><span class="dg-k">${esc(humanize(key))}</span>${
-          names.map((n) => esc(n)).join(" <span class=\"dg-dot\">·</span> ")}</div>`);
-      }
-    }
-    if (typeof obj.primacy_trait === "string" && obj.primacy_trait.trim()) {
-      lines.push(`<div class="dg-line"><span class="dg-k">${esc(t("salience_first"))}</span>«${esc(obj.primacy_trait)}»</div>`);
-    }
-    const flaggedStrs = (warnings ?? []).filter((w) => typeof w === "string" && w.trim());
-    let checkBlock = "";
-    if (flaggedStrs.length) {
-      checkBlock = `<div class="dg-check"><div class="dg-check-head">${esc(t("digest_check"))}</div>${
-        flaggedStrs.map((w) => `<div class="dg-check-item">«${esc(w)}»<span class="assumed-tag">${esc(t("assumed_tag"))}</span></div>`).join("")}</div>`;
-    }
-    if (!lines.length && !checkBlock) return null;
-    return `<div class="dr-digest">${lines.join("")}${checkBlock}</div>`;
-  };
-}
-
 export function makeRenderer(ctx) {
   const { esc, t, markVerbatim } = ctx;
 

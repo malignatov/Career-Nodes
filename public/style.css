@@ -634,20 +634,6 @@ body:has(#scrim:not([hidden])) {
   .dr-echo + .dr-echo { margin-top: 5px; }
   .dr-echo .dr-gm { color: var(--dr-echo-gm); }
 
-  /* The short of it — Sima's two-level review. Names and the pattern in a
-     couple of lines; every composer-authored string pinned here, above the
-     fold, where an unexpanded Authorize can still see it. */
-  .dr-digest { max-width: 560px; }
-  .dg-line { font: 500 15px/1.6 Lora, serif; color: var(--dr-value); }
-  .dg-line .dg-k {
-    font: 600 10.5px Karla, Manrope, sans-serif; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--dr-soft); margin-right: 10px;
-  }
-  .dg-dot { color: var(--dr-gm); }
-  .dg-check { margin-top: 10px; }
-  .dg-check-head { font: 600 10.5px Karla, Manrope, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--dr-tag-ink); }
-  .dg-check-item { font: 400 14.5px/1.55 Lora, serif; color: var(--dr-value); margin-top: 4px; }
-
   /* Declared fields the client left empty are said, not silently dropped. */
   .dr-empty {
     font: 400 12.5px Karla, Manrope, sans-serif; color: var(--dr-soft);

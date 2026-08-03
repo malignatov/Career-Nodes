@@ -2124,19 +2124,7 @@
     } else if (candidates) {
       parts.push(`<div class="br7-review-body">${edited ? ctx.esc(currentText) : ctx.markVerbatim(currentText, payload.verified_quotes)}</div>`);
     } else {
-      // Two levels (Sima's ask): the short of it — names, the pattern, and
-      // EVERY composer-authored string — then the full quote pile behind a
-      // fold. Nothing the composer wrote may hide: an unexpanded Authorize
-      // only ever approves the client's own words plus what is on screen.
-      const full = ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [], { order: payload.field_order, playbook: L.node?.id });
-      const gist = ctx.renderDigest?.(payload.draft, payload.verified_quotes, payload.warnings ?? [], { order: payload.field_order, playbook: L.node?.id });
-      if (gist) {
-        parts.push(`<div class="br7-review-body">${gist}` +
-          `<div class="br7-note br7-hist-toggle" data-fold-toggle>${ctx.esc(t("review_full"))}</div>` +
-          `<div data-fold hidden>${full}</div></div>`);
-      } else {
-        parts.push(`<div class="br7-review-body">${full}</div>`);
-      }
+      parts.push(`<div class="br7-review-body">${ctx.renderFields(payload.draft, payload.verified_quotes, payload.warnings ?? [], { order: payload.field_order, playbook: L.node?.id })}</div>`);
     }
     if (payload.existing && L.node.status === "stale") parts.push(`<div class="br7-stale">${ctx.esc(t("stale_note"))}</div>`);
     if (edited) parts.push(`<div class="br7-verify"><span class="tick">✓</span> ${ctx.esc(t("edited_by_you"))}</div>`);
@@ -2167,12 +2155,6 @@
     box.appendChild(wrap);
     box.scrollTop = box.scrollHeight;
 
-    const foldToggle = wrap.querySelector("[data-fold-toggle]");
-    if (foldToggle) foldToggle.addEventListener("click", () => {
-      const fold = wrap.querySelector("[data-fold]");
-      fold.hidden = !fold.hidden;
-      foldToggle.textContent = t(fold.hidden ? "review_full" : "review_fold");
-    });
     wrap.querySelectorAll("[data-alt]").forEach((b) =>
       b.addEventListener("click", () => {
         L.review.currentText = others[Number(b.dataset.alt)];
