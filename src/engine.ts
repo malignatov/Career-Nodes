@@ -108,6 +108,7 @@ export function interviewerSystem(
     `You are the interviewer for the "${pb.title}" step of a career construction session.`,
     pb.elicit!.persona.trim(),
     "Hard rules you must never break:",
+    "- Never announce that a topic or the step is complete, finished, or 'done' — closing happens by itself when everything needed is present. If you feel everything is covered, invite anything the user would add, warmly.",
     ...pb.elicit!.guardrails.map((g) => `- ${g}`),
     `Current topic goal: ${stage.goal}`,
     `Anchor question for this topic (use this wording, adapted only lightly to the flow): ${stageOpening(stage, lang)}`,
@@ -147,6 +148,9 @@ export interface StageCheck {
   done: boolean;
   /** The user asked (in any wording/language) to skip this topic. */
   skip: boolean;
+  /** The judge's per-item verdict, for the interviewer's eyes — so the next
+   * question aims at what is actually missing instead of a guess. */
+  results: CheckerItem[];
   /** The transcript satisfied at least one item or entity — real material exists. */
   evidence: boolean;
 }
@@ -202,28 +206,130 @@ export async function checkStageDone(
     },
   });
   try {
-    const parsed = extractJson(raw) as { results: CheckerItem[]; skip_requested?: boolean; skip_quote?: string };
-    // Every checklist item must be covered and pass — a shorter answer fails.
-    const done = stage.done_when.every((_, i) =>
-      parsed.results.some((r) => r.index === i && checkerItemOk(r)));
-    const evidence = parsed.results.some((r) =>
-      r.satisfied || (r.entities ?? []).some((e) => e.satisfied));
-    // Quote-gate against skip false-positives: the model must cite the words
-    // that make the request, they must come from the LATEST user turn, and
-    // they must BE that turn (not a fragment quoted inside a memory — "my
-    // mama said 'let's skip it'" is content, not a request).
-    let skip = false;
-    if (parsed.skip_requested === true && !done) {
-      const lastUser = [...exchange].reverse().find((e) => e.speaker === "user")?.text.trim() ?? "";
-      const quote = (parsed.skip_quote ?? "").trim();
-      skip = quote.length > 0
-        && lastUser.toLowerCase().includes(quote.toLowerCase())
-        && quote.length >= lastUser.length * 0.6;
-    }
-    return { done, skip, evidence };
+    const parsed = extractJson(raw) as JudgeOutput;
+    return judgeStage(parsed, stage, exchange);
   } catch {
-    return { done: false, skip: false, evidence: false };
+    return { done: false, skip: false, evidence: false, results: [] };
   }
+}
+
+/**
+ * One call, one reality. The interviewer and the judge used to be separate
+ * calls — separate realities: the counselor announced completion while the
+ * checker held the stage open, and a tester sat in the gap. Now a single
+ * response carries the audit AND the next words. The code still does the
+ * counting on the structured half, so warmth cannot soften the arithmetic;
+ * the say half is plain language over the same state, so the words cannot
+ * drift from the verdict.
+ */
+export interface StageTurnResult extends StageCheck {
+  say: string;
+}
+
+const STAGE_TURN_DUTY =
+  "You carry a second, silent duty on every turn: the audit below. The user never hears about it.\n\n" +
+  "Additionally return `say` — your next words to the user: ONE question, in your own warm plain language, aimed at whichever checklist items are not yet satisfied. " +
+  "Never mention the audit, JSON, checklists, fields, counts, or 'requirements'. " +
+  "Never announce that the topic or the step is complete or nearly complete — when everything is satisfied, leave `say` as an empty string and the conversation moves on by itself.";
+
+export async function stageTurn(
+  pb: Playbook,
+  llm: LlmAdapter,
+  stage: Stage,
+  exchange: ExchangeEntry[],
+  lang?: SessionLang,
+  upstream?: Record<string, unknown>,
+  resumed = false,
+): Promise<StageTurnResult> {
+  const transcript = exchange.map((e) => `${e.speaker}: ${e.text}`).join("\n");
+  const checklist = stage.done_when.map((d, i) => `${i}. ${d}`).join("\n");
+  const raw = await llm.complete({
+    tier: "small",
+    system: `${interviewerSystem(pb, stage, lang, upstream)}\n\n${STAGE_TURN_DUTY}\n\n${CHECKER_SYSTEM}`,
+    // Warm enough for the words, cold enough for the audit — the arithmetic
+    // is code-side either way (judgeStage counts, checkerItemOk gates).
+    temperature: 0.2,
+    messages: [
+      {
+        role: "user",
+        content: `Transcript:\n${transcript}\n\nChecklist:\n${checklist}\n\n${
+          resumed ? "[The session was interrupted earlier and has just been resumed — begin your say with one short welcome-back.]\n\n" : ""
+        }For each item: which entities does it range over, is each satisfied (with a supporting quote), how many satisfied entities does it require, and is the item satisfied? Then write your say.`,
+      },
+    ],
+    jsonSchema: {
+      type: "object",
+      required: ["results", "skip_requested", "skip_quote", "say"],
+      properties: {
+        say: { type: "string" },
+        skip_requested: { type: "boolean" },
+        skip_quote: { type: "string" },
+        results: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["index", "satisfied", "required_count", "entities"],
+            properties: {
+              index: { type: "integer" },
+              satisfied: { type: "boolean" },
+              required_count: { type: ["integer", "null"] },
+              entities: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["name", "evidence", "satisfied"],
+                  properties: {
+                    name: { type: "string" },
+                    evidence: { type: "string" },
+                    satisfied: { type: "boolean" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  try {
+    const parsed = extractJson(raw) as JudgeOutput;
+    return { ...judgeStage(parsed, stage, exchange), say: (parsed.say ?? "").trim() };
+  } catch {
+    return { done: false, skip: false, evidence: false, results: [], say: "" };
+  }
+}
+
+interface JudgeOutput {
+  results: CheckerItem[];
+  skip_requested?: boolean;
+  skip_quote?: string;
+  say?: string;
+}
+
+/**
+ * The CODE's half of judging: the model enumerates, this counts. Shared by
+ * the standalone checker (scripts, regression harness) and the combined
+ * stage turn, so there is exactly one notion of "done" in the system.
+ */
+function judgeStage(parsed: JudgeOutput, stage: Stage, exchange: ExchangeEntry[]): StageCheck {
+  // Every checklist item must be covered and pass — a shorter answer fails.
+  const done = stage.done_when.every((_, i) =>
+    parsed.results.some((r) => r.index === i && checkerItemOk(r)));
+  const evidence = parsed.results.some((r) =>
+    r.satisfied || (r.entities ?? []).some((e) => e.satisfied));
+  // Quote-gate against skip false-positives: the model must cite the words
+  // that make the request, they must come from the LATEST user turn, and
+  // they must BE that turn (not a fragment quoted inside a memory — "my
+  // mama said 'let's skip it'" is content, not a request).
+  let skip = false;
+  if (parsed.skip_requested === true && !done) {
+    const lastUser = [...exchange].reverse().find((e) => e.speaker === "user")?.text.trim() ?? "";
+    const quote = (parsed.skip_quote ?? "").trim();
+    skip = quote.length > 0
+      && lastUser.toLowerCase().includes(quote.toLowerCase())
+      && quote.length >= lastUser.length * 0.6;
+  }
+  return { done, skip, evidence, results: parsed.results ?? [] };
 }
 
 export interface ElicitResult {
@@ -302,22 +408,29 @@ export async function runElicit(
       resuming = false;
     } else if (resuming && exchange[exchange.length - 1]?.speaker === "user") {
       // The session died between an answer and its verdict. Judge the answer
-      // FIRST: welcoming the user back into a topic they already finished is
-      // how the counselor and the counter drifted apart — the model spoke the
-      // transition itself while the checker kept grading the old checklist,
-      // and the step read as stuck. If the verdict says done, the next stage
-      // opens through its own transition turn, counter and checklist agreed.
+      // FIRST: a resume must not welcome the user back into a topic they
+      // already finished. The combined turn does verdict and welcome-back in
+      // one breath: done advances silently; not-done greets and asks for
+      // exactly what is still missing.
       resuming = false;
-      const verdict = await checkStageDone(llm, stage, exchange);
-      materialSeen ||= verdict.evidence;
-      if (verdict.done || verdict.skip) {
-        anyDone ||= verdict.done;
+      const turn = await stageTurn(pb, llm, stage, exchange, lang, upstream, true);
+      materialSeen ||= turn.evidence;
+      if (turn.done || turn.skip) {
+        anyDone ||= turn.done;
         continue;
       }
-      messages.push({
-        role: "user",
-        content: "[The session was interrupted earlier and has just been resumed. Welcome the user back in one short sentence and continue this topic where it left off.]",
-      });
+      if (turn.say) {
+        messages.push({ role: "assistant", content: turn.say });
+        exchange.push({ speaker: "interviewer", text: turn.say });
+        io.say(turn.say);
+        io.onTurn?.(exchange, i);
+        skipGenerate = true;
+      } else {
+        messages.push({
+          role: "user",
+          content: "[The session was interrupted earlier and has just been resumed. Welcome the user back in one short sentence and continue this topic where it left off.]",
+        });
+      }
     } else {
       messages.push({
         role: "user",
@@ -378,14 +491,11 @@ export async function runElicit(
       exchange.push({ speaker: "user", text: answer });
       io.onTurn?.(exchange, i);
 
-      // The follow-up question is generated speculatively while the checker
-      // runs — continuing the topic is the common case, so this halves turn
-      // latency. When the checker ends the topic instead, the follow-up is
-      // discarded unseen and the next stage opens as before.
-      const [check, followUp] = await Promise.all([
-        checkStageDone(llm, stage, exchange),
-        llm.complete({ tier: "small", system, messages }),
-      ]);
+      // ONE call per turn: the audit and the next words come back together,
+      // so the counselor can never tell the user a topic is finished while
+      // the judge holds it open — same response, same reality. The done-case
+      // costs nothing extra: say comes back empty and the stage closes.
+      const check = await stageTurn(pb, llm, stage, exchange, lang, upstream);
       materialSeen ||= check.evidence;
       if (check.skip) {
         // "Let's skip", «пропустим» — the spoken skip works like /skip: with
@@ -401,6 +511,10 @@ export async function runElicit(
         break;
       }
       if (check.done) { anyDone = true; break; }
+      // The say half of the same response is the follow-up. A model that
+      // returned an audit but no words gets one plain fallback generation —
+      // the conversation must never stall on an empty string.
+      const followUp = check.say || await llm.complete({ tier: "small", system, messages });
       messages.push({ role: "assistant", content: followUp });
       exchange.push({ speaker: "interviewer", text: followUp });
       io.say(followUp);

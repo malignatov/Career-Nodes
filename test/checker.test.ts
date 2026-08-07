@@ -57,5 +57,5 @@ test("checkStageDone: every checklist item must be covered — a short answer fa
 });
 
 test("checkStageDone: malformed model output fails closed", async () => {
-  assert.deepEqual(await checkStageDone(fakeLlm("not json at all"), STAGE, []), { done: false, skip: false, evidence: false });
+  assert.deepEqual(await checkStageDone(fakeLlm("not json at all"), STAGE, []), { done: false, skip: false, evidence: false, results: [] });
 });
