@@ -94,7 +94,16 @@ interface TierEndpoint {
  * endpoints (`zdr: true` + data_collection "deny") unless LLM_ZDR=0 — the
  * privacy stance is on by default, opting out is the explicit act.
  */
+export interface LlmUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
 export class OpenAICompatAdapter implements LlmAdapter {
+  /** Usage of the most recent completed call — for cost probes and audits. */
+  lastUsage: LlmUsage | null = null;
+
   private provider: "openrouter" | "openai";
 
   constructor(provider: "openrouter" | "openai") {
@@ -223,7 +232,11 @@ export class OpenAICompatAdapter implements LlmAdapter {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        const data = (await res.json()) as {
+          choices?: { message?: { content?: string } }[];
+          usage?: LlmUsage;
+        };
+        this.lastUsage = data.usage ?? null;
         return data.choices?.[0]?.message?.content ?? "";
       }
       const text = await res.text();
